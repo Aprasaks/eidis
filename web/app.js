@@ -153,7 +153,6 @@ $('#demo-wake').addEventListener('click',()=>issue('자비스?'));
 $('#demo-dashboard').addEventListener('click',()=>issue('자비스, 대시보드 띄워'));
 $('#show-memory').addEventListener('click',()=>setMode('memories'));
 $('#open-screen').addEventListener('click',()=>setMode('screen'));
-$('#back-to-dash').addEventListener('click',()=>setMode('dashboard'));
 $('#back-from-memory').addEventListener('click',()=>setMode('dashboard'));
 $('#back-from-screen').addEventListener('click',()=>{stopScreen();setMode('dashboard');});
 
