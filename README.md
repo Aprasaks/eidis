@@ -1,28 +1,27 @@
 # EIDIS / JARVIS
 
-개인용 JARVIS 프로젝트의 첫 로컬 프로토타입입니다. **완성된 AI 비서가 아닙니다.**
+개인용 JARVIS의 초기 프로토타입입니다. **아직 완성된 AI 비서가 아닙니다.**
 
-- `app.py`: Python 표준 라이브러리 기반 localhost 서버
-- `jarvis/`: 규칙 기반 명령 처리와 opt-in SQLite 기억
-- `web/`: 입자 원·대시보드·디자인 미리보기 인터페이스
-- `tests/`: 서버, 저장소, 권한·입력 검증
-- `macos/`: 네이티브 macOS 진입점(다음 단계, 별도 빌드)
+- `app.py` / `jarvis/`: Python localhost 서버, 규칙 기반 명령, 명시적 SQLite 기억
+- `web/`: 입자 원 및 작업 공간 프로토타입
+- `macos/`: SwiftUI 네이티브 창, 한국어 음성 출력, ScreenCaptureKit 1장 미리보기
+- `tests/`: 자동 검증
+- `.github/workflows/ci.yml`: Linux 코드 검증 + macOS Swift 컴파일
 
-## 실행 (macOS)
+## 실행 (Mac)
 
-1. 소스 코드를 다운로드하거나 clone합니다.
-2. 폴더에서 `python3 app.py`를 실행합니다. 또는 `START_JARVIS.command`를 더블클릭합니다.
-3. 브라우저에서 `http://127.0.0.1:8765`를 엽니다.
-4. 종료는 터미널에서 Control+C.
+**쉬운 실행:** macOS 14 이상이고 Xcode Command Line Tools와 Python 3가 준비돼 있다면 `START_JARVIS_MAC.command`를 더블클릭합니다. 서버와 네이티브 셸을 함께 시작합니다. 최초에는 macOS 보안 확인이 필요할 수 있습니다. 네이티브 화면 캡처는 시스템 권한 허용 후 직접 버튼으로 시작하세요.
 
-테스트: `python3 -m unittest discover -s tests -v`
+**브라우저만 실행:** `START_JARVIS.command`를 더블클릭하거나 `python3 app.py` 실행. 브라우저에서 `http://127.0.0.1:8765`.
 
-## 확인해야 할 사실
+**개발자 테스트:** `python3 -m unittest discover -s tests -v`; `swift build --package-path macos`.
 
-- 텍스트 명령, 명시적 기억 저장, 브라우저 대시보드 동작은 로컬 프로토타입입니다.
-- 자연어 LLM 해석, AI 화면 이해, macOS 전체 제어, 웨이크워드 상시 대기, 클라우드 및 iPhone 연결은 **미구현**입니다.
-- 브라우저 음성인식은 브라우저 공급자가 외부에서 처리할 수 있습니다. 완전 로컬 음성 인식이라고 간주하지 마세요.
-- 화면 공유는 사용자 승인 시 로컬 미리보기만 표시하며 분석·업로드하지 않습니다.
-- GitHub Actions는 코드 테스트만 실행합니다. 자동 배포·프로덕션 변경은 수행하지 않습니다.
+## 현재 한계
 
-구조와 개발 순서는 `docs/ARCHITECTURE.md`에 기록합니다.
+- 자연어 LLM 분석, AI 화면 이해, Mac 앱 조작, 웨이크워드 상시 감지, iPhone·클라우드 연결은 **미구현**.
+- macOS 네이티브 셸은 GitHub Actions에서 **컴파일 테스트**만 했으며 사용자 Mac의 권한·UI 실행은 별도로 검증해야 합니다.
+- ScreenCaptureKit은 명시적으로 버튼을 눌러 1장을 캡처하고 미리보기만 제공하며 파일·외부 AI로 보내지 않습니다.
+- 브라우저 Web Speech 음성 인식은 브라우저 공급자의 원격 처리가 포함될 수 있습니다.
+- GitHub Actions는 테스트만 실행하고 자동 배포나 시스템 변경을 하지 않습니다.
+
+자세한 기술 설계: `docs/ARCHITECTURE.md`; macOS 실행: `macos/README.md`.
