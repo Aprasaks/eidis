@@ -208,7 +208,7 @@ struct LocalDashboard: NSViewRepresentable {
             guard !view.isLoading, let event, lastDelivered != event.id else { return }
             guard let data = try? JSONEncoder().encode(event.reply),
                   let json = String(data: data, encoding: .utf8) else { return }
-            view.evaluateJavaScript("window.jarvisNativeResult(\\(json));") { [weak self] _, error in
+            view.evaluateJavaScript("window.jarvisNativeResult(\(json));") { [weak self] _, error in
                 if error == nil { self?.lastDelivered = event.id }
             }
         }
