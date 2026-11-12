@@ -1,9 +1,23 @@
-# JARVIS v1 작업 인수인계 — 2026-11-12
+# JARVIS — S1 개발 상태 (2026-11-12)
 
-**완료:** 아키텍처 v1.0 문서, 실행형 로컬 서버, 명시적 SQLite 기억, 텍스트 명령, 브라우저 음성 연동(브라우저별 실기기 확인 필요), 화면 공유 로컬 미리보기, 3개 사전 정의 시안 선택.
+## 기존 main 확인
+- Python 기반 로컬 서버, 명시적 SQLite 기억, 규칙 기반 텍스트 명령.
+- 브라우저 UI: 입자 원, 대시보드, 3개 사전 정의된 스타일, 화면 미리보기.
+- SwiftUI 네이티브 셸: 화면 한 장 캡처, 한국어 TTS. 이전 GitHub macOS 컴파일 성공.
+- 사용자 Mac Desktop Commander 장치는 마지막 확인 시 오프라인.
 
-**검증:** 서버·기억·권한 차단에 대한 자동 테스트와 JavaScript 구문 확인. macOS 실기기에서 마이크/화면 공유 UX 및 실제 렌더링은 아직 미검증.
+## feature/native-speech-s1 개발 중
+- 명시적으로 켜는 한국어 온디바이스 음성 인식(Speech), 동의 기반 마이크 권한.
+- 로컬 API 호출 뒤 검증된 응답을 자비스 UI로 반영.
+- NSMicrophoneUsageDescription / NSSpeechRecognitionUsageDescription을 포함한 개발용 .app 패키징.
+- workflow에서 Swift 컴파일뿐 아니라 패키징·Info.plist·코드서명 상태도 검사하도록 보강.
 
-**미구현:** LLM 연결, 비전 추론, Mac 앱 제어, 네이티브 Mac 앱, 클라우드, iPhone, 자율 작업, 실제 AI 디자인 생성. 비용 결제·AWS·깃허브 변경 없음.
+## 구현하지 않은 것
+- 상시 호출어, LLM 판단, 실제 화면 AI 해석, Mac 자동 조작.
+- 클라우드, iPhone, 자율 업무, 디자인 AI 생성.
+- Mac 실기기 권한 동작은 GitHub Actions만으로 검증 불가.
 
-**다음 한 단계:** Mac에서 `START_JARVIS.command`를 실행해 표시·음성·화면 공유 허가 동작을 확인한 뒤, SwiftUI 네이티브 셸 제작과 ScreenCaptureKit 연결을 착수.
+## 바로 다음 검증
+1. PR CI의 Python/JS/Swift/macOS 패키징이 통과하는지 확인.
+2. 실제 Mac에서 `START_JARVIS_MAC.command`로 권한·마이크·화면 확인.
+3. 이후 접근성 UI 구조를 읽는 **읽기 전용** 기능을 추가하고, LLM/행동 정책과 분리해 검증.

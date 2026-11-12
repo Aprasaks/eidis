@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key><string>ko</string>
+    <key>CFBundleExecutable</key><string>EidisMac</string>
+    <key>CFBundleIdentifier</key><string>dev.dechive.eidis</string>
+    <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+    <key>CFBundleName</key><string>JARVIS</string>
+    <key>CFBundleDisplayName</key><string>JARVIS</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleShortVersionString</key><string>0.3.0</string>
+    <key>CFBundleVersion</key><string>3</string>
+    <key>LSMinimumSystemVersion</key><string>14.0</string>
+    <key>NSHighResolutionCapable</key><true/>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>자비스 음성 명령을 사용자가 직접 시작했을 때 마이크 입력을 받습니다.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>사용자가 누른 음성 명령을 한국어 텍스트로 변환합니다. 기본값은 온디바이스 인식이며 음성 파일을 저장하지 않습니다.</string>
+    <key>NSAppTransportSecurity</key>
+    <dict><key>NSAllowsLocalNetworking</key><true/></dict>
+</dict>
+</plist>
