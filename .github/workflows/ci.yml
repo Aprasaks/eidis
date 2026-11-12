@@ -20,17 +20,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Check Python syntax
-        run: python -m compileall -q app.py jarvis tests
-      - name: Run unit tests
-        run: python -m unittest discover -s tests -v
-      - name: Check JavaScript syntax
-        run: node --check web/app.js
-      - name: Check macOS launcher syntax
-        run: bash -n START_JARVIS.command
+      - run: python -m compileall -q app.py jarvis tests
+      - run: python -m unittest discover -s tests -v
+      - run: node --check web/app.js
+      - run: bash -n START_JARVIS.command
+
+  macos-compile:
+    name: macOS SwiftUI compile
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show Swift version
+        run: swift --version
+      - name: Compile native app (no screen capture in CI)
+        run: swift build --package-path macos -c debug
