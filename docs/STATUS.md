@@ -1,23 +1,23 @@
-# JARVIS — S1 개발 상태 (2026-11-12)
+# JARVIS — S2 진행 상태 (2026-11-12)
 
-## 기존 main 확인
-- Python 기반 로컬 서버, 명시적 SQLite 기억, 규칙 기반 텍스트 명령.
-- 브라우저 UI: 입자 원, 대시보드, 3개 사전 정의된 스타일, 화면 미리보기.
-- SwiftUI 네이티브 셸: 화면 한 장 캡처, 한국어 TTS. 이전 GitHub macOS 컴파일 성공.
-- 사용자 Mac Desktop Commander 장치는 마지막 확인 시 오프라인.
+## 완료된 GitHub 작업
+- S1 음성 PR #2가 성공한 Python/JS/macOS CI 확인 후 main에 병합됨.
+- macOS 앱의 사용자 호출 한국어 음성 → 로컬 명령 처리 → 대시보드 전환 연결 코드가 main에 반영됨.
+- S2 브랜치에 **읽기 전용 접근성 UI 구조 조회** 추가. 앱 선택, 사용자 권한 요청, 명시적 1회 조회, 결과 지우기.
+- AXValue/선택 텍스트/입력값을 읽지 않고, 깊이와 수량을 제한하며, 파일·서버·클라우드로 전송하지 않도록 설계.
 
-## feature/native-speech-s1 개발 중
-- 명시적으로 켜는 한국어 온디바이스 음성 인식(Speech), 동의 기반 마이크 권한.
-- 로컬 API 호출 뒤 검증된 응답을 자비스 UI로 반영.
-- NSMicrophoneUsageDescription / NSSpeechRecognitionUsageDescription을 포함한 개발용 .app 패키징.
-- workflow에서 Swift 컴파일뿐 아니라 패키징·Info.plist·코드서명 상태도 검사하도록 보강.
+## 검증 상태
+- 이전 S1 CI: 통과 / 실제 Mac 사용권한 검증: 미완료.
+- S2 CI: PR 생성 후 확인 필요. 컴파일 성공과 실기기 작동은 별개.
+- Mac 원격 장치: 가장 최근 조회 시 오프라인.
 
-## 구현하지 않은 것
-- 상시 호출어, LLM 판단, 실제 화면 AI 해석, Mac 자동 조작.
-- 클라우드, iPhone, 자율 업무, 디자인 AI 생성.
-- Mac 실기기 권한 동작은 GitHub Actions만으로 검증 불가.
+## 미구현
+- 상시 호출어 감지, 실제 LLM 기반 맥락 이해, 이미지/화면 AI 이해, 클릭/타이핑, 자율 작업.
+- Mac-iPhone-Cloud 연동, 실제 AI 디자인 시안 생성.
 
-## 바로 다음 검증
-1. PR CI의 Python/JS/Swift/macOS 패키징이 통과하는지 확인.
-2. 실제 Mac에서 `START_JARVIS_MAC.command`로 권한·마이크·화면 확인.
-3. 이후 접근성 UI 구조를 읽는 **읽기 전용** 기능을 추가하고, LLM/행동 정책과 분리해 검증.
+## 다음 순서
+1. S2 PR GitHub macOS 빌드 성공 확인 후 병합.
+2. 실제 Mac에서 마이크/화면 녹화/손쉬운 사용 권한을 승인하고 동작 검증.
+3. 로컬 대화 맥락과 UI 스냅샷을 안전한 형식으로 연결하는 S2b. 외부 LLM 전송은 사용자 허가 전까지 없음.
+
+실행/실기기 확인: `macos/README.md`; 권한/개인정보 제한: `docs/ACCESSIBILITY_S2.md`.
