@@ -19,3 +19,6 @@ DerivedData/
 *.db
 # Logs
 *.log
+
+# Local macOS app build artifact
+dist/
