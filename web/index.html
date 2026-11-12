@@ -4,7 +4,7 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="color-scheme" content="dark"/>
-  <title>JARVIS — Local Lab v0.1</title>
+  <title>JARVIS — An intelligence, present.</title>
   <link rel="stylesheet" href="/style.css"/>
   <script src="/app.js" defer></script>
 </head>
@@ -13,67 +13,126 @@
   <div class="atmosphere" aria-hidden="true"></div>
   <div class="app-shell" id="shell">
     <header class="topbar">
-      <div class="brand"><span class="brand-symbol">J</span><span>JARVIS<span class="brand-suffix"> / PERSONAL INTELLIGENCE</span></span></div>
-      <div class="top-right"><span id="online-dot" class="live-dot"></span><span>LOCAL PROTOTYPE</span><span class="top-sep">/</span><span>v0.1</span></div>
+      <div class="brand"><span class="brand-symbol">J</span><span class="brand-lockup">JARVIS<small>PERSONAL INTELLIGENCE</small></span></div>
+      <div class="top-right"><span class="top-meta">PRIVATE SYSTEM / 001</span><span class="top-sep">—</span><span id="online-dot" class="live-dot"></span><span id="connection-label">로컬 연결 확인 중</span><span class="top-sep">/</span><span>LAB v0.5</span></div>
     </header>
     <main class="main-content">
-      <section class="presence" id="presence" aria-label="자비스 음성 인터페이스">
-        <div class="ring-visual" id="ring-visual"><div class="ring-soft"></div><div class="ring-core"></div><div class="ring-center"></div></div>
+      <section class="presence" id="presence" aria-label="자비스 호출 인터페이스">
+        <div class="presence-ambient" aria-hidden="true"></div>
+        <div class="ring-visual" id="ring-visual" aria-hidden="true"><div class="ring-halo"></div><div class="ring-soft"></div><div class="ring-core"></div><div class="ring-center"></div></div>
         <div class="presence-content">
-          <p class="eyebrow" id="state-label">READY WHEN YOU ARE</p>
+          <p class="eyebrow" id="state-label">AWAITING YOUR VOICE</p>
           <h1 id="hero-title">부르면, 연결됩니다.</h1>
-          <p class="hero-sub">“자비스?”라고 말하거나 아래에 직접 입력해 보세요.</p>
-          <p class="hero-note">현재는 로컬 규칙 기반 프로토타입입니다. AI 추론·화면 이해는 아직 연결되지 않았습니다.</p>
+          <p class="hero-sub">말 한마디가 작업 공간이 되는 순간.</p>
+          <div class="presence-actions">
+            <button type="button" id="demo-wake" class="presence-action"><span class="action-glyph">✧</span> 자비스 호출</button>
+            <button type="button" id="demo-dashboard" class="presence-action presence-action-primary"><span class="action-glyph">↗</span> 작업 공간 열기</button>
+          </div>
+          <p class="hero-note">LOCAL EXPERIENCE · 실제 AI 판단과 프로젝트 데이터는 아직 연결 전입니다.</p>
         </div>
+        <div class="presence-floor" aria-hidden="true"><span>01</span><span>VOICE / CONTEXT / ACTION</span><span>●</span></div>
       </section>
-      <section class="workspace" id="workspace" hidden aria-label="자비스 대시보드">
-        <div class="workspace-heading"><div><p class="eyebrow">YOUR WORKSPACE</p><h2 id="workspace-title">작업 공간</h2></div><button id="close-workspace" class="quiet-btn" title="작업 공간 닫기">닫기 <span aria-hidden="true">×</span></button></div>
+      <section class="workspace" id="workspace" hidden aria-label="자비스 작업 공간">
+        <div class="workspace-heading">
+          <div class="heading-lockup"><p class="eyebrow">YOUR INTELLIGENCE / YOUR SPACE</p><h2 id="workspace-title">작업 공간<span class="heading-index">01 — OVERVIEW</span></h2></div>
+          <div class="workspace-tools">
+            <button type="button" id="show-variants" class="design-link">화면 다시 설계 <span aria-hidden="true">↗</span></button>
+            <button type="button" id="close-workspace" class="quiet-btn" title="작업 공간 닫기">닫기 <span aria-hidden="true">×</span></button>
+          </div>
+        </div>
+
         <div id="dashboard-view" class="dashboard-view">
-          <div class="statement">
-            <span class="section-overline">JARVIS STATUS / VERIFIED</span>
-            <h3>가능한 것만<br/><em>가능하다고 말합니다.</em></h3>
-            <p>여기에는 실제 연결 상태만 표시됩니다. 테스트용 구독자 수나 가짜 진행률을 넣지 않았습니다.</p>
+          <div class="board-hero">
+            <div class="board-hero-copy">
+              <p class="board-kicker"><span class="signal-tick"></span> INTELLIGENCE / LOCAL STATUS</p>
+              <h3>고요하게 존재하고,<br/><em>필요할 때 움직입니다.</em></h3>
+              <p>명령을 기다리는 인터페이스가 아니라, 언젠가는 함께 일하는 공간으로. 지금은 실제로 연결된 기능만 보여줍니다.</p>
+              <button type="button" id="board-redesign" class="text-action">이 화면이 마음에 안 든다면 <span aria-hidden="true">↗</span></button>
+            </div>
+            <div class="board-art" aria-hidden="true">
+              <span class="art-caption art-caption-top">CORE / 01</span>
+              <span class="art-arc art-arc-one"></span><span class="art-arc art-arc-two"></span><span class="art-core"></span>
+              <span class="art-caption art-caption-bottom">SIGNAL IS LOCAL</span>
+            </div>
           </div>
-          <div class="capability-board">
-            <h4>현재 연결 상태 <span class="tiny">LIVE LOCAL</span></h4>
-            <div class="cap-item"><span>대화 입력</span><span class="good">연결됨</span></div>
-            <div class="cap-item"><span>기억 저장</span><span class="good">연결됨</span></div>
-            <div class="cap-item"><span>브라우저 음성</span><span class="neutral">지원 환경에서 가능</span></div>
-            <div class="cap-item"><span>화면 미리보기</span><span class="neutral">허가 후 가능</span></div>
-            <div class="cap-item"><span>AI 화면 이해</span><span class="muted">미연결</span></div>
-            <div class="cap-item"><span>Mac 조작·클라우드</span><span class="muted">미연결</span></div>
+
+          <div class="telemetry-bar" aria-label="실제 로컬 시스템 현황">
+            <div class="telemetry"><span class="telemetry-label">01 / LOCAL CORE</span><strong id="core-status">확인 중</strong><small>이 브라우저의 로컬 서버</small></div>
+            <div class="telemetry"><span class="telemetry-label">02 / DURABLE MEMORY</span><strong id="memory-count">—</strong><small>저장된 기억 항목</small></div>
+            <div class="telemetry"><span class="telemetry-label">03 / LAST ACTIVITY</span><strong id="activity-count">—</strong><small>최근 로컬 명령 기록</small></div>
           </div>
+
+          <div class="workspace-split">
+            <section class="capability-panel" aria-label="연결 기능">
+              <div class="section-heading"><span class="section-overline">CAPABILITIES</span><span class="section-number">01 / 02</span></div>
+              <h4>연결된 능력</h4>
+              <div id="live-capabilities" class="live-capabilities">
+                <div class="capability-line"><span>상태를 확인하고 있습니다.</span><span class="muted">대기</span></div>
+              </div>
+            </section>
+            <section class="activity-panel" aria-label="실제 로컬 활동">
+              <div class="section-heading"><span class="section-overline">ACTIVITY</span><span class="section-number">02 / 02</span></div>
+              <h4>가장 최근의 움직임</h4>
+              <div id="activity-feed" class="activity-feed" aria-live="polite"><p class="activity-empty">실제 작업 기록을 불러오고 있습니다.</p></div>
+            </section>
+          </div>
+
           <div class="action-strip">
-            <button type="button" id="show-variants" class="line-btn"><span>↗</span> 디자인 시안 보기</button>
-            <button type="button" id="show-memory" class="line-btn"><span>≡</span> 저장한 기억</button>
-            <button type="button" id="open-screen" class="line-btn"><span>▣</span> 화면 공유</button>
+            <span class="action-strip-caption">EXPLORE / LOCAL TOOLS</span>
+            <button type="button" id="show-memory" class="line-btn">저장한 기억 <span aria-hidden="true">↗</span></button>
+            <button type="button" id="open-screen" class="line-btn">화면 미리보기 <span aria-hidden="true">↗</span></button>
           </div>
         </div>
+
         <div id="variants-view" class="variants-view" hidden>
-          <div class="variants-intro"><h3>WORKSPACE STUDIES</h3><p>미리 만들어 둔 세 가지 레이아웃이야. 자연어로 새 디자인을 생성하는 AI 기능은 아직 연결되지 않았어.</p></div>
-          <div class="variant-list">
-            <button class="variant" data-theme="ambient" aria-label="Ambient 시안 적용"><span class="variant-preview v-ambient"><i></i><b></b><small></small></span><strong>01 — AMBIENT</strong><span>조용한 존재감 · 최소 정보</span></button>
-            <button class="variant" data-theme="nebula" aria-label="Nebula 시안 적용"><span class="variant-preview v-nebula"><i></i><b></b><small></small></span><strong>02 — NEBULA</strong><span>디지털 은하 · 깊이 있는 작업 공간</span></button>
-            <button class="variant" data-theme="studio" aria-label="Studio 시안 적용"><span class="variant-preview v-studio"><i></i><b></b><small></small></span><strong>03 — STUDIO</strong><span>집중형 레이아웃 · 정보 우선</span></button>
+          <div class="design-intro">
+            <span class="section-overline">JARVIS / DESIGN LABORATORY</span>
+            <h3>같은 지능,<br/><em>다른 공간.</em></h3>
+            <p>지금 선택하는 것은 미리 제작한 네 가지 화면 구성입니다. AI가 즉석에서 디자인을 생성한 것은 아니며, 실제 기능과 기억은 그대로 유지됩니다.</p>
           </div>
-          <button id="back-to-dash" class="quiet-btn back-btn">← 작업 공간으로 돌아가기</button>
+          <div class="variant-list" role="group" aria-label="디자인 시안 선택">
+            <button type="button" class="variant" data-theme="ambient" aria-pressed="false" aria-label="Ambient 시안 미리보기">
+              <span class="study-shot shot-ambient"><span class="shot-top">01 <span>AMBIENT</span></span><span class="shot-cosmos"><i></i><i></i></span><span class="shot-bottom">QUIET FORM</span></span>
+              <span class="study-info"><span class="study-index">01 /</span><strong>Ambient</strong><small>여백 중심 · 조용한 존재감</small></span>
+            </button>
+            <button type="button" class="variant" data-theme="nebula" aria-pressed="false" aria-label="Nebula 시안 미리보기">
+              <span class="study-shot shot-nebula"><span class="shot-top">02 <span>NEBULA</span></span><span class="shot-cosmos"><i></i><i></i></span><span class="shot-bottom">DEPTH & MOTION</span></span>
+              <span class="study-info"><span class="study-index">02 /</span><strong>Nebula</strong><small>성운빛 · 확장형 작업 공간</small></span>
+            </button>
+            <button type="button" class="variant" data-theme="studio" aria-pressed="false" aria-label="Studio 시안 미리보기">
+              <span class="study-shot shot-studio"><span class="shot-top">03 <span>STUDIO</span></span><span class="shot-cosmos"><i></i><i></i></span><span class="shot-bottom">FOCUS ON WORK</span></span>
+              <span class="study-info"><span class="study-index">03 /</span><strong>Studio</strong><small>그리드 · 정보 집중형</small></span>
+            </button>
+            <button type="button" class="variant" data-theme="polar" aria-pressed="false" aria-label="Polar 시안 미리보기">
+              <span class="study-shot shot-polar"><span class="shot-top">04 <span>POLAR</span></span><span class="shot-cosmos"><i></i><i></i></span><span class="shot-bottom">MONOCHROME</span></span>
+              <span class="study-info"><span class="study-index">04 /</span><strong>Polar</strong><small>모노톤 · 극도로 정제된 대비</small></span>
+            </button>
+          </div>
+          <div class="design-footer">
+            <p id="design-status" role="status">시안을 선택하면 실제 화면 분위기가 임시 변경됩니다. ‘적용’ 전에는 이전 디자인을 보관합니다.</p>
+            <div class="design-footer-actions">
+              <button type="button" id="cancel-design" class="quiet-btn">이전 화면으로</button>
+              <button type="button" id="apply-design" class="line-btn apply-design">선택한 디자인 적용 <span aria-hidden="true">↗</span></button>
+            </div>
+          </div>
         </div>
+
         <div id="memories-view" hidden>
-          <div class="memories-title"><h3>저장한 기억</h3><p>“기억해: ...”라고 직접 요청한 내용만 보관해.</p></div>
+          <div class="memories-title"><p class="section-overline">PRIVATE / PERSISTENT</p><h3>저장한 기억</h3><p>“기억해: ...”라고 직접 요청한 내용만 로컬 데이터베이스에 저장합니다.</p></div>
           <div id="memories-list" class="memories-list"><p>기억을 불러오는 중입니다.</p></div>
-          <button id="back-from-memory" class="quiet-btn back-btn">← 작업 공간으로 돌아가기</button>
+          <button type="button" id="back-from-memory" class="quiet-btn back-btn">← 작업 공간으로</button>
         </div>
         <div id="screen-view" hidden>
-          <div class="screen-title"><h3>화면 공유 미리보기</h3><p>브라우저에서 명시적으로 선택한 화면만 표시해. 화면 이미지는 서버에 전송하거나 저장하지 않아. AI 시각 이해도 아직 없어.</p></div>
-          <div class="screen-wrap"><video id="screen-video" autoplay playsinline muted></video><span id="screen-overlay">아래에서 공유할 화면을 선택하세요</span></div>
-          <div class="screen-controls"><button id="start-share" class="line-btn">화면 선택 및 공유</button><button id="stop-share" class="quiet-btn">공유 중지</button></div>
-          <button id="back-from-screen" class="quiet-btn back-btn">← 작업 공간으로 돌아가기</button>
+          <div class="screen-title"><p class="section-overline">USER CONTROLLED / VISION</p><h3>화면 미리보기</h3><p>명시적으로 선택한 화면만 이 기기에서 보여줍니다. 이미지 업로드·저장이나 AI의 실제 화면 이해는 아직 없습니다.</p></div>
+          <div class="screen-wrap"><video id="screen-video" autoplay playsinline muted></video><span id="screen-overlay">공유할 화면을 직접 선택해 주세요.</span></div>
+          <div class="screen-controls"><button type="button" id="start-share" class="line-btn">화면 선택 및 공유</button><button type="button" id="stop-share" class="quiet-btn">공유 종료</button></div>
+          <button type="button" id="back-from-screen" class="quiet-btn back-btn">← 작업 공간으로</button>
         </div>
       </section>
     </main>
     <footer class="command-dock">
-      <div class="last-response" id="last-response" role="status" aria-live="polite">JARVIS LOCAL SYSTEM · 듣고, 보고, 행동하는 능력을 단계적으로 연결합니다.</div>
-      <form id="command-form" class="command-form" autocomplete="off"><label for="command-input" class="sr-only">자비스에게 말하기</label><span class="prompt-symbol">›</span><input id="command-input" type="text" maxlength="2000" placeholder="자비스에게 말하기…  예: 대시보드 띄워"/><button type="submit" title="전송" class="send-btn">↗</button><button type="button" id="voice-toggle" class="voice-btn" aria-pressed="false" title="마이크 켜기">◉</button></form>
+      <div class="last-response" id="last-response" role="status" aria-live="polite">JARVIS / 로컬 프로토타입이 준비되었습니다. 자비스를 호출해 보세요.</div>
+      <form id="command-form" class="command-form" autocomplete="off"><label for="command-input" class="sr-only">자비스에게 말하기</label><span class="prompt-symbol" aria-hidden="true">⌁</span><input id="command-input" type="text" maxlength="2000" placeholder="자비스에게 말하기… 예: 대시보드 띄워"/><button type="submit" title="명령 보내기" class="send-btn">↗</button><button type="button" id="voice-toggle" class="voice-btn" aria-pressed="false" title="마이크 켜기">◉</button></form>
       <div class="footnote"><span>입력한 일반 대화는 저장하지 않습니다. “기억해”로 요청한 내용만 로컬 DB에 저장합니다.</span><span id="mic-status">MIC OFF · 브라우저 음성 기능은 환경에 따라 다릅니다.</span></div>
     </footer>
   </div>
