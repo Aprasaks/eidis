@@ -8,6 +8,7 @@ const workspace = $('#workspace');
 const views = ['dashboard-view','variants-view','memories-view','screen-view'];
 let activeMode = 'orb';
 let currentTheme = 'nebula';
+let designOriginalTheme = 'nebula';
 let recognizing = false;
 let wantMic = false;
 let recognition = null;
@@ -90,13 +91,24 @@ function summon() {
 function setMode(mode) {
   if (mode !== 'screen' && activeStream) stopScreen();
   if (mode !== 'orb') summon();
+  if (mode === 'variants' && activeMode !== 'variants') {
+    designOriginalTheme = currentTheme;
+    updateVariantSelection();
+  }
   activeMode = mode;
   const dashboard = mode !== 'orb';
   workspace.hidden = !dashboard;
   workspace.style.display = dashboard ? '' : 'none';
   root.classList.toggle('dashboard-open',dashboard);
-  $('#state-label').textContent = dashboard ? 'CONNECTED · WORKSPACE ACTIVE' : 'READY WHEN YOU ARE';
-  $('#hero-title').textContent = dashboard ? '듣고 있습니다.' : '부르면, 연결됩니다.';
+  $('#state-label').textContent = dashboard ? 'PRESENCE / ENGAGED' : 'AWAITING YOUR VOICE';
+  $('#hero-title').textContent = dashboard ? '항상 여기 있습니다.' : '부르면, 연결됩니다.';
+  $('#workspace-title').textContent = mode === 'variants' ? '디자인 연구실' : mode === 'memories' ? '저장한 기억' : mode === 'screen' ? '화면 미리보기' : '작업 공간';
+  // Keep the smaller index element when changing headings.
+  const index = document.createElement('span');
+  index.className = 'heading-index';
+  index.textContent = mode === 'variants' ? '02 — DESIGN' : '01 — OVERVIEW';
+  $('#workspace-title').appendChild(index);
+  if (mode === 'dashboard') void refreshDashboardData();
   if (mode==='variants') showView('variants-view');
   else if (mode==='memories') {showView('memories-view');loadMemories();}
   else if (mode==='screen') showView('screen-view');
@@ -136,23 +148,56 @@ async function issue(text) {
 $('#command-form').addEventListener('submit',e=>{e.preventDefault();issue($('#command-input').value);});
 $('#close-workspace').addEventListener('click',()=>setMode('orb'));
 $('#show-variants').addEventListener('click',()=>setMode('variants'));
+$('#board-redesign').addEventListener('click',()=>setMode('variants'));
+$('#demo-wake').addEventListener('click',()=>issue('자비스?'));
+$('#demo-dashboard').addEventListener('click',()=>issue('자비스, 대시보드 띄워'));
 $('#show-memory').addEventListener('click',()=>setMode('memories'));
 $('#open-screen').addEventListener('click',()=>setMode('screen'));
 $('#back-to-dash').addEventListener('click',()=>setMode('dashboard'));
 $('#back-from-memory').addEventListener('click',()=>setMode('dashboard'));
 $('#back-from-screen').addEventListener('click',()=>{stopScreen();setMode('dashboard');});
 
-for (const button of document.querySelectorAll('.variant')) {
-  button.addEventListener('click',()=>{
-    const theme=button.dataset.theme;
-    currentTheme=theme;
-    root.classList.remove('theme-ambient','theme-nebula','theme-studio');
-    root.classList.add(`theme-${theme}`);
-    const themes={ambient:'Ambient',nebula:'Nebula',studio:'Studio'};
-    showMessage(`${themes[theme]} 스타일을 선택했습니다. 이 화면 안에서만 임시 적용됩니다.`);
-    setMode('dashboard');
-  });
+const themeLabels = Object.freeze({
+  ambient: 'Ambient',
+  nebula: 'Nebula',
+  studio: 'Studio',
+  polar: 'Polar'
+});
+const themeNames = Object.keys(themeLabels);
+
+function setTheme(theme) {
+  if (!Object.hasOwn(themeLabels, theme)) return;
+  currentTheme = theme;
+  for (const name of themeNames) root.classList.remove('theme-' + name);
+  root.classList.add('theme-' + theme);
+  updateVariantSelection();
 }
+
+function updateVariantSelection() {
+  for (const button of document.querySelectorAll('.variant')) {
+    button.setAttribute('aria-pressed', String(button.dataset.theme === currentTheme));
+  }
+  const info = $('#design-status');
+  if (info) {
+    info.textContent = themeLabels[currentTheme] +
+      ' 미리보기 중 · 화면 디자인만 달라집니다. 이전에 적용한 시안은 ' +
+      themeLabels[designOriginalTheme] + '입니다.';
+  }
+}
+
+for (const button of document.querySelectorAll('.variant')) {
+  button.addEventListener('click', () => setTheme(button.dataset.theme));
+}
+$('#apply-design').addEventListener('click', () => {
+  designOriginalTheme = currentTheme;
+  showMessage(themeLabels[currentTheme] + ' 디자인을 이 실행 화면에 적용했습니다. 변경 사항은 서버 데이터에 영향을 주지 않습니다.');
+  setMode('dashboard');
+});
+$('#cancel-design').addEventListener('click', () => {
+  setTheme(designOriginalTheme);
+  showMessage('이전 디자인으로 돌아왔습니다.');
+  setMode('dashboard');
+});
 root.classList.add('theme-nebula');
 
 async function loadMemories() {
@@ -265,3 +310,101 @@ window.jarvisNativeResult = (reply) => {
   if (reply.action === 'wake') summon();
   setMode(reply.mode);
 };
+
+
+/* Live localhost-backed operational facts. Never show invented counters. */
+const capabilityLabels = Object.freeze({
+  text_commands: '로컬 명령',
+  memory: '개인 기억',
+  browser_voice: '브라우저 음성',
+  browser_screen_preview: '화면 공유 미리보기',
+  vision_understanding: 'AI 화면 이해',
+  llm_reasoning: 'AI 판단',
+  mac_control: 'Mac 자동 조작',
+  cloud: '클라우드',
+  iphone: 'iPhone 연결',
+  autonomous_tasks: '자율 업무'
+});
+const capabilityStates = Object.freeze({
+  connected: ['연결됨','good'],
+  browser_dependent: ['브라우저에 따라 다름','neutral'],
+  permission_required: ['권한 필요','neutral'],
+  not_connected: ['미연결','muted']
+});
+const eventLabels = Object.freeze({
+  wake: '호출 인식', open_dashboard: '작업 공간 열기',
+  design_options: '디자인 시안 요청', remember: '기억 저장',
+  recall: '기억 조회', screen: '화면 요청',
+  status: '상태 확인', unsupported: '미지원 명령'
+});
+function fillDashboard(container, list, build) {
+  container.replaceChildren();
+  for (const item of list) container.appendChild(build(item));
+}
+async function refreshDashboardData() {
+  if (document.visibilityState !== 'visible') return;
+  const core = $('#core-status');
+  try {
+    const [statusRes,activityRes] = await Promise.all([
+      fetch('/api/status', {cache:'no-store'}),
+      fetch('/api/activity', {cache:'no-store'})
+    ]);
+    if (!statusRes.ok || !activityRes.ok) throw new Error('local API not ready');
+    const status = await statusRes.json();
+    const activity = await activityRes.json();
+    const caps = status.capabilities || {};
+    core.textContent = '연결됨';
+    $('#connection-label').textContent = 'LOCAL CONNECTED';
+    $('#online-dot').classList.remove('offline');
+    $('#memory-count').textContent = Number.isInteger(status.memory_count)
+      ? status.memory_count.toLocaleString('ko-KR') : '—';
+    const items = Array.isArray(activity.items) ? activity.items : [];
+    $('#activity-count').textContent = String(items.length);
+    const capEntries = Object.entries(capabilityLabels).map(([key,label]) => ({
+      label, state: Array.isArray(capabilityStates[caps[key]]) ? capabilityStates[caps[key]] : ['확인 필요','muted']
+    }));
+    fillDashboard($('#live-capabilities'), capEntries.slice(0,8), ({label,state}) => {
+      const line = document.createElement('div'); line.className = 'capability-line';
+      const a = document.createElement('span'); a.textContent = label;
+      const b = document.createElement('span'); b.textContent = state[0]; b.className = state[1];
+      line.append(a,b);
+      return line;
+    });
+    const feed = $('#activity-feed');
+    feed.replaceChildren();
+    if (!items.length) {
+      const p = document.createElement('p');
+      p.className = 'activity-empty';
+      p.textContent = '아직 로컬 명령 기록이 없습니다. 이곳에는 실제 실행 이력만 표시됩니다.';
+      feed.appendChild(p);
+    } else {
+      for (const item of items.slice(0,5)) {
+        const line = document.createElement('div');line.className='activity-row';
+        const a = document.createElement('strong');
+        a.textContent = Object.hasOwn(eventLabels,item.category) ? eventLabels[item.category] : '기타 기록';
+        const b = document.createElement('small');
+        const parsed = Date.parse(item.created_at);
+        b.textContent = Number.isFinite(parsed) ? new Date(parsed).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}) : '시간 미확인';
+        line.append(a,b);feed.appendChild(line);
+      }
+    }
+  } catch {
+    core.textContent = '연결 불가';
+    $('#connection-label').textContent = 'LOCAL DISCONNECTED';
+    $('#online-dot').classList.add('offline');
+    $('#memory-count').textContent = '—';
+    $('#activity-count').textContent = '—';
+    const caps = $('#live-capabilities'); caps.replaceChildren();
+    const item = document.createElement('p');item.className='activity-empty';
+    item.textContent = '로컬 서버에 연결되지 않았습니다. 실제 상태를 표시할 수 없습니다.';
+    caps.appendChild(item);
+    const feed = $('#activity-feed');feed.replaceChildren();
+    const msg = item.cloneNode(true);feed.appendChild(msg);
+  }
+}
+setInterval(() => {
+  if (activeMode === 'dashboard' && document.visibilityState === 'visible') {
+    void refreshDashboardData();
+  }
+}, 25000);
+void refreshDashboardData();
