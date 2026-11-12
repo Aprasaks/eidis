@@ -254,3 +254,14 @@ document.addEventListener('visibilitychange',()=>{
 });
 window.addEventListener('beforeunload',()=>{disableMic();stopScreen();window.speechSynthesis?.cancel();});
 setMode('orb');
+
+// Native SwiftUI bridge. This only reflects a reply already verified by the localhost server.
+// It does not execute arbitrary JavaScript or commands passed from a remote page.
+window.jarvisNativeResult = (reply) => {
+  if (!reply || typeof reply !== 'object') return;
+  const validModes = new Set(['orb','dashboard','variants','memories','screen']);
+  if (!validModes.has(reply.mode) || typeof reply.text !== 'string') return;
+  showMessage(reply.text);
+  if (reply.action === 'wake') summon();
+  setMode(reply.mode);
+};
