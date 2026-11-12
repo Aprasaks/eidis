@@ -42,7 +42,7 @@ class JARVISUIContract(unittest.TestCase):
             "command-input", "voice-toggle", "mic-status", "online-dot",
             "dashboard-view", "variants-view", "memories-view", "screen-view",
             "close-workspace", "show-variants", "show-memory", "open-screen",
-            "back-to-dash", "back-from-memory", "back-from-screen",
+            "back-from-memory", "back-from-screen",
             "screen-video", "screen-overlay", "start-share", "stop-share",
             "memories-list", "demo-wake", "demo-dashboard",
             "live-capabilities", "activity-feed", "core-status",
