@@ -169,7 +169,7 @@ final class AccessibilityInspector: ObservableObject {
     private func elementAttribute(_ element: AXUIElement, _ key: CFString) -> AXUIElement? {
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, key, &value) == .success else { return nil }
-        return value as! AXUIElement?
+        return value as? AXUIElement
     }
 
     private func elementArrayAttribute(_ element: AXUIElement, _ key: CFString) -> [AXUIElement]? {
