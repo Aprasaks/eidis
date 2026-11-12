@@ -79,6 +79,7 @@ final class ScreenObserver: ObservableObject {
 struct JarvisWindow: View {
     @StateObject private var voice = NativeVoice()
     @StateObject private var vision = ScreenObserver()
+    @StateObject private var bridge = JarvisBridge()
     @State private var reloadID = UUID()
 
     var body: some View {
@@ -92,7 +93,7 @@ struct JarvisWindow: View {
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text("v0.2 / 실험용 · 외부 AI 미연결")
+                Text("v0.3 / 음성·화면 실험 · LLM 미연결")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -114,13 +115,16 @@ struct JarvisWindow: View {
                     Text("먼저 저장소 루트에서 python3 app.py를 실행하세요. 화면은 127.0.0.1:8765에만 연결됩니다.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    LocalDashboard()
+                    LocalDashboard(event: bridge.event)
                         .id(reloadID)
                         .clipShape(RoundedRectangle(cornerRadius: 13))
                         .overlay(RoundedRectangle(cornerRadius: 13).stroke(.white.opacity(0.10)))
                 }
                 .padding(18)
                 .tabItem { Label("자비스", systemImage: "sparkles") }
+
+                NativeSpeechPanel(bridge: bridge)
+                    .tabItem { Label("음성", systemImage: "mic") }
 
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {
@@ -173,13 +177,40 @@ struct JarvisWindow: View {
     }
 }
 
-/// Embeds the existing local web prototype; never loads a remote URL.
+/// Embeds localhost only, with a bridge for verified native-command replies.
 struct LocalDashboard: NSViewRepresentable {
+    let event: JarvisVisualEvent?
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
     func makeNSView(context: Context) -> WKWebView {
         let view = WKWebView()
+        view.navigationDelegate = context.coordinator
         view.load(URLRequest(url: URL(string: "http://127.0.0.1:8765")!))
         return view
     }
 
-    func updateNSView(_ view: WKWebView, context: Context) {}
+    func updateNSView(_ view: WKWebView, context: Context) {
+        context.coordinator.event = event
+        context.coordinator.deliver(to: view)
+    }
+
+    final class Coordinator: NSObject, WKNavigationDelegate {
+        var event: JarvisVisualEvent?
+        private var lastDelivered: UUID?
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            lastDelivered = nil
+            deliver(to: webView)
+        }
+
+        func deliver(to view: WKWebView) {
+            guard !view.isLoading, let event, lastDelivered != event.id else { return }
+            guard let data = try? JSONEncoder().encode(event.reply),
+                  let json = String(data: data, encoding: .utf8) else { return }
+            view.evaluateJavaScript("window.jarvisNativeResult(\\(json));") { [weak self] _, error in
+                if error == nil { self?.lastDelivered = event.id }
+            }
+        }
+    }
 }
