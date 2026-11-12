@@ -4,7 +4,7 @@
 
 - `app.py` / `jarvis/`: Python localhost 서버, 규칙 기반 명령, 명시적 SQLite 기억
 - `web/`: 입자 원 및 작업 공간 프로토타입
-- `macos/`: SwiftUI 네이티브 창, 한국어 음성 출력, ScreenCaptureKit 1장 미리보기
+- `macos/`: SwiftUI 네이티브 창, 한국어 음성 출력, ScreenCaptureKit 1장 미리보기, 선택적 접근성 UI 구조 읽기
 - `tests/`: 자동 검증
 - `.github/workflows/ci.yml`: Linux 코드 검증 + macOS Swift 컴파일
 
@@ -18,6 +18,7 @@
 
 ## 현재 한계
 
+- S1 음성 명령 연결은 GitHub macOS CI에서 빌드 검증 완료. S2 접근성 읽기는 별도 PR에서 컴파일·실기기 검증.
 - 자연어 LLM 분석, AI 화면 이해, Mac 앱 조작, 웨이크워드 상시 감지, iPhone·클라우드 연결은 **미구현**.
 - macOS 네이티브 셸은 GitHub Actions에서 **컴파일 테스트**만 했으며 사용자 Mac의 권한·UI 실행은 별도로 검증해야 합니다.
 - ScreenCaptureKit은 명시적으로 버튼을 눌러 1장을 캡처하고 미리보기만 제공하며 파일·외부 AI로 보내지 않습니다.
