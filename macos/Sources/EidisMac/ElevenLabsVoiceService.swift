@@ -45,8 +45,9 @@ final class ElevenLabsVoiceService: ObservableObject {
         self.defaults = defaults
         self.voiceID = defaults.string(forKey: Self.voiceKey) ?? Self.suggestedVoiceID
         self.modelID = defaults.string(forKey: Self.modelKey) ?? "eleven_flash_v2_5"
-        self.keyPresent = Self.readKey() != nil
-        self.enabled = defaults.bool(forKey: Self.enabledKey) && self.keyPresent
+        let hasSavedKey = Self.readKey() != nil
+        self.keyPresent = hasSavedKey
+        self.enabled = defaults.bool(forKey: Self.enabledKey) && hasSavedKey
         self.status = "기본 OFF · 재생 전 API 키와 사용 설정이 필요합니다."
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = 20
