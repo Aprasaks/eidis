@@ -62,7 +62,9 @@ class ToolRunner:
 
     @staticmethod
     def _validate_evidence(result: object, repo: str) -> dict:
-        if not isinstance(result, dict) or result.get("repository", "").casefold() != repo.casefold():
+        if not isinstance(result, dict) or not isinstance(result.get("repository"), str) or (
+            result["repository"].casefold() != repo.casefold()
+        ):
             raise ToolExecutionError("GitHub 확인 결과가 요청한 저장소와 다릅니다.")
         branch, sha = result.get("branch"), result.get("head_sha")
         if not isinstance(branch, str) or not 1 <= len(branch) <= 120:
@@ -84,8 +86,10 @@ class ToolRunner:
             raise ToolExecutionError("Workflow 링크가 올바르지 않습니다.")
         if url:
             parts = urlsplit(url)
-            if parts.scheme != "https" or parts.netloc != "github.com":
-                raise ToolExecutionError("검증된 GitHub Workflow 링크가 아닙니다.")
+            if parts.scheme != "https" or parts.netloc != "github.com" or (
+                not parts.path.casefold().startswith("/" + repo.casefold() + "/actions/runs/")
+            ):
+                raise ToolExecutionError("검증된 저장소의 GitHub Workflow 링크가 아닙니다.")
         if state == "unavailable" and (conclusion != "unknown" or url):
             raise ToolExecutionError("확인되지 않은 Workflow를 확인된 결과로 처리할 수 없습니다.")
         return result
