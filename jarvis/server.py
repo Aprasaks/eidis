@@ -60,7 +60,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
             return self._json(200, {"items": self.store.recent_activity()})
         if path == "/":
             path = "/index.html"
-        if path not in ("/index.html", "/style.css", "/app.js"):
+        if path not in ("/index.html", "/style.css", "/terminal.js", "/app.js"):
             self.send_error(404)
             return
         filepath = WEB_DIR / path.lstrip("/")
