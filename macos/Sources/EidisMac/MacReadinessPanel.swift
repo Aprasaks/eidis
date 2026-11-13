@@ -201,9 +201,9 @@ struct MacReadinessPanel: View {
                             Image(systemName: item.kind == "verified" ? "checkmark.circle"
                                   : item.kind == "manual" ? "questionmark.circle"
                                   : "exclamationmark.triangle")
-                                .foregroundStyle(item.kind == "verified" ? .green
-                                                 : item.kind == "manual" ? .secondary
-                                                 : .orange)
+                                .foregroundStyle(item.kind == "verified" ? Color.green
+                                                 : item.kind == "manual" ? Color.secondary
+                                                 : Color.orange)
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(item.title).font(.subheadline.weight(.medium))
                                 Text(item.detail).font(.caption).foregroundStyle(.secondary)
