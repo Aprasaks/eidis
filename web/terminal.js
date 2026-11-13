@@ -150,6 +150,5 @@
   });
 
   setExpanded(expanded);
-  push('통합 기록 창 시작 · 실제 로컬 서버 기록을 연결합니다.', 'info');
   window.JarvisTerminal = Object.freeze({push,syncActivity,setConnection,setExpanded});
 })();
