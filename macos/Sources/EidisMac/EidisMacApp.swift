@@ -93,7 +93,7 @@ struct JarvisWindow: View {
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text("v0.3 / 음성·화면 실험 · LLM 미연결")
+                Text("v0.8 / 음성·화면·UI 구조 실험 · LLM 미연결")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -169,6 +169,9 @@ struct JarvisWindow: View {
                 }
                 .padding(18)
                 .tabItem { Label("화면", systemImage: "eye") }
+
+                AccessibilityPanel()
+                    .tabItem { Label("UI 구조", systemImage: "rectangle.on.rectangle") }
             }
             .padding(.horizontal, 8)
         }
