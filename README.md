@@ -4,6 +4,7 @@
 
 - `app.py` / `jarvis/`: Python localhost 서버, 규칙 기반 명령, 명시적 SQLite 기억
 - `web/`: 입자 호출 → 은은한 작업 공간 전환, API 기반 현황, 4개 사전 제작 디자인 시안의 미리보기/적용/되돌리기
+- `jarvis/design.py`: 자연어에 맞춘 로컬 디자인 토큰 조합, 선택적으로 실행하는 외부 AI 구조화 설계 어댑터
 - `macos/`: SwiftUI 네이티브 창, 한국어 음성 출력, ScreenCaptureKit 1장 미리보기
 - `tests/`: 자동 검증
 - `.github/workflows/ci.yml`: Linux 코드 검증 + macOS Swift 컴파일
@@ -24,4 +25,4 @@
 - 브라우저 Web Speech 음성 인식은 브라우저 공급자의 원격 처리가 포함될 수 있습니다.
 - GitHub Actions는 테스트만 실행하고 자동 배포나 시스템 변경을 하지 않습니다.
 
-자세한 기술 설계: `docs/ARCHITECTURE.md`; 화면 경험: `docs/EXPERIENCE_UI_V05.md`; macOS 실행: `macos/README.md`.
+자세한 기술 설계: `docs/ARCHITECTURE.md`; 디자인 생성과 API 동의: `docs/DESIGN_STUDIO_V07.md`; macOS 실행: `macos/README.md`.

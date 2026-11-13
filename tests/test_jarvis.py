@@ -30,6 +30,11 @@ class JarvisTests(unittest.TestCase):
     def test_dashboard(self):
         self.assertEqual(self.engine.handle('자비스 대시보드 띄워')['mode'], 'dashboard')
         self.assertEqual(self.engine.handle('자비스 대시보드 좀 바꿔')['mode'], 'variants')
+        detailed = self.engine.handle('자비스 대시보드 더 어둡고 간결하게 바꿔')
+        self.assertEqual(detailed['mode'], 'variants')
+        self.assertEqual(detailed['action'], 'design_options')
+        self.assertIn('간결', detailed['design_prompt'])
+        self.assertFalse(detailed['executed'])
 
     def test_explicit_memory(self):
         self.engine.handle('자비스 기억해: 입자 원은 유지')

@@ -10,6 +10,7 @@ struct JarvisCommandReply: Codable {
     let mode: String
     let action: String
     let executed: Bool
+    let design_prompt: String?
 }
 
 struct JarvisVisualEvent: Identifiable {

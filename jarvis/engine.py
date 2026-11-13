@@ -15,6 +15,8 @@ CAPABILITIES = {
     "cloud": "not_connected",
     "iphone": "not_connected",
     "autonomous_tasks": "not_connected",
+    "local_design_planner": "connected",
+    "ai_design_planner": "not_connected",
 }
 
 
@@ -37,10 +39,29 @@ class JarvisEngine:
         elif any(x in clean for x in ("대시보드 띄워", "대시보드 열어", "대시보드 보여", "작업 공간 열어")):
             category, mode = "open_dashboard", "dashboard"
             response = "작업 공간을 열었습니다. 현재 정보는 로컬 프로토타입 상태입니다."
-        elif (any(x in clean for x in ("디자인 바꿔", "시안 보여", "대시보드 바꿔", "디자인 시안", "다른 디자인"))
-              or ("대시보드" in clean and "바꿔" in clean)):
+        elif (
+            (
+                any(x in clean for x in ("디자인", "대시보드", "작업 공간"))
+                and any(x in clean for x in (
+                    "바꿔", "바꾸", "변경", "재설계", "시안", "고쳐", "수정",
+                    "새로", "어둡", "밝게", "간결", "미니멀", "정리",
+                ))
+            )
+            or ("시안 보여" in clean)
+        ):
             category, mode = "design_options", "variants"
-            response = "미리 준비한 레이아웃 세 가지를 보여드리겠습니다. AI가 새로 생성한 시안은 아닙니다."
+            detailed = any(x in clean.lower() for x in (
+                "더 ", "어둡", "밝게", "간결", "미니멀", "심플", "여백",
+                "보라", "파랑", "블루", "녹색", "초록", "검정", "검은",
+                "은하", "고급", "정보 많", "밀도", "따뜻", "차갑", "모던",
+                "레이아웃", "차분", "우주",
+            ))
+            design_prompt = clean if detailed else None
+            response = (
+                "요청한 분위기를 반영한 로컬 설계안 네 개를 준비합니다. AI 모델 생성은 아닙니다."
+                if design_prompt
+                else "준비된 디자인 네 가지를 보여드리겠습니다. AI가 새로 만든 시안은 아닙니다."
+            )
         elif clean.startswith(("기억해 ", "기억해:", "기억해,", "기억해줘 ")):
             note = re.sub(r"^기억해(?:줘)?\s*[:,：]?\s*", "", clean).strip()
             if not note:
@@ -63,5 +84,8 @@ class JarvisEngine:
             response = "이 명령을 처리할 AI 모델이나 실행 도구는 아직 연결되지 않았습니다. 실행한 것처럼 말씀드리지 않겠습니다."
 
         self.store.record_event(category, "handled" if category != "unsupported" else "unsupported")
-        return {"spoken": response, "text": response, "mode": mode, "action": category,
-                "executed": category not in ("unsupported", "screen", "design_options")}
+        result = {"spoken": response, "text": response, "mode": mode, "action": category,
+                  "executed": category not in ("unsupported", "screen", "design_options")}
+        if category == "design_options" and design_prompt:
+            result["design_prompt"] = design_prompt
+        return result
