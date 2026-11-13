@@ -14,6 +14,7 @@ from .design import DesignError, RemoteDesignError, remote_ready, suggest_design
 from .vision import VisionError, VisionRemoteError, vision_ready, analyze_screen, validate_image
 from .storage import MemoryStore
 from .projects import ProjectCheckError, verify_public_github
+from .tools import ToolRunner, ToolDenied, ToolExecutionError
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 DB_PATH = Path(os.environ.get("JARVIS_DB", str(Path.home() / ".jarvis-lab" / "memory.sqlite3")))
@@ -26,6 +27,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
     store: MemoryStore
     engine: JarvisEngine
     brain: JarvisBrain
+    tools: ToolRunner
     server_version = "JARVIS-Lab/0.1"
 
     def _json(self, status: int, payload: dict) -> None:
@@ -73,6 +75,10 @@ class JarvisHandler(BaseHTTPRequestHandler):
                 return self._json(400, {"error": str(exc)})
         if path == "/api/activity":
             return self._json(200, {"items": self.store.recent_activity(50)})
+        if path == "/api/tools":
+            return self._json(200, self.tools.manifest())
+        if path == "/api/tools/history":
+            return self._json(200, {"items": self.store.recent_tool_executions(20)})
         if path == "/":
             path = "/index.html"
         if path not in ("/index.html", "/style.css", "/terminal.js", "/app.js"):
@@ -126,11 +132,13 @@ class JarvisHandler(BaseHTTPRequestHandler):
                 project = self.store._project_row(data.get("project_id"))
                 if not project["repo_full_name"]:
                     raise ValueError("프로젝트에 GitHub owner/repo가 설정되어 있지 않습니다.")
-                # No auto-refresh, no credentials, no network on page load.
-                check = verify_public_github(project["repo_full_name"])
-                checked = self.store.save_project_check(project["id"], check)
-                self.store.record_event("project_github_checked", "verified")
-                return self._json(200, {"project": checked})
+                # Explicit user UI action. Both chat and project button use the
+                # same audited tool/permission path. Never grant write access.
+                outcome = self.tools.execute(
+                    "github.public_verify", project["id"],
+                    explicit_request=True, inspector=verify_public_github
+                )
+                return self._json(200, outcome)
             if path == "/api/chat":
                 reply = self.brain.handle(
                     data.get("text", ""), conversation_id=data.get("conversation_id"),
@@ -163,6 +171,9 @@ class JarvisHandler(BaseHTTPRequestHandler):
                 return self._json(200, result)
             result = self.engine.handle(data.get("text", ""))
             return self._json(200, result)
+        except (ToolDenied, ToolExecutionError) as exc:
+            return self._json(400 if isinstance(exc, ToolDenied) else 502,
+                              {"error": str(exc)})
         except ProjectCheckError as exc:
             return self._json(502, {"error": str(exc)})
         except BrainProviderError as exc:
@@ -186,9 +197,10 @@ def make_server(host: str = "127.0.0.1", port: int = 8765, db_path: Path | None 
         raise ValueError("원격 노출을 막기 위해 localhost만 허용합니다.")
     store = MemoryStore(db_path or DB_PATH)
     engine = JarvisEngine(store)
-    brain = JarvisBrain(store, engine)
+    tools = ToolRunner(store)
+    brain = JarvisBrain(store, engine, tools=tools)
     handler = type("LocalHandler", (JarvisHandler,),
-                   {"store": store, "engine": engine, "brain": brain})
+                   {"store": store, "engine": engine, "brain": brain, "tools": tools})
     server = HTTPServer(("127.0.0.1", port), handler)
     server.vision_calls = 0
     return server
