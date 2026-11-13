@@ -4,7 +4,7 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="color-scheme" content="dark"/>
-  <title>JARVIS — An intelligence, present.</title>
+  <title>개인 AI 작업 공간</title>
   <link rel="stylesheet" href="/style.css"/>
   <script src="/terminal.js" defer></script>
   <script src="/app.js" defer></script>
@@ -13,75 +13,44 @@
   <canvas id="particles" aria-hidden="true"></canvas>
   <div class="atmosphere" aria-hidden="true"></div>
   <div class="app-shell" id="shell">
-    <header class="topbar">
-      <div class="brand"><span class="brand-symbol">J</span><span class="brand-lockup">JARVIS<small>PERSONAL INTELLIGENCE</small></span></div>
-      <div class="top-right"><span class="top-meta">PRIVATE SYSTEM / 001</span><span class="top-sep">—</span><span id="online-dot" class="live-dot"></span><span id="connection-label">로컬 연결 확인 중</span><span class="top-sep">/</span><span>LAB v1.0</span></div>
-    </header>
     <main class="main-content">
-      <section class="presence" id="presence" aria-label="자비스 호출 인터페이스">
+      <section class="presence" id="presence" aria-label="자비스 대기 화면">
         <div class="presence-ambient" aria-hidden="true"></div>
-        <div class="ring-visual" id="ring-visual" aria-hidden="true"><div class="ring-halo"></div><div class="ring-soft"></div><div class="ring-core"></div><div class="ring-center"></div></div>
-        <div class="presence-content">
-          <p class="eyebrow" id="state-label">AWAITING YOUR VOICE</p>
-          <h1 id="hero-title">부르면, 연결됩니다.</h1>
-          <p class="hero-sub">말 한마디가 작업 공간이 되는 순간.</p>
-          <div class="presence-actions">
-            <button type="button" id="demo-wake" class="presence-action"><span class="action-glyph">✧</span> 자비스 호출</button>
-            <button type="button" id="demo-dashboard" class="presence-action presence-action-primary"><span class="action-glyph">↗</span> 작업 공간 열기</button>
-          </div>
-          <p class="hero-note">LOCAL EXPERIENCE · 실제 AI 판단과 프로젝트 데이터는 아직 연결 전입니다.</p>
+        <div class="ring-visual" id="ring-visual" aria-hidden="true">
+          <div class="ring-halo"></div><div class="ring-soft"></div>
+          <div class="ring-core"></div><div class="ring-center"></div>
         </div>
-        <div class="presence-floor" aria-hidden="true"><span>01</span><span>VOICE / CONTEXT / ACTION</span><span>●</span></div>
+        <div class="presence-content">
+          <p id="state-label" class="sr-only" aria-live="polite">대기 중</p>
+          <h1 id="hero-title">무엇을 도와드릴까요?</h1>
+          <div class="presence-actions">
+            <button type="button" id="demo-wake" class="presence-action" title="자비스 호출" aria-label="자비스 호출">✧</button>
+            <button type="button" id="demo-dashboard" class="presence-action presence-action-primary" title="작업 공간 열기" aria-label="작업 공간 열기">⌗</button>
+          </div>
+        </div>
       </section>
       <section class="workspace" id="workspace" hidden aria-label="자비스 작업 공간">
         <div class="workspace-heading">
-          <div class="heading-lockup"><p class="eyebrow">YOUR INTELLIGENCE / YOUR SPACE</p><h2 id="workspace-title">작업 공간<span class="heading-index">01 — OVERVIEW</span></h2></div>
-          <div class="workspace-tools">
-            <button type="button" id="show-variants" class="design-link">화면 다시 설계 <span aria-hidden="true">↗</span></button>
-            <button type="button" id="close-workspace" class="quiet-btn" title="작업 공간 닫기">닫기 <span aria-hidden="true">×</span></button>
-          </div>
+          <h2 id="workspace-title">작업 공간</h2>
+          <button type="button" id="close-workspace" class="quiet-btn" title="작업 공간 닫기" aria-label="작업 공간 닫기">×</button>
         </div>
-
         <div id="dashboard-view" class="dashboard-view">
-          <div class="board-hero">
-            <div class="board-hero-copy">
-              <p class="board-kicker"><span class="signal-tick"></span> INTELLIGENCE / LOCAL STATUS</p>
-              <h3>고요하게 존재하고,<br/><em>필요할 때 움직입니다.</em></h3>
-              <p>명령을 기다리는 인터페이스가 아니라, 언젠가는 함께 일하는 공간으로. 지금은 실제로 연결된 기능만 보여줍니다.</p>
-              <button type="button" id="board-redesign" class="text-action">이 화면이 마음에 안 든다면 <span aria-hidden="true">↗</span></button>
+          <div class="quiet-workspace">
+            <h3>필요한 도구만 열어두세요.</h3>
+            <p>기억을 확인하거나, 화면을 살펴보거나, 작업 공간을 바꿀 수 있습니다.</p>
+            <div class="workspace-shortcuts" aria-label="작업 도구">
+              <button type="button" id="show-memory" class="workspace-shortcut">
+                <span aria-hidden="true">◇</span><strong>기억</strong><small>저장한 내용 보기</small>
+              </button>
+              <button type="button" id="open-screen" class="workspace-shortcut">
+                <span aria-hidden="true">▣</span><strong>화면</strong><small>직접 선택한 화면 보기</small>
+              </button>
+              <button type="button" id="show-variants" class="workspace-shortcut">
+                <span aria-hidden="true">◈</span><strong>디자인</strong><small>공간의 모습 바꾸기</small>
+              </button>
             </div>
-            <div class="board-art" aria-hidden="true">
-              <span class="art-caption art-caption-top">CORE / 01</span>
-              <span class="art-arc art-arc-one"></span><span class="art-arc art-arc-two"></span><span class="art-core"></span>
-              <span class="art-caption art-caption-bottom">SIGNAL IS LOCAL</span>
-            </div>
-          </div>
-
-          <div class="telemetry-bar" aria-label="로컬 시스템 상태">
-            <div class="telemetry"><span class="telemetry-label">01 / LOCAL CORE</span><strong id="core-status">확인 중</strong><small>로컬 서버 연결 상태</small></div>
-            <div class="telemetry"><span class="telemetry-label">02 / DURABLE MEMORY</span><strong id="memory-count">—</strong><small>명시적으로 저장된 기억</small></div>
-          </div>
-
-          <div class="workspace-split">
-            <section class="capability-panel" aria-label="연결된 자비스 기능">
-              <div class="section-heading"><span class="section-overline">CAPABILITIES</span><span class="section-number">01 / 02</span></div>
-              <h4>지금 연결된 능력</h4>
-              <div id="live-capabilities" class="live-capabilities">
-                <div class="capability-line"><span>로컬 시스템을 확인 중입니다.</span><span class="muted">확인 중</span></div>
-              </div>
-            </section>
-            <section class="workbench-panel" aria-label="작업 시작">
-              <div class="section-heading"><span class="section-overline">WORKBENCH</span><span class="section-number">02 / 02</span></div>
-              <h4>무엇을 해볼까요?</h4>
-              <p>작업 결과와 오류는 오른쪽 통합 터미널에 표시됩니다. 중앙에는 실제 작업 도구만 남겼습니다.</p>
-              <div class="workbench-actions">
-                <button type="button" id="show-memory" class="line-btn">저장한 기억 <span aria-hidden="true">↗</span></button>
-                <button type="button" id="open-screen" class="line-btn">화면 미리보기 <span aria-hidden="true">↗</span></button>
-              </div>
-            </section>
           </div>
         </div>
-
         <div id="variants-view" class="variants-view" hidden>
           <div class="design-intro">
             <span class="section-overline">JARVIS / DESIGN LABORATORY</span>
@@ -167,14 +136,10 @@
         </div>
       </section>
     </main>
-    <aside class="system-terminal" id="system-terminal" aria-label="자비스 통합 실행 기록">
+    <aside class="system-terminal" id="system-terminal" aria-label="현재 작업 기록">
       <div class="terminal-header">
-        <div class="terminal-identity">
-          <span class="terminal-indicator" aria-hidden="true"></span>
-          <span class="terminal-heading">JARVIS <strong>CONSOLE</strong></span>
-          <span class="terminal-revision">LOG / 01</span>
-        </div>
-        <button type="button" id="terminal-toggle" class="terminal-toggle" aria-controls="terminal-content" aria-expanded="true" title="통합 로그 접기">−</button>
+        <span class="terminal-cursor" aria-hidden="true">› <i></i></span>
+        <button type="button" id="terminal-toggle" class="terminal-toggle" aria-controls="terminal-content" aria-expanded="false" aria-label="작업 기록 크게 보기" title="작업 기록 크게 보기">⤢</button>
       </div>
       <div id="terminal-content" class="terminal-content">
         <div class="terminal-toolbar">
@@ -185,16 +150,15 @@
           </div>
           <span id="terminal-count" class="terminal-count">0 EVENTS</span>
         </div>
-        <div id="terminal-feed" class="terminal-feed" role="log" aria-label="로컬 서버 및 현재 화면의 실행 기록" aria-live="off" aria-relevant="additions text">
-          <p class="terminal-placeholder">기록을 연결하고 있습니다…</p>
+        <div id="terminal-feed" class="terminal-feed" role="log" aria-label="실제 로컬 작업 이벤트" aria-live="off" aria-relevant="additions text">
+          <p class="terminal-placeholder">› _</p>
         </div>
         <div class="terminal-footer">
           <div class="terminal-statusline">
-            <span id="terminal-connection">LOCAL / CHECKING</span>
-            <span id="mic-status">MIC OFF</span>
+            <span id="terminal-connection">LOCAL / CHECKING</span><span id="mic-status">MIC OFF</span>
           </div>
           <div class="terminal-bottom">
-            <small>로컬 최근 기록 + 현재 화면 이벤트 · 원문 음성/화면 미저장</small>
+            <small>로컬 작업 기록 · 화면 표시만 비울 수 있습니다.</small>
             <button type="button" id="terminal-clear">화면 지우기</button>
           </div>
         </div>
@@ -204,7 +168,7 @@
       <form id="command-form" class="command-form" autocomplete="off">
         <label for="command-input" class="sr-only">자비스에게 말하기</label>
         <span class="prompt-symbol" aria-hidden="true">⌁</span>
-        <input id="command-input" type="text" maxlength="2000" placeholder="자비스에게 말하기… 예: 대시보드 띄워"/>
+        <input id="command-input" type="text" maxlength="2000" placeholder="말하거나 입력하세요…"/>
         <button type="submit" title="명령 보내기" class="send-btn">↗</button>
         <button type="button" id="voice-toggle" class="voice-btn" aria-pressed="false" title="마이크 켜기">◉</button>
       </form>
