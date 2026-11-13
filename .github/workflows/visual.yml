@@ -1,0 +1,73 @@
+name: JARVIS Visual QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web/**"
+      - "jarvis/**"
+      - "app.py"
+      - "scripts/visual_smoke.py"
+      - ".github/workflows/visual.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "web/**"
+      - "jarvis/**"
+      - "app.py"
+      - "scripts/visual_smoke.py"
+      - ".github/workflows/visual.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: visual-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  chromium-visual-qa:
+    name: Desktop + mobile real-browser screenshots
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install real Chromium and Playwright
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install playwright==1.57.0
+          python -m playwright install --with-deps chromium
+      - name: Run UI interaction smoke and capture states
+        env:
+          JARVIS_VISUAL_OUTPUT: artifacts/visual
+        run: |
+          export JARVIS_NO_BROWSER=1
+          export JARVIS_DB="$RUNNER_TEMP/jarvis-visual-ci.sqlite3"
+          python app.py > "$RUNNER_TEMP/jarvis-server.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          python - <<'PY'
+          import time, urllib.request
+          for retry in range(40):
+              try:
+                  with urllib.request.urlopen("http://127.0.0.1:8765/api/status",timeout=2) as response:
+                      assert response.status == 200
+                  break
+              except Exception:
+                  time.sleep(.25)
+          else:
+              raise RuntimeError("local server did not start")
+          PY
+          python scripts/visual_smoke.py
+      - name: Upload screenshots and interaction report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jarvis-real-chromium-screenshots
+          path: artifacts/visual/
+          if-no-files-found: warn
+          retention-days: 14
