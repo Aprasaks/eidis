@@ -16,19 +16,6 @@ struct EidisMacApp: App {
 }
 
 @MainActor
-final class NativeVoice: ObservableObject {
-    private let speaker = AVSpeechSynthesizer()
-
-    func answer() {
-        speaker.stopSpeaking(at: .immediate)
-        let speech = AVSpeechUtterance(string: "네, 듣고 있습니다.")
-        speech.voice = AVSpeechSynthesisVoice(language: "ko-KR")
-        speech.rate = 0.48
-        speaker.speak(speech)
-    }
-}
-
-@MainActor
 final class ScreenObserver: ObservableObject {
     @Published private(set) var preview: NSImage?
     @Published private(set) var status = "화면 캡처가 꺼져 있습니다."
@@ -77,7 +64,7 @@ final class ScreenObserver: ObservableObject {
 }
 
 struct JarvisWindow: View {
-    @StateObject private var voice = NativeVoice()
+    @StateObject private var voice = JarvisVoiceService()
     @StateObject private var vision = ScreenObserver()
     @StateObject private var bridge = JarvisBridge()
     @State private var reloadID = UUID()
@@ -102,7 +89,7 @@ struct JarvisWindow: View {
                         Text("로컬 자비스 작업 공간")
                             .font(.headline)
                         Spacer()
-                        Button("네, 듣고 있습니다.") { voice.answer() }
+                        Button("목소리 미리 듣기") { voice.preview() }
                             .help("Mac 자체 한국어 음성 합성 테스트")
                         Button("새로고침") { reloadID = UUID() }
                     }
@@ -117,7 +104,7 @@ struct JarvisWindow: View {
                 .padding(18)
                 .tabItem { Label("자비스", systemImage: "sparkles") }
 
-                NativeSpeechPanel(bridge: bridge)
+                NativeSpeechPanel(bridge: bridge, voice: voice)
                     .tabItem { Label("음성", systemImage: "mic") }
 
                 VStack(alignment: .leading, spacing: 16) {
