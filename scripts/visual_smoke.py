@@ -85,7 +85,7 @@ def check_browser(page, size_name: str, viewport: dict) -> None:
         }""")
         assert dashboard_fold, "Dashboard quick actions should be visible above command dock"
 
-    page.get_by_role("button", name="디자인").click()
+    page.locator("#show-variants").click()
     expect(page.locator("#variants-view")).to_be_visible()
     expect(page.locator(".variant")).to_have_count(4)
     screenshot(page, f"{size_name}_04_design_gallery")
@@ -106,21 +106,21 @@ def check_browser(page, size_name: str, viewport: dict) -> None:
     expect(page.locator("body")).to_have_class(__import__("re").compile(r".*theme-nebula.*"))
     expect(page.locator("#dashboard-view")).to_be_visible()
 
-    page.get_by_role("button", name="화면 다시 설계").click()
+    page.locator("#show-variants").click()
     page.get_by_role("button", name="Studio 시안 미리보기").click()
     page.get_by_role("button", name="선택한 디자인 적용").click()
     expect(page.locator("body")).to_have_class(__import__("re").compile(r".*theme-studio.*"))
     expect(page.locator("#dashboard-view")).to_be_visible()
     screenshot(page, f"{size_name}_06_studio_applied")
 
-    page.get_by_role("button", name="저장한 기억").click()
+    page.locator("#show-memory").click()
     expect(page.locator("#memories-view")).to_be_visible()
     screenshot(page, f"{size_name}_07_memories")
     page.get_by_role("button", name="작업 공간으로").click()
 
     # Vision controls must be present, but no request may be issued without
     # a separate consent and a user-chosen live screen.
-    page.get_by_role("button", name="화면 미리보기").click()
+    page.locator("#open-screen").click()
     expect(page.locator("#screen-view")).to_be_visible()
     requests = []
     page.on("request", lambda req: requests.append(req.url) if "/api/vision/analyze" in req.url else None)
@@ -138,7 +138,7 @@ def check_browser(page, size_name: str, viewport: dict) -> None:
     page.get_by_role("button", name="이전 화면으로").click()
 
     # A user-authored request should create four NEW palettes, not just select a preset.
-    page.get_by_role("button", name="화면 다시 설계").click()
+    page.locator("#show-variants").click()
     page.locator("#design-request summary").click()
     page.locator("#design-prompt").fill("더 어둡고 간결하게, 여백을 넓혀")
     page.get_by_role("button", name="새 시안 4개 만들기").click()
