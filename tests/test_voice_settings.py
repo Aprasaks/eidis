@@ -36,7 +36,7 @@ class VoiceSettingsContract(unittest.TestCase):
 
     def test_ui_has_preview_and_controls(self):
         for text in (
-            'GroupBox("자비스 목소리")', 'Picker("목소리", selection: $voice.voiceID)',
+            'GroupBox("Mac 기본 목소리 · ElevenLabs와 별개")', 'Picker("목소리", selection: $voice.voiceID)',
             'Button("Mac 음성 미리 듣기")', 'Button("초기화")',
             'Slider(value: $voice.speed', 'Slider(value: $voice.pitch'
         ):
