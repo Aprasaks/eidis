@@ -16,6 +16,8 @@ CAPABILITIES = {
     "iphone": "not_connected",
     "autonomous_tasks": "not_connected",
     "local_design_planner": "connected",
+    "project_state_ledger": "connected",
+    "github_public_manual_check": "permission_required",
     "ai_design_planner": "not_connected",
 }
 
