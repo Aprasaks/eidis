@@ -38,7 +38,8 @@ class JARVISUIContract(unittest.TestCase):
     def test_functional_hooks_remain(self):
         expected = {
             "particles", "ring-visual", "workspace", "workspace-title",
-            "state-label", "hero-title", "command-form",
+            "state-label", "hero-title", "assistant-reply", "assistant-reply-text",
+            "assistant-reply-dismiss", "brain-remote-consent", "brain-consent-wrap", "command-form",
             "command-input", "voice-toggle", "mic-status",
             "dashboard-view", "variants-view", "memories-view", "screen-view",
             "close-workspace", "show-variants", "show-memory", "open-screen",
