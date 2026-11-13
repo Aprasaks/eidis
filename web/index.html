@@ -23,6 +23,10 @@
         <div class="presence-content">
           <p id="state-label" class="sr-only" aria-live="polite">대기 중</p>
           <h1 id="hero-title">무엇을 도와드릴까요?</h1>
+          <div id="assistant-reply" class="assistant-reply" role="status" aria-live="polite" hidden>
+            <span id="assistant-reply-text"></span>
+            <button type="button" id="assistant-reply-dismiss" aria-label="답변 닫기">×</button>
+          </div>
           <div class="presence-actions">
             <button type="button" id="demo-wake" class="presence-action" title="자비스 호출" aria-label="자비스 호출">✧</button>
             <button type="button" id="demo-dashboard" class="presence-action presence-action-primary" title="작업 공간 열기" aria-label="작업 공간 열기">⌗</button>
@@ -165,6 +169,10 @@
       </div>
     </aside>
     <footer class="command-dock">
+      <label id="brain-consent-wrap" class="brain-consent" hidden>
+        <input type="checkbox" id="brain-remote-consent"/>
+        이번 질문과 관련 대화·기억을 외부 AI에 보내기 (별도 API 요금 가능)
+      </label>
       <form id="command-form" class="command-form" autocomplete="off">
         <label for="command-input" class="sr-only">자비스에게 말하기</label>
         <span class="prompt-symbol" aria-hidden="true">⌁</span>
