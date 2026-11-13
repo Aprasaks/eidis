@@ -156,12 +156,12 @@ final class LocalCommandClient: ObservableObject {
             request.httpMethod = "POST"
             request.timeoutInterval = 10
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            var payload: [String: Any] = [
+            var commandBody: [String: Any] = [
                 "text": phrase,
                 "remote_consent": false
             ]
-            if let conversationID { payload["conversation_id"] = conversationID }
-            request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+            if let conversationID { commandBody["conversation_id"] = conversationID }
+            request.httpBody = try JSONSerialization.data(withJSONObject: commandBody)
             let (payload, response) = try await URLSession.shared.data(for: request)
             guard let status = response as? HTTPURLResponse, status.statusCode == 200 else {
                 lastResponse = "로컬 명령 처리에 실패했습니다. 서버와 입력값을 확인해 주세요."
