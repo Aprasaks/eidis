@@ -30,8 +30,8 @@ class VoiceSettingsContract(unittest.TestCase):
         self.assertIn("private var voice", self.app)
         self.assertIn("JarvisVoiceService()", self.app)
         self.assertIn("voice.preview()", self.app)
-        self.assertIn("NativeSpeechPanel(bridge: bridge, voice: voice)", self.app)
-        self.assertIn("voice.speak(answer.spoken)", self.speech)
+        self.assertIn("NativeSpeechPanel(bridge: bridge, voice: voice, elevenLabs: elevenLabs)", self.app)
+        self.assertIn("await elevenLabs.speak(answer.spoken, fallback: voice)", self.speech)
         self.assertNotIn("let speaker = AVSpeechSynthesizer()", self.speech)
 
     def test_ui_has_preview_and_controls(self):

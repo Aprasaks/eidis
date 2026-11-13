@@ -61,6 +61,10 @@ final class JarvisVoiceService: ObservableObject {
         synthesizer.speak(utterance)
     }
 
+    func stop() {
+        synthesizer.stopSpeaking(at: .immediate)
+    }
+
     func preview() {
         speak("네, 듣고 있습니다. 요청하신 내용을 확인하겠습니다.")
     }
