@@ -11,6 +11,8 @@ struct JarvisCommandReply: Codable {
     let action: String
     let executed: Bool
     let design_prompt: String?
+    let conversation_id: String?
+    let brain_source: String?
 }
 
 struct JarvisVisualEvent: Identifiable {
@@ -139,6 +141,7 @@ final class LocalCommandClient: ObservableObject {
     @Published private(set) var busy = false
     @Published private(set) var lastResponse = "아직 실행한 명령이 없습니다."
     private let speaker = AVSpeechSynthesizer()
+    private var conversationID: String?
 
     func submit(_ text: String, bridge: JarvisBridge) async {
         let phrase = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -148,18 +151,23 @@ final class LocalCommandClient: ObservableObject {
         defer { busy = false }
         lastResponse = "로컬 자비스에 명령을 전달하고 있습니다…"
         do {
-            let url = URL(string: "http://127.0.0.1:8765/api/command")!
+            let url = URL(string: "http://127.0.0.1:8765/api/chat")!
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.timeoutInterval = 10
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = try JSONSerialization.data(withJSONObject: ["text": phrase])
+            request.httpBody = try JSONSerialization.data(withJSONObject: [
+                "text": phrase,
+                "conversation_id": conversationID ?? NSNull(),
+                "remote_consent": false
+            ] as [String : Any])
             let (payload, response) = try await URLSession.shared.data(for: request)
             guard let status = response as? HTTPURLResponse, status.statusCode == 200 else {
                 lastResponse = "로컬 명령 처리에 실패했습니다. 서버와 입력값을 확인해 주세요."
                 return
             }
             let answer = try JSONDecoder().decode(JarvisCommandReply.self, from: payload)
+            conversationID = answer.conversation_id
             bridge.event = JarvisVisualEvent(reply: answer)
             lastResponse = answer.text
             speaker.stopSpeaking(at: .immediate)
