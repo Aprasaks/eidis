@@ -65,6 +65,24 @@ def check_browser(page, size_name: str, viewport: dict) -> None:
     expect(page.locator("#variants-view")).to_be_visible()
     expect(page.locator(".variant")).to_have_count(4)
     screenshot(page, f"{size_name}_04_design_gallery")
+    if size_name == "desktop":
+        # The reason for this redesign: all four studies and the apply action
+        # must be visible together, without requiring an initial scroll.
+        first_fold = page.evaluate("""() => {
+          const action = document.querySelector('#apply-design').getBoundingClientRect();
+          const dock = document.querySelector('.command-dock').getBoundingClientRect();
+          const previews = [...document.querySelectorAll('.variant')].map(
+            el => el.getBoundingClientRect()
+          );
+          return {
+            buttonVisible: action.bottom > 0 && action.bottom < dock.top - 6,
+            studiesVisible: previews.every(rect => rect.bottom < dock.top - 6),
+            columns: new Set(previews.map(rect => Math.round(rect.left))).size
+          };
+        }""")
+        assert first_fold["buttonVisible"], f"Apply action is hidden below the desktop fold: {first_fold}"
+        assert first_fold["studiesVisible"], f"Some design studies are hidden below the dock: {first_fold}"
+        assert first_fold["columns"] == 4, f"All four studies should sit side-by-side: {first_fold}"
 
     # Preview must change the theme but not modify persistent memory.
     page.get_by_role("button", name="Polar 시안 미리보기").click()
