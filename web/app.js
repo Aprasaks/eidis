@@ -112,14 +112,9 @@ function setMode(mode) {
   workspace.style.display = dashboard ? '' : 'none';
   root.classList.toggle('dashboard-open',dashboard);
   root.classList.toggle('design-mode', mode === 'variants');
-  $('#state-label').textContent = dashboard ? 'PRESENCE / ENGAGED' : 'AWAITING YOUR VOICE';
-  $('#hero-title').textContent = dashboard ? '항상 여기 있습니다.' : '부르면, 연결됩니다.';
+  $('#state-label').textContent = dashboard ? '작업 공간 열림' : '대기 중';
+  $('#hero-title').textContent = '무엇을 도와드릴까요?';
   $('#workspace-title').textContent = mode === 'variants' ? '디자인 연구실' : mode === 'memories' ? '저장한 기억' : mode === 'screen' ? '화면 미리보기' : '작업 공간';
-  // Keep the smaller index element when changing headings.
-  const index = document.createElement('span');
-  index.className = 'heading-index';
-  index.textContent = mode === 'variants' ? '02 — DESIGN' : '01 — OVERVIEW';
-  $('#workspace-title').appendChild(index);
   if (mode === 'dashboard') void refreshDashboardData();
   if (mode==='variants') showView('variants-view');
   else if (mode==='memories') {showView('memories-view');loadMemories();}
@@ -171,7 +166,6 @@ async function issue(text) {
 $('#command-form').addEventListener('submit',e=>{e.preventDefault();issue($('#command-input').value);});
 $('#close-workspace').addEventListener('click',()=>setMode('orb'));
 $('#show-variants').addEventListener('click',()=>setMode('variants'));
-$('#board-redesign').addEventListener('click',()=>setMode('variants'));
 $('#demo-wake').addEventListener('click',()=>issue('자비스?'));
 $('#demo-dashboard').addEventListener('click',()=>issue('자비스, 대시보드 띄워'));
 $('#show-memory').addEventListener('click',()=>setMode('memories'));
@@ -430,68 +424,21 @@ window.jarvisNativeResult = (reply) => {
 
 
 /* Live localhost-backed operational facts. Never show invented counters. */
-const capabilityLabels = Object.freeze({
-  text_commands: '로컬 명령',
-  memory: '개인 기억',
-  browser_voice: '브라우저 음성',
-  browser_screen_preview: '화면 공유 미리보기',
-  vision_understanding: 'AI 화면 이해',
-  llm_reasoning: 'AI 판단',
-  mac_control: 'Mac 자동 조작',
-  cloud: '클라우드',
-  iphone: 'iPhone 연결',
-  autonomous_tasks: '자율 업무'
-});
-const capabilityStates = Object.freeze({
-  connected: ['연결됨','good'],
-  browser_dependent: ['브라우저에 따라 다름','neutral'],
-  permission_required: ['권한 필요','neutral'],
-  not_connected: ['미연결','muted']
-});
-function fillDashboard(container, list, build) {
-  container.replaceChildren();
-  for (const item of list) container.appendChild(build(item));
-}
+/* The base screen has no visible connection/capability cards.
+   We only poll real local activity into the tiny terminal. */
 async function refreshDashboardData() {
   if (document.visibilityState !== 'visible') return;
-  const core = $('#core-status');
   try {
-    const [statusRes,activityRes] = await Promise.all([
-      fetch('/api/status', {cache:'no-store'}),
-      fetch('/api/activity', {cache:'no-store'})
+    const [statusRes, activityRes] = await Promise.all([
+      fetch('/api/status', {cache: 'no-store'}),
+      fetch('/api/activity', {cache: 'no-store'}),
     ]);
-    if (!statusRes.ok || !activityRes.ok) throw new Error('local API not ready');
-    const status = await statusRes.json();
-    const activity = await activityRes.json();
-    const caps = status.capabilities || {};
-    core.textContent = '연결됨';
-    $('#connection-label').textContent = 'LOCAL CONNECTED';
-    $('#online-dot').classList.remove('offline');
+    if (!statusRes.ok || !activityRes.ok) throw new Error('local service unavailable');
+    const events = await activityRes.json();
     window.JarvisTerminal?.setConnection('connected');
-    $('#memory-count').textContent = Number.isInteger(status.memory_count)
-      ? status.memory_count.toLocaleString('ko-KR') : '—';
-    window.JarvisTerminal?.syncActivity(activity.items);
-    const capEntries = Object.entries(capabilityLabels).map(([key,label]) => ({
-      label, state: Array.isArray(capabilityStates[caps[key]])
-        ? capabilityStates[caps[key]] : ['확인 필요','muted']
-    }));
-    fillDashboard($('#live-capabilities'), capEntries.slice(0,8), ({label,state}) => {
-      const line = document.createElement('div'); line.className = 'capability-line';
-      const a = document.createElement('span'); a.textContent = label;
-      const b = document.createElement('span'); b.textContent = state[0]; b.className = state[1];
-      line.append(a,b);
-      return line;
-    });
+    window.JarvisTerminal?.syncActivity(events.items);
   } catch {
-    core.textContent = '연결 불가';
-    $('#connection-label').textContent = 'LOCAL DISCONNECTED';
-    $('#online-dot').classList.add('offline');
-    $('#memory-count').textContent = '—';
     window.JarvisTerminal?.setConnection('disconnected');
-    const caps = $('#live-capabilities'); caps.replaceChildren();
-    const item = document.createElement('p');item.className='activity-empty';
-    item.textContent = '로컬 서버를 연결한 뒤 사용할 수 있습니다.';
-    caps.appendChild(item);
   }
 }
 setInterval(() => {

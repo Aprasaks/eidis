@@ -36,6 +36,12 @@ class JarvisEngine:
         if not clean:
             category, mode = "wake", "orb"
             response = "네, 듣고 있습니다."
+        elif any(x in clean for x in (
+            "대시보드 닫아", "대시보드 닫", "작업 공간 닫",
+            "작업공간 닫", "화면 접어", "대시보드 숨겨"
+        )):
+            category, mode = "close_workspace", "orb"
+            response = "작업 공간을 닫았습니다."
         elif any(x in clean for x in ("대시보드 띄워", "대시보드 열어", "대시보드 보여", "작업 공간 열어")):
             category, mode = "open_dashboard", "dashboard"
             response = "작업 공간을 열었습니다. 현재 정보는 로컬 프로토타입 상태입니다."

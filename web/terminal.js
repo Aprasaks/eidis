@@ -15,11 +15,12 @@
   const seenServerIDs = new Set();
   let filter = 'all';
   let connected = null;
-  let expanded = window.matchMedia('(min-width: 1100px)').matches;
+  let expanded = false;
 
   const names = Object.freeze({
     wake: '음성/텍스트 호출 인식',
     open_dashboard: '작업 공간 열기',
+    close_workspace: '작업 공간 닫기',
     design_options: '디자인 시안 열기',
     design_suggestions: '디자인 설정 생성',
     remember: '기억 저장 완료',
@@ -54,9 +55,9 @@
     if (!matching.length) {
       const empty = document.createElement('div');
       empty.className = 'terminal-empty';
-      empty.textContent = filter === 'error' ? '현재 표시할 오류가 없습니다.'
-        : filter === 'action' ? '아직 실행 기록이 없습니다.'
-        : '아직 표시할 기록이 없습니다. 자비스를 호출해 보세요.';
+      empty.textContent = filter === 'error' ? '오류 없음'
+        : filter === 'action' ? '실행 기록 없음'
+        : '› _';
       fragment.appendChild(empty);
     }
 
@@ -121,12 +122,14 @@
 
   function setExpanded(value) {
     expanded = Boolean(value);
-    document.body.classList.toggle('terminal-collapsed', !expanded);
-    panel.classList.toggle('collapsed', !expanded);
-    content.hidden = !expanded;
-    toggle.setAttribute('aria-expanded',String(expanded));
-    toggle.textContent = expanded ? '−' : '+';
-    toggle.title = expanded ? '통합 로그 접기' : '통합 로그 펼치기';
+    // Both modes show real logs; expanded mode reveals inspection tools.
+    document.body.classList.toggle('terminal-expanded', expanded);
+    panel.classList.toggle('expanded', expanded);
+    content.hidden = false;
+    toggle.setAttribute('aria-expanded', String(expanded));
+    toggle.textContent = expanded ? '↙' : '⤢';
+    toggle.title = expanded ? '작은 기록 창으로' : '작업 기록 크게 보기';
+    toggle.setAttribute('aria-label', toggle.title);
     if (expanded) requestAnimationFrame(() => { feed.scrollTop = feed.scrollHeight; });
   }
 
