@@ -1162,3 +1162,62 @@ body::before{opacity:.92}
   .assistant-reply{max-width:100%;max-height:210px;font-size:12px;padding:12px 13px}
   .brain-consent{font-size:9px}
 }
+
+
+/* On-demand project ledger: verified source evidence is distinct from manual task state. */
+.workspace-shortcuts{grid-template-columns:repeat(4,minmax(0,1fr))}
+.workspace-shortcut{padding:16px 12px;min-height:142px}
+.workspace-shortcut strong{font-size:15px}
+.workspace-shortcut small{font-size:10px}
+.projects-view{max-width:880px;margin:0 auto;padding:4px 0 32px}
+.projects-intro h3{font-weight:370;font-size:clamp(23px,2.4vw,34px);letter-spacing:-.055em;margin:0 0 9px}
+.projects-intro p{font-size:12px;color:#a2b2c5;line-height:1.7;margin:0 0 22px;max-width:660px}
+.new-project-details{border:1px solid rgba(156,188,226,.23);border-radius:9px;background:rgba(16,25,44,.37);margin-bottom:17px}
+.new-project-details summary{padding:14px 18px;cursor:pointer;color:#c8d9ec;font-size:12px;list-style:none}
+.new-project-details summary::-webkit-details-marker{display:none}
+#new-project-form{display:grid;grid-template-columns:1fr 1fr;gap:9px 14px;padding:15px 18px;border-top:1px solid rgba(154,184,216,.15)}
+#new-project-form label{font-size:11px;color:#9cb2c7;grid-column:1/-1}
+#new-project-form input{
+  grid-column:1/-1;width:100%;min-width:0;padding:10px 11px;
+  background:rgba(5,12,22,.67);border:1px solid rgba(158,198,233,.22);
+  color:#e7f1fb;border-radius:6px;font-size:12px
+}
+#new-project-form button{grid-column:2;justify-self:end;margin-top:6px}
+.projects-message{font-size:11px;color:#a8d4e8;min-height:20px;line-height:1.6;margin:2px 0 11px}
+.projects-message.error{color:#e9a7a7}
+.project-list{display:flex;flex-direction:column;gap:14px}
+.project-entry{border:1px solid rgba(144,182,221,.22);background:rgba(8,18,31,.49);border-radius:10px;padding:17px 19px}
+.project-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.project-head h4{font-weight:440;font-size:18px;color:#e2eefb;letter-spacing:-.03em;margin:0}
+.project-head small{font-size:9px;color:#7992a8;white-space:nowrap}
+.project-goal{color:#adbfd0;font-size:11px;line-height:1.7;margin:9px 0}
+.project-counts{font-size:10px;color:#abc6d9;margin:13px 0;letter-spacing:.03em}
+.project-tasks{display:flex;flex-direction:column;gap:4px}
+.project-task{display:flex;justify-content:space-between;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid rgba(164,195,222,.09)}
+.project-task-name{font-size:12px;color:#d0deec;overflow-wrap:anywhere;min-width:0}
+.project-task select{padding:7px 8px;border-radius:5px;border:1px solid rgba(157,191,230,.21);background:#0b1828;color:#d8e7f5;font-size:11px;flex-shrink:0}
+.project-task select:disabled{opacity:.5}
+.project-task-add{display:flex;gap:10px;align-items:center;margin:13px 0}
+.project-task-add input{flex:1;min-width:0;padding:10px 12px;border-radius:6px;border:1px solid rgba(156,189,224,.20);background:rgba(5,14,26,.61);color:#e0eefb;font-size:11px}
+.project-task-add button{font-size:10px;white-space:nowrap}
+.project-evidence{border-top:1px solid rgba(149,185,213,.13);padding-top:13px;margin-top:13px}
+.project-evidence p{font:10px/1.7 ui-monospace,SFMono-Regular,Menlo,"Apple SD Gothic Neo",monospace;color:#8da9bf;margin:2px 0}
+.project-evidence .project-checked{color:#a0d8c4}
+.project-evidence a{font-size:10px;color:#a8d7f2;text-decoration:underline;display:inline-block;margin:6px 0}
+.project-check-btn{border:1px solid rgba(144,193,229,.22);background:transparent;color:#b2cede;padding:8px 12px;border-radius:5px;font-size:10px;margin-top:8px}
+.project-check-btn:hover{background:rgba(111,167,210,.12)}
+.project-check-btn:disabled{opacity:.5}
+.projects-empty{color:#839fb4;font-size:12px;padding:19px 4px;line-height:1.8}
+@media(max-width:850px){
+ .workspace-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .workspace-shortcut{min-height:110px}
+}
+@media(max-width:610px){
+ .workspace-shortcuts{grid-template-columns:1fr}
+ .workspace-shortcut{min-height:84px}
+ .project-entry{padding:15px 12px}
+ .project-head{align-items:flex-start;flex-direction:column;gap:5px}
+ .project-head small{white-space:normal}
+ .project-task-add{flex-wrap:wrap}
+ .project-task-add button{margin-left:auto}
+}
