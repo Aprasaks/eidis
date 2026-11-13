@@ -5,7 +5,7 @@ const root = document.body;
 const canvas = $('#particles');
 const ctx = canvas.getContext('2d', { alpha:true });
 const workspace = $('#workspace');
-const views = ['dashboard-view','variants-view','memories-view','screen-view'];
+const views = ['dashboard-view','projects-view','variants-view','memories-view','screen-view'];
 let activeMode = 'orb';
 let currentTheme = 'nebula';
 let designOriginalTheme = 'nebula';
@@ -116,9 +116,10 @@ function setMode(mode) {
   root.classList.toggle('design-mode', mode === 'variants');
   $('#state-label').textContent = dashboard ? '작업 공간 열림' : '대기 중';
   $('#hero-title').textContent = '무엇을 도와드릴까요?';
-  $('#workspace-title').textContent = mode === 'variants' ? '디자인 연구실' : mode === 'memories' ? '저장한 기억' : mode === 'screen' ? '화면 미리보기' : '작업 공간';
+  $('#workspace-title').textContent = mode === 'variants' ? '디자인 연구실' : mode === 'projects' ? '프로젝트' : mode === 'memories' ? '저장한 기억' : mode === 'screen' ? '화면 미리보기' : '작업 공간';
   if (mode === 'dashboard') void refreshDashboardData();
   if (mode==='variants') showView('variants-view');
+  else if (mode==='projects') {showView('projects-view'); void loadProjects();}
   else if (mode==='memories') {showView('memories-view');loadMemories();}
   else if (mode==='screen') showView('screen-view');
   else showView('dashboard-view');
@@ -177,7 +178,7 @@ async function issue(text) {
     // Actual conversational answers are displayed as answers, not repeated in logs.
     // No raw conversation text is copied to the terminal.
     if (['chat_context','chat_local_status','chat_reply','chat_unavailable',
-         'memory_search','chat_reset'].includes(data.action)) {
+         'memory_search','chat_reset','project_overview'].includes(data.action)) {
       displayAssistantReply(data.text);
     } else {
       hideAssistantReply();
@@ -203,6 +204,8 @@ $('#show-variants').addEventListener('click',()=>setMode('variants'));
 $('#demo-wake').addEventListener('click',()=>issue('자비스?'));
 $('#demo-dashboard').addEventListener('click',()=>issue('자비스, 대시보드 띄워'));
 $('#show-memory').addEventListener('click',()=>setMode('memories'));
+$('#show-projects').addEventListener('click',()=>setMode('projects'));
+$('#back-from-projects').addEventListener('click',()=>setMode('dashboard'));
 $('#open-screen').addEventListener('click',()=>setMode('screen'));
 $('#back-from-memory').addEventListener('click',()=>setMode('dashboard'));
 $('#back-from-screen').addEventListener('click',()=>{stopScreen();setMode('dashboard');});
@@ -443,10 +446,10 @@ setMode('orb');
 // It does not execute arbitrary JavaScript or commands passed from a remote page.
 window.jarvisNativeResult = (reply) => {
   if (!reply || typeof reply !== 'object') return;
-  const validModes = new Set(['orb','dashboard','variants','memories','screen']);
+  const validModes = new Set(['orb','dashboard','projects','variants','memories','screen']);
   if (!validModes.has(reply.mode) || typeof reply.text !== 'string') return;
   if (['chat_context','chat_local_status','chat_reply','chat_unavailable',
-       'memory_search','chat_reset'].includes(reply.action)) {
+       'memory_search','chat_reset','project_overview'].includes(reply.action)) {
     displayAssistantReply(reply.text);
   } else {
     hideAssistantReply();
@@ -643,4 +646,156 @@ $('#design-provider').addEventListener('change', () => {
   $('#design-request-status').textContent = ai
     ? '실제 외부 모델 호출에는 설정된 API 키·유료 이용 요금·매 요청 동의가 필요합니다.'
     : '무료 로컬 방식입니다. AI 모델이 생성한 결과라고 표시하지 않습니다.';
+});
+
+
+/* Projects are explicitly user-managed local records. Read-only GitHub checks
+   require clicking a project-specific button; no implicit remote requests. */
+const projectStatusLabels = Object.freeze({
+  todo:'예정', doing:'진행', blocked:'막힘', done:'완료'
+});
+function pText(tag, text, cls='') {
+  const el=document.createElement(tag);
+  if (cls) el.className=cls;
+  el.textContent=String(text ?? '');
+  return el;
+}
+async function projectRequest(path, payload) {
+  const response=await fetch(path,{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload)
+  });
+  const data=await response.json();
+  if (!response.ok) throw new Error(data.error || '로컬 기록 요청 실패');
+  return data;
+}
+function projectMessage(message, isError=false) {
+  const el=$('#projects-message');
+  el.textContent=String(message);
+  el.classList.toggle('error',isError);
+}
+async function loadProjects() {
+  try {
+    const r=await fetch('/api/projects',{cache:'no-store'});
+    if (!r.ok) throw new Error('프로젝트 기록을 읽을 수 없습니다.');
+    const data=await r.json();
+    renderProjects(data.items || []);
+  } catch(error) {
+    projectMessage(error.message,true);
+  }
+}
+function renderProjects(projects) {
+  const target=$('#project-list');target.replaceChildren();
+  if (!projects.length) {
+    target.append(pText('p','아직 등록한 프로젝트가 없습니다. 직접 기록할 때부터 상태가 관리됩니다.','projects-empty'));
+    return;
+  }
+  for (const project of projects) {
+    const card=document.createElement('article');card.className='project-entry';
+    const head=document.createElement('div');head.className='project-head';
+    const title=pText('h4',project.name);
+    const provenance=pText('small','사용자 기록 · '+project.updated_at.slice(0,16));
+    head.append(title,provenance);card.append(head);
+    if (project.goal) card.append(pText('p',project.goal,'project-goal'));
+    const tasks=project.task_counts||{};
+    card.append(pText('p',
+      '예정 '+(tasks.todo||0)+' · 진행 '+(tasks.doing||0)+
+      ' · 막힘 '+(tasks.blocked||0)+' · 완료 '+(tasks.done||0),
+      'project-counts'));
+    const list=document.createElement('div');list.className='project-tasks';
+    for (const task of project.tasks||[]) {
+      const row=document.createElement('div');row.className='project-task';
+      row.append(pText('span',task.title,'project-task-name'));
+      const select=document.createElement('select');
+      select.setAttribute('aria-label',task.title+' 상태 변경');
+      for (const [key,label] of Object.entries(projectStatusLabels)) {
+        const opt=document.createElement('option');opt.value=key;opt.textContent=label;
+        select.append(opt);
+      }
+      select.value=task.status;
+      select.addEventListener('change',async()=>{
+        const previous=task.status;select.disabled=true;
+        try {
+          await projectRequest('/api/projects/status',{
+            project_id:project.id,task_id:task.id,status:select.value
+          });
+          projectMessage('작업 상태를 직접 기록했습니다. GitHub 검증과는 별개입니다.');
+          await loadProjects();
+        } catch(error) {
+          select.value=previous;projectMessage(error.message,true);
+        } finally {select.disabled=false;}
+      });
+      row.append(select);list.append(row);
+    }
+    card.append(list);
+    const add=document.createElement('form');add.className='project-task-add';
+    const name=document.createElement('input');name.required=true;name.maxLength=200;
+    name.placeholder='다음 작업 입력';name.setAttribute('aria-label',project.name+' 새 작업');
+    const submit=document.createElement('button');submit.type='submit';
+    submit.className='line-btn';submit.textContent='+ 작업';
+    add.append(name,submit);
+    add.addEventListener('submit',async event=>{
+      event.preventDefault();
+      if (!name.value.trim()) return;
+      submit.disabled=true;
+      try {
+        await projectRequest('/api/projects/task',{project_id:project.id,title:name.value.trim()});
+        projectMessage('새 작업을 예정 상태로 저장했습니다.');
+        await loadProjects();
+      } catch(error){projectMessage(error.message,true);}
+      finally {submit.disabled=false;}
+    });
+    card.append(add);
+    const evidence=document.createElement('div');evidence.className='project-evidence';
+    const last=project.last_check;
+    if (last) {
+      const shortHash=last.head_sha.slice(0,8);
+      evidence.append(pText('p','GitHub 직접 확인 · '+last.checked_at+' · '+
+        last.branch+' @ '+shortHash,'project-checked'));
+      evidence.append(pText('p','Workflow '+last.workflow_state+' / '+last.workflow_conclusion+
+        ' · 이 결과만으로 작업 완료를 판정하지 않습니다.','project-check-result'));
+      if (last.workflow_url && /^https:\/\/github\.com\//.test(last.workflow_url)) {
+        const link=document.createElement('a');
+        link.href=last.workflow_url;link.target='_blank';link.rel='noopener noreferrer';
+        link.textContent='확인한 Workflow 열기';evidence.append(link);
+      }
+    } else {
+      evidence.append(pText('p',project.repo_full_name
+        ? 'GitHub 아직 확인하지 않음'
+        : '연결된 외부 확인 기록 없음','project-unchecked'));
+    }
+    if (project.repo_full_name) {
+      const check=document.createElement('button');check.type='button';
+      check.textContent='GitHub 공개 저장소 직접 확인';check.className='project-check-btn';
+      check.addEventListener('click',async()=>{
+        check.disabled=true;
+        projectMessage('사용자가 요청한 GitHub 공개 API 확인 중…');
+        try {
+          await projectRequest('/api/projects/github/check',{project_id:project.id});
+          projectMessage('GitHub의 현재 커밋과 Workflow 결과를 구분하여 기록했습니다.');
+          await loadProjects();
+        } catch(error){projectMessage('GitHub 확인 실패: '+error.message,true);}
+        finally {check.disabled=false;}
+      });
+      evidence.append(check);
+    }
+    card.append(evidence);target.append(card);
+  }
+}
+$('#new-project-form').addEventListener('submit',async event=>{
+  event.preventDefault();
+  const form=event.currentTarget;
+  const button=form.querySelector('button[type=submit]');
+  button.disabled=true;
+  try {
+    const data=await projectRequest('/api/projects',{
+      name:$('#new-project-name').value.trim(),
+      goal:$('#new-project-goal').value.trim(),
+      repo:$('#new-project-repo').value.trim()
+    });
+    form.reset();$('#new-project-details').open=false;
+    projectMessage(data.project.name+' 프로젝트를 등록했습니다. 상태는 아직 사용자가 기록한 내용입니다.');
+    await loadProjects();
+  } catch(error){projectMessage(error.message,true);}
+  finally {button.disabled=false;}
 });

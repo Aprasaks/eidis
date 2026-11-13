@@ -74,7 +74,8 @@ class BrainTests(unittest.TestCase):
 
     def test_project_status_does_not_claim_live_github_access(self):
         answer = self.brain.handle("우리 프로젝트 상태 알려줘")
-        self.assertEqual(answer["action"], "chat_local_status")
+        self.assertEqual(answer["action"], "project_overview")
+        self.assertEqual(answer["mode"], "projects")
         self.assertIn("GitHub", answer["text"])
         self.assertIn("아직", answer["text"])
 
