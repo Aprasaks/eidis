@@ -62,7 +62,7 @@ class MemoryStore:
 
     def recent_activity(self, limit: int = 12) -> list[dict]:
         return [dict(row) for row in self.db.execute(
-            "SELECT category, result, created_at FROM activity ORDER BY id DESC LIMIT ?",
+            "SELECT id, category, result, created_at FROM activity ORDER BY id DESC LIMIT ?",
             (max(1, min(50, int(limit))),)
         )]
 

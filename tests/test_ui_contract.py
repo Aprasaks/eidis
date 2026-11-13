@@ -38,7 +38,7 @@ class JARVISUIContract(unittest.TestCase):
     def test_functional_hooks_remain(self):
         expected = {
             "particles", "ring-visual", "workspace", "workspace-title",
-            "state-label", "hero-title", "last-response", "command-form",
+            "state-label", "hero-title", "command-form",
             "command-input", "voice-toggle", "mic-status", "online-dot",
             "dashboard-view", "variants-view", "memories-view", "screen-view",
             "close-workspace", "show-variants", "show-memory", "open-screen",
@@ -47,8 +47,10 @@ class JARVISUIContract(unittest.TestCase):
             "vision-question", "vision-consent", "analyze-screen",
             "vision-status", "vision-result",
             "memories-list", "demo-wake", "demo-dashboard",
-            "live-capabilities", "activity-feed", "core-status",
-            "memory-count", "activity-count", "connection-label",
+            "live-capabilities", "system-terminal", "terminal-toggle", "terminal-content",
+            "terminal-feed", "terminal-clear", "terminal-count", "terminal-connection",
+            "core-status",
+            "memory-count", "connection-label",
             "board-redesign", "design-status", "apply-design", "cancel-design",
         }
         self.assertFalse(expected - set(self.doc.ids), "필수 UI 후크 누락")
@@ -63,10 +65,13 @@ class JARVISUIContract(unittest.TestCase):
 
     def test_local_assets_only(self):
         self.assertEqual(self.doc.stylesheets, ["/style.css"])
-        self.assertEqual(self.doc.scripts, ["/app.js"])
+        self.assertEqual(self.doc.scripts, ["/terminal.js", "/app.js"])
         self.assertIn("fetch('/api/status'", self.js)
         self.assertIn("fetch('/api/activity'", self.js)
         self.assertIn("textContent", self.js)
+        self.assertNotIn("activity-feed", self.html)
+        self.assertNotIn("last-response", self.html)
+        self.assertIn("data-terminal-filter", self.html)
 
     def test_responsive_and_low_motion(self):
         self.assertIn("@media(max-width:610px)", self.css)

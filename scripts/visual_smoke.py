@@ -46,6 +46,16 @@ def check_browser(page, size_name: str, viewport: dict) -> None:
     page.goto(URL, wait_until="networkidle")
     expect(page.locator("#hero-title")).to_have_text("부르면, 연결됩니다.")
     expect(page.locator("#workspace")).to_be_hidden()
+    if size_name == "desktop":
+        expect(page.locator("#system-terminal")).to_be_visible()
+        expect(page.locator("#terminal-content")).to_be_visible()
+    else:
+        expect(page.locator("#terminal-content")).to_be_hidden()
+        page.locator("#terminal-toggle").click()
+        expect(page.locator("#terminal-content")).to_be_visible()
+        screenshot(page, f"{size_name}_11_terminal_expanded")
+        page.locator("#terminal-toggle").click()
+        expect(page.locator("#terminal-content")).to_be_hidden()
     screenshot(page, f"{size_name}_01_idle")
 
     page.get_by_role("button", name="자비스 호출").click()
@@ -58,6 +68,10 @@ def check_browser(page, size_name: str, viewport: dict) -> None:
     expect(page.locator("#dashboard-view")).to_be_visible()
     expect(page.locator("#core-status")).to_have_text("연결됨")
     expect(page.locator("#memory-count")).not_to_have_text("—")
+    expect(page.locator("#terminal-connection")).to_have_text("LOCAL / CONNECTED")
+    if size_name == "desktop":
+        expect(page.locator("#terminal-feed")).to_contain_text("작업 공간")
+    assert page.locator("#activity-feed").count() == 0, "Scattered dashboard logs must be removed"
     page.wait_for_timeout(650)
     screenshot(page, f"{size_name}_03_dashboard")
     if size_name == "desktop":
@@ -158,6 +172,20 @@ def check_browser(page, size_name: str, viewport: dict) -> None:
     expect(page.locator("#design-request")).not_to_have_attribute("open", "")
     screenshot(page, f"{size_name}_09_voice_style_request")
     page.get_by_role("button", name="이전 화면으로").click()
+
+    # All operational history lives in the single console.
+    if size_name == "desktop":
+        page.locator('[data-terminal-filter="action"]').click()
+        expect(page.locator("#terminal-feed")).to_contain_text("작업 공간")
+        page.locator('[data-terminal-filter="error"]').click()
+        expect(page.locator("#terminal-feed")).to_contain_text("현재 표시할 오류가 없습니다.")
+        page.locator('[data-terminal-filter="all"]').click()
+        screenshot(page, f"{size_name}_11_unified_terminal")
+        page.locator("#terminal-clear").click()
+        expect(page.locator("#terminal-feed")).to_contain_text("아직 표시할 기록이 없습니다.")
+        # Clear means UI-only. The SQLite activity is not erased.
+        activity = page.evaluate("""async () => (await (await fetch('/api/activity')).json()).items""")
+        assert len(activity) > 0, "Terminal clear must never delete server activity"
 
     # Presence state should remain available.
     page.get_by_role("button", name="닫기").click()
