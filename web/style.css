@@ -627,3 +627,169 @@ body::before{
   .vision-actions{align-items:stretch;flex-direction:column}
   .vision-actions>button{width:100%}
 }
+
+
+/* JARVIS v1.0 — dedicated operational console.
+   A quiet work surface at left, genuine local/session records at right. */
+:root{
+  --console-width:clamp(310px,24vw,380px);
+  --console-edge:clamp(14px,1.5vw,28px);
+}
+.system-terminal{
+  position:fixed;z-index:20;top:92px;right:var(--console-edge);bottom:21px;
+  width:var(--console-width);display:flex;flex-direction:column;
+  background:linear-gradient(150deg,rgba(8,16,27,.98),rgba(3,8,15,.99));
+  border:1px solid rgba(155,197,227,.24);border-radius:10px;
+  box-shadow:0 15px 70px rgba(0,0,0,.40),inset 1px 0 0 rgba(196,232,255,.035);
+  overflow:hidden;color:#b8cbda;
+}
+.system-terminal::before{
+  content:"";pointer-events:none;position:absolute;inset:0;
+  background-image:linear-gradient(transparent 98%,rgba(165,207,244,.035) 100%);
+  background-size:100% 28px;opacity:.18;
+}
+.terminal-header{
+  flex-shrink:0;height:54px;padding:0 16px;display:flex;
+  align-items:center;justify-content:space-between;gap:14px;
+  border-bottom:1px solid rgba(155,193,224,.16);
+  background:rgba(24,42,60,.22);position:relative;z-index:1;
+}
+.terminal-identity{display:flex;align-items:center;gap:9px;min-width:0}
+.terminal-indicator{
+  width:7px;height:7px;border-radius:50%;background:#85cdbd;
+  box-shadow:0 0 13px rgba(116,209,190,.29);flex-shrink:0;
+}
+.terminal-heading{
+  color:#b9d5e6;font:560 11px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  letter-spacing:.13em;white-space:nowrap;
+}
+.terminal-heading strong{color:#e5f3fd;font-weight:650}
+.terminal-revision{
+  color:#62809a;font:10px ui-monospace,SFMono-Regular,Menlo,monospace;
+  margin-left:5px;white-space:nowrap;
+}
+.terminal-toggle{
+  width:27px;height:27px;border:1px solid rgba(172,209,233,.17);border-radius:5px;
+  background:rgba(189,216,237,.04);color:#c8e2f4;font-size:18px;
+  line-height:1;display:grid;place-items:center;flex-shrink:0;
+}
+.terminal-toggle:hover{background:rgba(182,218,243,.14)}
+.terminal-content{display:flex;flex-direction:column;flex:1;min-height:0;position:relative;z-index:1}
+.terminal-content[hidden]{display:none!important}
+.terminal-toolbar{
+  display:flex;align-items:center;justify-content:space-between;gap:9px;
+  height:45px;padding:0 15px;flex-shrink:0;
+  border-bottom:1px solid rgba(147,195,222,.09);
+}
+.terminal-filters{display:flex;align-items:center;gap:6px}
+.terminal-filter{
+  border:0;border-radius:3px;padding:6px 8px;
+  background:transparent;color:#728c9e;
+  font:10px/1.25 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  letter-spacing:.04em;
+}
+.terminal-filter.selected{color:#cce7f5;background:rgba(144,196,230,.12)}
+.terminal-filter:hover{color:#eef8ff}
+.terminal-count{font:9px ui-monospace,SFMono-Regular,Menlo,monospace;color:#638095;white-space:nowrap}
+.terminal-feed{
+  min-height:0;flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;
+  scrollbar-color:rgba(124,170,202,.25) transparent;
+  padding:10px 13px 22px;
+  font:11px/1.72 ui-monospace,SFMono-Regular,Menlo,Consolas,"Apple SD Gothic Neo",monospace;
+}
+.terminal-line{
+  display:grid;grid-template-columns:65px 39px minmax(0,1fr);
+  column-gap:5px;align-items:start;position:relative;
+  padding:8px 2px;border-bottom:1px solid rgba(134,175,201,.055);
+}
+.terminal-time{color:#526f83;white-space:nowrap;font-size:9.5px;padding-top:2px}
+.terminal-kind{font-size:9px;font-weight:650;letter-spacing:.045em;white-space:nowrap}
+.terminal-action .terminal-kind{color:#7bbfae}
+.terminal-info .terminal-kind{color:#82b4d0}
+.terminal-warning .terminal-kind{color:#e7be7e}
+.terminal-error .terminal-kind{color:#ff999b}
+.terminal-message{color:#a2b9c8;overflow-wrap:anywhere;word-break:keep-all}
+.terminal-error .terminal-message{color:#edb7b7}
+.terminal-warning .terminal-message{color:#dac69f}
+.terminal-empty,.terminal-placeholder{
+  font:11px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;
+  color:#648398;padding:15px 6px;
+}
+.terminal-footer{
+  flex-shrink:0;border-top:1px solid rgba(150,198,230,.15);
+  background:rgba(7,16,27,.91);padding:12px 15px 11px;
+}
+.terminal-statusline{display:flex;gap:12px;justify-content:space-between;align-items:center}
+.terminal-statusline span{
+  color:#83bea7;font:9px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;
+  letter-spacing:.05em;
+}
+.terminal-statusline #mic-status{color:#7692ab}
+.terminal-statusline .offline{color:#d5a0a0}
+.terminal-bottom{display:flex;align-items:end;justify-content:space-between;gap:9px;margin-top:12px}
+.terminal-bottom small{font:8px/1.6 "Apple SD Gothic Neo",sans-serif;color:#657e90;max-width:215px}
+#terminal-clear{
+  border:0;border-bottom:1px solid rgba(176,204,227,.23);background:transparent;
+  color:#92a9b9;font-size:10px;padding:3px 1px;white-space:nowrap;
+}
+#terminal-clear:hover{color:white}
+.workbench-panel p{font-size:11px;line-height:1.85;color:#839aaa;max-width:350px;margin:0 0 16px}
+.workbench-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:17px}
+.telemetry-bar{grid-template-columns:repeat(2,minmax(0,1fr))}
+.workbench-panel h4{font-size:15px;font-weight:530;letter-spacing:-.03em;margin:10px 0 14px}
+.command-dock{padding-top:10px}
+#terminal-toggle:focus-visible,.terminal-filter:focus-visible,#terminal-clear:focus-visible{
+  outline:2px solid #a9d7ef;outline-offset:2px;
+}
+@media(min-width:1100px){
+  body:not(.terminal-collapsed) .app-shell{
+    max-width:none;
+    padding-left:clamp(24px,3.6vw,64px);
+    padding-right:calc(var(--console-width) + var(--console-edge) + 23px);
+  }
+  body:not(.terminal-collapsed) .workspace{width:71%;padding-left:9px}
+  body:not(.terminal-collapsed) .dashboard-open .presence{width:24%}
+  body:not(.terminal-collapsed) .dashboard-open .workspace{width:72%}
+  body:not(.terminal-collapsed) .design-mode.dashboard-open .presence{
+    width:9%;min-width:90px;
+  }
+  body:not(.terminal-collapsed) .design-mode.dashboard-open .workspace{
+    width:88%;max-height:calc(100vh - 205px);
+  }
+  body:not(.terminal-collapsed) .design-mode .study-info strong{font-size:13px}
+  body:not(.terminal-collapsed) .design-mode .study-info small{font-size:9px}
+  body:not(.terminal-collapsed) .design-mode .variant-list{gap:9px}
+  body:not(.terminal-collapsed) .design-mode .study-shot{height:135px}
+  body:not(.terminal-collapsed) .design-mode .design-footer{margin-top:12px;padding-top:10px}
+  body:not(.terminal-collapsed) .design-mode .design-intro h3{font-size:28px;margin:7px 0 5px}
+  body:not(.terminal-collapsed) .design-mode .design-intro{margin-bottom:11px}
+  body:not(.terminal-collapsed) .design-mode .design-intro p{max-width:450px}
+  body.terminal-collapsed .system-terminal{
+    width:210px;height:46px;top:92px;bottom:auto;
+    border-radius:6px;
+  }
+  body.terminal-collapsed .terminal-header{height:46px}
+  body.terminal-collapsed .terminal-revision{display:none}
+}
+@media(max-width:1099px){
+  body{overflow:auto}
+  .app-shell{padding:0 20px 64px!important;min-height:100dvh;height:auto;max-width:none}
+  .system-terminal{
+    position:fixed;top:auto;left:14px;right:14px;bottom:12px;
+    width:auto;height:min(69dvh,580px);border-radius:10px;
+  }
+  .system-terminal.collapsed{height:48px;bottom:10px}
+  .system-terminal.collapsed .terminal-header{height:48px}
+  .terminal-feed{padding-bottom:15px}
+  .terminal-line{grid-template-columns:68px 43px minmax(0,1fr)}
+  .workspace{max-height:none}
+  .command-dock{padding-bottom:16px}
+}
+@media(max-width:610px){
+  .app-shell{padding-left:18px!important;padding-right:18px!important}
+  .system-terminal{left:10px;right:10px}
+  .terminal-header{padding:0 12px}
+  .terminal-feed{font-size:10px}
+  .workbench-actions{flex-direction:column;align-items:stretch}
+  .workbench-actions .line-btn{width:100%}
+}
