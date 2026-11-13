@@ -126,7 +126,11 @@ function setMode(mode) {
   else if (mode==='screen') showView('screen-view');
   else showView('dashboard-view');
 }
-function showMessage(txt) {$('#last-response').textContent = txt;}
+function showMessage(txt, level = 'info') {
+  const kind = level === 'info' && /^(오류|실패|연결 실패|화면 분석 불가|시안 생성 실패)/.test(String(txt))
+    ? 'error' : level;
+  window.JarvisTerminal?.push(txt, kind);
+}
 function speak(txt) {
   if (!('speechSynthesis' in window)) return;
   window.speechSynthesis.cancel();
@@ -146,12 +150,15 @@ function speak(txt) {
 async function issue(text) {
   text=text.trim();if(!text)return;
   $('#command-input').value='';
-  showMessage('처리 중…');
   try {
     const r=await fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
     const data=await r.json();
     if (!r.ok) throw new Error(data.error || '요청에 실패했습니다.');
-    showMessage(data.text);
+    // Do not put user-provided memory text into terminal history.
+    showMessage(data.action === 'recall'
+      ? '기억 조회 완료 · 내용은 기억 화면에서만 확인할 수 있습니다.'
+      : data.text, data.action === 'unsupported' ? 'warning' : 'info');
+    void refreshDashboardData();
     if (data.action === 'wake') summon();
     setMode(data.mode);
     speak(data.spoken);
@@ -248,7 +255,7 @@ async function shareScreen() {
     const v=$('#screen-video');v.srcObject=activeStream;
     $('#screen-overlay').style.display='none';
     for(const track of activeStream.getVideoTracks()) track.addEventListener('ended',()=>stopScreen());
-    showMessage('선택한 화면의 로컬 미리보기를 표시합니다. 서버로 전송하지 않습니다.');
+    showMessage('화면 미리보기 시작 · 공유한 화면은 로컬에만 표시합니다.', 'action');
   }catch(err){showMessage(err.name==='NotAllowedError'?'화면 공유가 취소되었거나 허용되지 않았습니다.':`화면 공유 오류: ${err.message}`);}
 }
 function stopScreen() {
@@ -324,9 +331,11 @@ async function analyzeSharedScreenOnce() {
     if (capturedGeneration !== visionGeneration) return;
     output.textContent = answer.text || '분석 결과를 표시할 수 없습니다.';
     status.textContent = 'AI 분석 완료 · 화면 한 장만 전달 · 앱 조작 없음';
+    showMessage('승인한 화면 한 장의 AI 분석 완료 · 앱 조작 없음', 'action');
   } catch (err) {
     if (capturedGeneration === visionGeneration) {
       status.textContent = '화면 분석 불가: ' + err.message;
+      showMessage('화면 분석 불가: ' + err.message, 'error');
       output.textContent = '실제 AI 분석이 완료되지 않았습니다.';
     }
   } finally {
@@ -343,7 +352,7 @@ function micButtonState() {
   $('#voice-toggle').classList.toggle('active',wantMic);
   $('#voice-toggle').setAttribute('aria-pressed',String(wantMic));
   $('#voice-toggle').title=wantMic?'마이크 끄기':'마이크 켜기';
-  $('#mic-status').textContent=wantMic?'MIC ON · 브라우저 음성 인식 작동 중':'MIC OFF · 브라우저 음성 기능은 환경에 따라 다릅니다.';
+  $('#mic-status').textContent=wantMic?'MIC / ACTIVE':'MIC / OFF';
   root.classList.toggle('state-listening',wantMic);
 }
 function restartMic(delay=650) {
@@ -407,7 +416,7 @@ window.jarvisNativeResult = (reply) => {
   if (!reply || typeof reply !== 'object') return;
   const validModes = new Set(['orb','dashboard','variants','memories','screen']);
   if (!validModes.has(reply.mode) || typeof reply.text !== 'string') return;
-  showMessage(reply.text);
+  showMessage(reply.action === 'recall' ? '기억 조회 완료 · 내용은 기억 화면에서만 확인합니다.' : reply.text);
   if (reply.action === 'wake') summon();
   setMode(reply.mode);
   if (reply.action === 'design_options' && typeof reply.design_prompt === 'string') {
@@ -435,12 +444,6 @@ const capabilityStates = Object.freeze({
   permission_required: ['권한 필요','neutral'],
   not_connected: ['미연결','muted']
 });
-const eventLabels = Object.freeze({
-  wake: '호출 인식', open_dashboard: '작업 공간 열기',
-  design_options: '디자인 시안 요청', remember: '기억 저장',
-  recall: '기억 조회', screen: '화면 요청',
-  status: '상태 확인', unsupported: '미지원 명령'
-});
 function fillDashboard(container, list, build) {
   container.replaceChildren();
   for (const item of list) container.appendChild(build(item));
@@ -460,12 +463,13 @@ async function refreshDashboardData() {
     core.textContent = '연결됨';
     $('#connection-label').textContent = 'LOCAL CONNECTED';
     $('#online-dot').classList.remove('offline');
+    window.JarvisTerminal?.setConnection('connected');
     $('#memory-count').textContent = Number.isInteger(status.memory_count)
       ? status.memory_count.toLocaleString('ko-KR') : '—';
-    const items = Array.isArray(activity.items) ? activity.items : [];
-    $('#activity-count').textContent = String(items.length);
+    window.JarvisTerminal?.syncActivity(activity.items);
     const capEntries = Object.entries(capabilityLabels).map(([key,label]) => ({
-      label, state: Array.isArray(capabilityStates[caps[key]]) ? capabilityStates[caps[key]] : ['확인 필요','muted']
+      label, state: Array.isArray(capabilityStates[caps[key]])
+        ? capabilityStates[caps[key]] : ['확인 필요','muted']
     }));
     fillDashboard($('#live-capabilities'), capEntries.slice(0,8), ({label,state}) => {
       const line = document.createElement('div'); line.className = 'capability-line';
@@ -474,43 +478,30 @@ async function refreshDashboardData() {
       line.append(a,b);
       return line;
     });
-    const feed = $('#activity-feed');
-    feed.replaceChildren();
-    if (!items.length) {
-      const p = document.createElement('p');
-      p.className = 'activity-empty';
-      p.textContent = '아직 로컬 명령 기록이 없습니다. 이곳에는 실제 실행 이력만 표시됩니다.';
-      feed.appendChild(p);
-    } else {
-      for (const item of items.slice(0,5)) {
-        const line = document.createElement('div');line.className='activity-row';
-        const a = document.createElement('strong');
-        a.textContent = Object.hasOwn(eventLabels,item.category) ? eventLabels[item.category] : '기타 기록';
-        const b = document.createElement('small');
-        const parsed = Date.parse(item.created_at);
-        b.textContent = Number.isFinite(parsed) ? new Date(parsed).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}) : '시간 미확인';
-        line.append(a,b);feed.appendChild(line);
-      }
-    }
   } catch {
     core.textContent = '연결 불가';
     $('#connection-label').textContent = 'LOCAL DISCONNECTED';
     $('#online-dot').classList.add('offline');
     $('#memory-count').textContent = '—';
-    $('#activity-count').textContent = '—';
+    window.JarvisTerminal?.setConnection('disconnected');
     const caps = $('#live-capabilities'); caps.replaceChildren();
     const item = document.createElement('p');item.className='activity-empty';
-    item.textContent = '로컬 서버에 연결되지 않았습니다. 실제 상태를 표시할 수 없습니다.';
+    item.textContent = '로컬 서버를 연결한 뒤 사용할 수 있습니다.';
     caps.appendChild(item);
-    const feed = $('#activity-feed');feed.replaceChildren();
-    const msg = item.cloneNode(true);feed.appendChild(msg);
   }
 }
 setInterval(() => {
-  if (activeMode === 'dashboard' && document.visibilityState === 'visible') {
-    void refreshDashboardData();
-  }
-}, 25000);
+  if (document.visibilityState === 'visible') void refreshDashboardData();
+}, 15000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') void refreshDashboardData();
+});
+window.addEventListener('error', (event) => {
+  window.JarvisTerminal?.push('브라우저 스크립트 오류: ' + (event.message || '알 수 없음'), 'error');
+});
+window.addEventListener('unhandledrejection', () => {
+  window.JarvisTerminal?.push('브라우저에서 처리되지 않은 비동기 오류가 발생했습니다.', 'error');
+});
 void refreshDashboardData();
 
 
