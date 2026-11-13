@@ -194,13 +194,40 @@ class JarvisBrain:
                 "직접 저장한 기억 중 '" + query[:70] + "'와 일치하는 내용이 없습니다."
             )
             reply = self._reply(answer, "memory_search", sid)
-        elif any(key in clean for key in ("프로젝트 상태", "프로젝트 진행", "우리 프로젝트", "현재 작업 상태")):
-            reply = self._reply(
-                f"로컬에서 직접 저장한 기억은 {self.store.count_memories()}개입니다. "
-                "GitHub·Mac·AWS의 실시간 프로젝트 상태는 아직 이 독립 자비스에 연결되지 않았습니다. "
-                "확인되지 않은 진행 상황을 완료라고 말하지 않겠습니다.",
-                "chat_local_status", sid
-            )
+        elif any(key in clean for key in (
+            "프로젝트 상태", "프로젝트 진행", "우리 프로젝트", "현재 작업 상태",
+            "프로젝트 목록", "프로젝트 현황", "프로젝트 보여",
+        )):
+            projects = self.store.list_projects(limit=8)
+            if not projects:
+                answer = (
+                    "아직 등록한 프로젝트가 없습니다. 작업 공간의 프로젝트에서 직접 추가할 수 있습니다. "
+                    "GitHub·Mac·AWS의 실시간 상태는 자동으로 확인하지 않습니다."
+                )
+            else:
+                details = []
+                for project in projects:
+                    counts = project["task_counts"]
+                    description = (
+                        f'{project["name"]}: 직접 기록한 작업 '
+                        f'진행 {counts["doing"]}, 막힘 {counts["blocked"]}, '
+                        f'완료 {counts["done"]}, 예정 {counts["todo"]}'
+                    )
+                    checked = project["last_check"]
+                    if checked:
+                        description += (
+                            f'; GitHub 공개 API 확인 {checked["checked_at"]}, '
+                            f'기본 브랜치 {checked["branch"]}, 커밋 {checked["head_sha"][:8]}; '
+                            f'Workflow {checked["workflow_state"]}/{checked["workflow_conclusion"]}'
+                        )
+                    elif project["repo_full_name"]:
+                        description += "; GitHub 아직 직접 확인하지 않음"
+                    details.append(description)
+                answer = (
+                    "로컬 프로젝트 기록입니다. 작업 상태는 사용자가 입력한 내용이며 "
+                    "GitHub 확인 기록과는 별개입니다. " + " / ".join(details)
+                )
+            reply = self._reply(answer, "project_overview", sid, mode="projects")
         else:
             command = self.engine.handle(phrase, log_unsupported=False)
             if command["action"] != "unsupported":
