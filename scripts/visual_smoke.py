@@ -122,6 +122,26 @@ def check_browser(page, size_name: str, viewport: dict) -> None:
     expect(page.locator("#variants-view")).to_be_visible()
     page.get_by_role("button", name="이전 화면으로").click()
 
+    # A user-authored request should create four NEW palettes, not just select a preset.
+    page.get_by_role("button", name="화면 다시 설계").click()
+    page.locator("#design-request summary").click()
+    page.locator("#design-prompt").fill("더 어둡고 간결하게, 여백을 넓혀")
+    page.get_by_role("button", name="새 시안 4개 만들기").click()
+    expect(page.locator("#generated-variant-list .generated-variant")).to_have_count(4)
+    expect(page.locator("#design-origin")).to_contain_text("LOCAL RULES")
+    page.locator("#generated-variant-list .generated-variant").first.click()
+    expect(page.locator("body")).to_have_class(__import__("re").compile(r".*theme-generated.*"))
+    screenshot(page, f"{size_name}_08_generated_preview")
+    page.get_by_role("button", name="이전 화면으로").click()
+    expect(page.locator("body")).to_have_class(__import__("re").compile(r".*theme-studio.*"))
+
+    # Natural-language command should trigger local token generation automatically.
+    page.locator("#command-input").fill("자비스 대시보드 더 어둡고 간결하게 바꿔")
+    page.locator("#command-form button[type=submit]").click()
+    expect(page.locator("#generated-variant-list .generated-variant")).to_have_count(4)
+    screenshot(page, f"{size_name}_09_voice_style_request")
+    page.get_by_role("button", name="이전 화면으로").click()
+
     # Presence state should remain available.
     page.get_by_role("button", name="닫기").click()
     expect(page.locator("#workspace")).to_be_hidden()
