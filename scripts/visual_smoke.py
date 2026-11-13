@@ -43,7 +43,10 @@ def screenshot(page, label: str) -> None:
 
 def check_browser(page, size_name: str, viewport: dict) -> None:
     page.set_viewport_size(viewport)
-    page.goto(URL, wait_until="networkidle")
+    # Timed background status polling means network-idle is not a reliable
+    # readiness signal. Wait for DOM + explicit interactive elements instead.
+    page.goto(URL, wait_until="domcontentloaded")
+    expect(page.locator("#command-form")).to_be_visible()
     expect(page.locator("#hero-title")).to_have_text("무엇을 도와드릴까요?")
     expect(page.locator("#workspace")).to_be_hidden()
     expect(page.locator("#system-terminal")).to_be_visible()
