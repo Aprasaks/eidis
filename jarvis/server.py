@@ -72,9 +72,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
                            "port": self.server.server_port},
                 "database": {"status": "ok" if db_result == "ok" else "check_failed",
                              "read_checked": True, "write_checked": False},
-                "projects": {"record_count": len(self.store.list_projects(40)),
-                             "exact_count": self.store.db.execute(
-                                 "SELECT COUNT(*) FROM projects").fetchone()[0]},
+                "projects": {"exact_count": self.store.db.execute(
+                    "SELECT COUNT(*) FROM projects").fetchone()[0]},
                 "tools": {"manifest": self.tools.manifest(),
                           "latest_run": self.store.recent_tool_executions(1)},
                 "not_verified": [
