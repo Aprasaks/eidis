@@ -34,6 +34,7 @@ final class ElevenLabsVoiceService: ObservableObject {
     @Published private(set) var status: String
     @Published private(set) var attempts = 0
     @Published private(set) var isBusy = false
+    @Published private(set) var isCheckingConnection = false
 
     var remaining: Int { max(0, Self.maxRequests - attempts) }
 
@@ -109,6 +110,65 @@ final class ElevenLabsVoiceService: ObservableObject {
             status = "Mac 키체인에서 ElevenLabs API 키를 지웠습니다."
         } else {
             status = "키체인에서 삭제하지 못했습니다. 키체인 접근을 확인하세요."
+        }
+    }
+
+    /// Explicit read-only metadata check. No speech generation, no audio, no TTS credits.
+    func checkVoiceConnection() async {
+        guard !isBusy && !isCheckingConnection else { return }
+        let id = voiceID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard id.range(of: "^[A-Za-z0-9]{20}$", options: .regularExpression) != nil else {
+            status = "Voice ID 형식 오류: 영문·숫자 20자리인지 확인해 주세요."
+            return
+        }
+        guard let key = Self.readKey() else {
+            keyPresent = false
+            enabled = false
+            status = "키체인에서 API 키를 읽을 수 없습니다. 앱에서 키를 다시 저장해 주세요."
+            return
+        }
+        guard let url = URL(string: "https://api.elevenlabs.io/v1/voices/\\(id)") else {
+            status = "Voice ID 주소가 올바르지 않습니다."
+            return
+        }
+        isCheckingConnection = true
+        defer { isCheckingConnection = false }
+        status = "ElevenLabs 음성 접근 확인 중… (음성 생성 없음)"
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 10
+        request.setValue(key, forHTTPHeaderField: "xi-api-key")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        do {
+            let (payload, response) = try await session.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                status = "ElevenLabs 응답 형식을 확인하지 못했습니다."
+                return
+            }
+            switch http.statusCode {
+            case 200:
+                let details = (try? JSONSerialization.jsonObject(with: payload)) as? [String: Any]
+                let confirmedID = details?["voice_id"] as? String
+                guard confirmedID == id else {
+                    status = "응답의 Voice ID가 일치하지 않습니다. 설정을 확인해 주세요."
+                    return
+                }
+                let rawName = details?["name"] as? String ?? "이름 미표시"
+                let name = String(rawName.prefix(60))
+                status = "연결 확인 성공 · 음성 \\(name) · Voice ID 접근 가능. 실제 음성 재생은 유료 미리 듣기로 별도 확인해야 합니다."
+            case 401:
+                status = "인증 실패(401) · ElevenLabs API 키를 확인하고 다시 저장해 주세요."
+            case 403:
+                status = "접근 거부(403) · API 키 권한 또는 계정에서 이 음성을 사용할 수 있는지 확인해 주세요."
+            case 404:
+                status = "음성을 찾지 못함(404) · Voice ID와 계정의 음성 라이브러리를 확인해 주세요."
+            case 429:
+                status = "ElevenLabs 조회 요청 한도(429)에 도달했습니다."
+            default:
+                status = "ElevenLabs 연결 확인 실패 · HTTP \\(http.statusCode). 계정과 서비스 상태를 확인해 주세요."
+            }
+        } catch {
+            status = "ElevenLabs 네트워크 연결 확인 실패 · 인터넷 연결이나 서비스 상태를 확인해 주세요."
         }
     }
 
