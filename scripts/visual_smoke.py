@@ -110,6 +110,12 @@ def check_browser(page, size_name: str, viewport: dict) -> None:
     task_state.select_option("blocked")
     expect(project_card).to_contain_text("막힘 1")
     assert outbound_checks == [], "GitHub API must only run after an explicit verification click"
+    # Explicit request with no configured repo must fail safely, without any
+    # provider request, and display a useful explanation in the work surface.
+    page.locator("#command-input").fill(project_name + " GitHub 상태 확인해")
+    page.locator("#command-form button[type=submit]").click()
+    expect(page.locator("#projects-message")).to_contain_text("공개 GitHub 저장소가 설정되지")
+    assert outbound_checks == [], "No GitHub check is allowed without a configured repo"
     screenshot(page,f"{size_name}_14_projects_manual_state")
     page.locator("#back-from-projects").click()
     expect(page.locator("#dashboard-view")).to_be_visible()
