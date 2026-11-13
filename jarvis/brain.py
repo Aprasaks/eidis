@@ -241,6 +241,71 @@ class JarvisBrain:
         }
         return reply
 
+    @staticmethod
+    def _project_key(text: str) -> str:
+        # Ignore punctuation and spaces in a project name or repo slug.
+        return re.sub(r"[^0-9a-z가-힣]+", "", text.casefold())
+
+    def _named_project_status(self, utterance: str, sid: str) -> dict | None:
+        # Read saved project information only. Status questions must never
+        # start a network call, and a GitHub HEAD never proves a deployment.
+        compact = self._project_key(utterance)
+        if not any(word in compact for word in (
+            "어디까지", "진행", "상태", "현황", "남았", "남은",
+            "마지막", "최근", "어떻게됐", "할일", "해야할",
+        )):
+            return None
+        projects = self.store.list_projects(limit=40)
+        names = []
+        for project in projects:
+            aliases = [project["name"]]
+            if project["repo_full_name"]:
+                aliases.append(project["repo_full_name"].split("/")[-1])
+            if any(self._project_key(alias) in compact
+                   for alias in aliases if self._project_key(alias)):
+                names.append(project)
+        if not names:
+            return None
+        if len(names) > 1:
+            return self._reply(
+                "어느 프로젝트의 저장된 상태를 볼지 지정해 주세요: "
+                + ", ".join(p["name"] for p in names[:8]),
+                "project_target_ambiguous", sid, mode="projects"
+            )
+        project = names[0]
+        counts = project["task_counts"]
+        tasks = project["tasks"]
+        status_names = {"todo": "예정", "doing": "진행", "blocked": "막힘", "done": "완료"}
+        if tasks:
+            listed = "; ".join(
+                f'{task["title"][:80]} ({status_names.get(task["status"], "상태 미상")})'
+                for task in tasks[-6:]
+            )
+            task_summary = "기록된 작업: " + listed + "."
+        else:
+            task_summary = "직접 등록된 세부 작업은 아직 없습니다."
+        observed = project["last_check"]
+        if observed:
+            workflow = ( "현재 HEAD에 일치하는 Workflow를 확인하지 못했습니다"
+                if observed["workflow_state"] == "unavailable" else
+                f'Workflow {observed["workflow_state"]}/{observed["workflow_conclusion"]}')
+            github = (
+                f'마지막 GitHub 확인 기록 {observed["checked_at"]}: '
+                f'{observed["repository"]}의 {observed["branch"]} 브랜치 '
+                f'커밋 {observed["head_sha"][:10]}; {workflow}.'
+            )
+        else:
+            github = "GitHub 최신 상태 확인 기록은 없습니다."
+        answer = (
+            f'{project["name"]}의 로컬 기록입니다. 목표: {project["goal"][:200] or "미입력"}. '
+            f'직접 기록한 작업은 예정 {counts["todo"]}, 진행 {counts["doing"]}, '
+            f'막힘 {counts["blocked"]}, 완료 {counts["done"]}건. '
+            f'{task_summary} {github} '
+            "이 답변은 저장된 기록을 읽은 것이며 지금 새 조회를 실행하지 않았습니다. "
+            "실제 AWS 배포나 작업 완료 여부는 별도 확인이 필요합니다."
+        )
+        return self._reply(answer, "project_named_overview", sid, mode="projects")
+
     def handle(self, phrase: object, *, conversation_id: object = None,
                remote_consent: bool = False) -> dict:
         if not isinstance(phrase, str):
@@ -259,6 +324,12 @@ class JarvisBrain:
             if reply["action"] in ("tool_setup_required", "tool_target_ambiguous"):
                 self.store.record_event(reply["action"], "local")
             return reply
+
+        named_project = self._named_project_status(clean, sid)
+        if named_project is not None:
+            self._append(session, phrase, named_project["text"])
+            self.store.record_event(named_project["action"], "local")
+            return named_project
 
         if clean in ("대화 초기화", "새 대화 시작", "대화 지워", "대화 비워"):
             session.turns.clear()

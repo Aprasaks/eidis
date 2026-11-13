@@ -79,6 +79,36 @@ class BrainTests(unittest.TestCase):
         self.assertIn("GitHub", answer["text"])
         self.assertIn("아직", answer["text"])
 
+    def test_named_project_status_uses_saved_evidence_without_new_network(self):
+        wiki = self.store.create_project(
+            "DECHIVE.WIKI", "영어 기반 지식 아카이브 배포",
+            "Aprasaks/dechive-wiki")
+        task = self.store.add_project_task(wiki["id"], "실제 공개 확인")
+        self.store.update_project_task(wiki["id"], task["id"], "doing")
+        self.store.save_project_check(wiki["id"], {
+            "repository": "Aprasaks/dechive-wiki",
+            "branch": "main",
+            "head_sha": "a" * 40,
+            "workflow_state": "unavailable",
+            "workflow_conclusion": "unknown",
+            "workflow_url": "",
+        })
+        with patch("jarvis.tools.verify_public_github") as network:
+            r = self.brain.handle("DECHIVE.WIKI 지금 어디까지 진행됐어?")
+            spaced = self.brain.handle("dechive wiki 현재 상태 알려줘")
+        self.assertEqual(r["action"], "project_named_overview")
+        self.assertEqual(r["mode"], "projects")
+        self.assertFalse(r["executed"])
+        self.assertIn("실제 공개 확인 (진행)", r["text"])
+        self.assertIn("커밋 aaaaaaaaaa", r["text"])
+        self.assertIn("실제 AWS 배포", r["text"])
+        self.assertEqual(spaced["action"], "project_named_overview")
+        network.assert_not_called()
+
+    def test_unmatched_project_word_does_not_invent_status(self):
+        r = self.brain.handle("모르는서비스 지금 어디까지 진행됐어?")
+        self.assertNotEqual(r["action"], "project_named_overview")
+
     def test_remote_is_disabled_until_three_separate_conditions(self):
         with patch.dict(os.environ, {"OPENAI_API_KEY": "", "JARVIS_BRAIN_MODEL": "",
                                      "JARVIS_ENABLE_BRAIN_API": "0"}):
