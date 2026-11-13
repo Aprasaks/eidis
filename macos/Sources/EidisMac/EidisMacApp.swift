@@ -90,7 +90,7 @@ struct JarvisWindow: View {
                         Text("로컬 자비스 작업 공간")
                             .font(.headline)
                         Spacer()
-                        Button("목소리 미리 듣기") { voice.preview() }
+                        Button("Mac 목소리 미리 듣기") { voice.preview() }
                             .help("Mac 자체 한국어 음성 합성 테스트")
                         Button("새로고침") { reloadID = UUID() }
                     }

@@ -202,7 +202,7 @@ struct NativeSpeechPanel: View {
             Text("사용자가 누르는 동안만 마이크를 엽니다. 지원되는 Mac에서는 한국어 온디바이스 음성 인식만 사용합니다. 항상 듣기·화면 분석·외부 AI 연결은 아직 없습니다.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
-            GroupBox("자비스 목소리") {
+            GroupBox("Mac 기본 목소리 · ElevenLabs와 별개") {
                 VStack(alignment: .leading, spacing: 9) {
                     HStack(spacing: 12) {
                         if voice.availableVoices.isEmpty {
@@ -216,7 +216,7 @@ struct NativeSpeechPanel: View {
                             }
                             .frame(maxWidth: 390)
                         }
-                        Button("미리 듣기") { voice.preview() }
+                        Button("Mac 음성 미리 듣기") { voice.preview() }
                             .disabled(voice.availableVoices.isEmpty)
                         Button("초기화") { voice.resetToDefault() }
                             .disabled(voice.availableVoices.isEmpty)
@@ -274,10 +274,14 @@ struct NativeSpeechPanel: View {
                         .disabled(!elevenLabs.keyPresent)
                         .font(.caption)
                     HStack(spacing: 12) {
+                        Button("연결 확인 · 음성 생성 없음") {
+                            Task { await elevenLabs.checkVoiceConnection() }
+                        }
+                        .disabled(!elevenLabs.keyPresent || elevenLabs.isCheckingConnection || elevenLabs.isBusy)
                         Button("ElevenLabs 미리 듣기 · 크레딧 사용") {
                             Task { await elevenLabs.preview(fallback: voice) }
                         }
-                        .disabled(!elevenLabs.keyPresent || elevenLabs.isBusy || elevenLabs.remaining == 0)
+                        .disabled(!elevenLabs.keyPresent || elevenLabs.isBusy || elevenLabs.isCheckingConnection || elevenLabs.remaining == 0)
                         Text("이번 앱 실행: 남은 요청 \(elevenLabs.remaining)/5회")
                             .font(.caption.monospacedDigit())
                             .foregroundStyle(.secondary)
@@ -285,11 +289,12 @@ struct NativeSpeechPanel: View {
                     Text(elevenLabs.keyPresent ? "API 키: Mac 키체인에 저장됨" : "API 키: 미등록")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text(elevenLabs.status)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Text("ElevenLabs 실제 상태: " + elevenLabs.status)
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.primary)
                         .textSelection(.enabled)
-                    Text("기본 OFF. 1회 요청도 유료 크레딧을 소모할 수 있습니다. 600자가 넘는 답변이나 오류는 Mac 목소리로 읽습니다. 음성 생성할 답변 텍스트는 ElevenLabs로 전송됩니다.")
+                        .accessibilityIdentifier("elevenlabs-status")
+                    Text("위쪽 Mac 목소리 미리 듣기는 항상 로컬 음성입니다. ElevenLabs 연결 확인은 음성 생성 요청이 아니며, 실제 음질 확인은 크레딧 사용 미리 듣기를 눌러야 합니다. 600자를 넘는 답변이나 오류는 Mac 목소리로 대체합니다. 음성으로 만들 답변 텍스트는 ElevenLabs로 전송됩니다.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
