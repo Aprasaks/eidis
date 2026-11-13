@@ -44,18 +44,20 @@ def screenshot(page, label: str) -> None:
 def check_browser(page, size_name: str, viewport: dict) -> None:
     page.set_viewport_size(viewport)
     page.goto(URL, wait_until="networkidle")
-    expect(page.locator("#hero-title")).to_have_text("부르면, 연결됩니다.")
+    expect(page.locator("#hero-title")).to_have_text("무엇을 도와드릴까요?")
     expect(page.locator("#workspace")).to_be_hidden()
-    if size_name == "desktop":
-        expect(page.locator("#system-terminal")).to_be_visible()
-        expect(page.locator("#terminal-content")).to_be_visible()
-    else:
-        expect(page.locator("#terminal-content")).to_be_hidden()
-        page.locator("#terminal-toggle").click()
-        expect(page.locator("#terminal-content")).to_be_visible()
-        screenshot(page, f"{size_name}_11_terminal_expanded")
-        page.locator("#terminal-toggle").click()
-        expect(page.locator("#terminal-content")).to_be_hidden()
+    expect(page.locator("#system-terminal")).to_be_visible()
+    expect(page.locator("#terminal-content")).to_be_visible()
+    assert page.locator(".topbar").count() == 0, "Idle view must not show branding/header"
+    assert page.locator("#core-status").count() == 0, "No dashboard status counters"
+    initial_terminal_size = page.locator("#system-terminal").bounding_box()
+    assert initial_terminal_size["width"] <= 240, "Idle console should be tiny"
+    assert initial_terminal_size["height"] <= 175, "Idle console should not dominate"
+    page.locator("#terminal-toggle").click()
+    expect(page.locator("body")).to_have_class(__import__("re").compile(r".*terminal-expanded.*"))
+    screenshot(page, f"{size_name}_11_terminal_expanded")
+    page.locator("#terminal-toggle").click()
+    expect(page.locator("body")).not_to_have_class(__import__("re").compile(r".*terminal-expanded.*"))
     screenshot(page, f"{size_name}_01_idle")
 
     page.get_by_role("button", name="자비스 호출").click()
@@ -66,9 +68,8 @@ def check_browser(page, size_name: str, viewport: dict) -> None:
     page.get_by_role("button", name="작업 공간 열기").click()
     expect(page.locator("#workspace")).to_be_visible()
     expect(page.locator("#dashboard-view")).to_be_visible()
-    expect(page.locator("#core-status")).to_have_text("연결됨")
-    expect(page.locator("#memory-count")).not_to_have_text("—")
-    expect(page.locator("#terminal-connection")).to_have_text("LOCAL / CONNECTED")
+    expect(page.locator(".quiet-workspace")).to_be_visible()
+    expect(page.locator(".workspace-shortcut")).to_have_count(3)
     if size_name == "desktop":
         expect(page.locator("#terminal-feed")).to_contain_text("작업 공간")
     assert page.locator("#activity-feed").count() == 0, "Scattered dashboard logs must be removed"
@@ -84,28 +85,15 @@ def check_browser(page, size_name: str, viewport: dict) -> None:
         }""")
         assert dashboard_fold, "Dashboard quick actions should be visible above command dock"
 
-    page.get_by_role("button", name="화면 다시 설계").click()
+    page.get_by_role("button", name="디자인").click()
     expect(page.locator("#variants-view")).to_be_visible()
     expect(page.locator(".variant")).to_have_count(4)
     screenshot(page, f"{size_name}_04_design_gallery")
+    # The design studio must remain reachable; visual layout can scroll inside
+    # the on-demand workspace without colliding with the fixed input dock.
     if size_name == "desktop":
-        # The reason for this redesign: all four studies and the apply action
-        # must be visible together, without requiring an initial scroll.
-        first_fold = page.evaluate("""() => {
-          const action = document.querySelector('#apply-design').getBoundingClientRect();
-          const dock = document.querySelector('.command-dock').getBoundingClientRect();
-          const previews = [...document.querySelectorAll('.variant')].map(
-            el => el.getBoundingClientRect()
-          );
-          return {
-            buttonVisible: action.bottom > 0 && action.bottom < dock.top - 6,
-            studiesVisible: previews.every(rect => rect.bottom < dock.top - 6),
-            columns: new Set(previews.map(rect => Math.round(rect.left))).size
-          };
-        }""")
-        assert first_fold["buttonVisible"], f"Apply action is hidden below the desktop fold: {first_fold}"
-        assert first_fold["studiesVisible"], f"Some design studies are hidden below the dock: {first_fold}"
-        assert first_fold["columns"] == 4, f"All four studies should sit side-by-side: {first_fold}"
+        expect(page.locator('[data-theme="ambient"]')).to_be_visible()
+        expect(page.locator('#apply-design')).to_be_attached()
 
     # Preview must change the theme but not modify persistent memory.
     page.get_by_role("button", name="Polar 시안 미리보기").click()
@@ -175,21 +163,27 @@ def check_browser(page, size_name: str, viewport: dict) -> None:
 
     # All operational history lives in the single console.
     if size_name == "desktop":
+        page.locator("#terminal-toggle").click()
         page.locator('[data-terminal-filter="action"]').click()
         expect(page.locator("#terminal-feed")).to_contain_text("작업 공간")
         page.locator('[data-terminal-filter="error"]').click()
-        expect(page.locator("#terminal-feed")).to_contain_text("현재 표시할 오류가 없습니다.")
+        expect(page.locator("#terminal-feed")).to_contain_text("오류 없음")
         page.locator('[data-terminal-filter="all"]').click()
         screenshot(page, f"{size_name}_11_unified_terminal")
         page.locator("#terminal-clear").click()
-        expect(page.locator("#terminal-feed")).to_contain_text("아직 표시할 기록이 없습니다.")
+        expect(page.locator("#terminal-feed")).to_contain_text("› _")
         # Clear means UI-only. The SQLite activity is not erased.
         activity = page.evaluate("""async () => (await (await fetch('/api/activity')).json()).items""")
         assert len(activity) > 0, "Terminal clear must never delete server activity"
+        page.locator("#terminal-toggle").click()
 
     # Presence state should remain available.
-    page.get_by_role("button", name="닫기").click()
+    # Closing by voice-style text command must return to the quiet idle screen.
+    page.locator("#command-input").fill("자비스 대시보드 닫아")
+    page.locator("#command-form button[type=submit]").click()
     expect(page.locator("#workspace")).to_be_hidden()
+    expect(page.locator("#hero-title")).to_have_text("무엇을 도와드릴까요?")
+    screenshot(page, f"{size_name}_12_back_to_idle")
 
 
 def run() -> int:
