@@ -357,3 +357,111 @@ body::before{
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+
+
+/* EXPERIENCE v0.6 — evidence-led refinement from real Chromium screenshots.
+   In desktop design mode, the orb becomes a side identity cue rather than
+   consuming 1/3 of the window. All four studies must fit at first glance. */
+.board-hero-copy>p:not(.board-kicker){font-size:12px;line-height:1.75;color:#9aaab7}
+.capability-line{font-size:12px;min-height:38px;color:#bccbd5}
+.capability-line span:last-child{font-size:11px}
+.activity-row strong{font-size:12px;color:#c9d9e4}
+.activity-row small{font-size:10px}
+.telemetry small{font-size:11px;color:#7e96a7}
+.command-form input{font-size:14px}
+.footnote{font-size:10px;color:#6f8596}
+
+.shot-preview-ui{position:absolute;inset:30px 10px 20px;pointer-events:none;z-index:2}
+.shot-preview-ui i,.shot-preview-ui b,.shot-preview-ui small{position:absolute;display:block}
+.shot-ambient .shot-preview-ui i{
+  left:12%;top:48%;width:20%;height:1px;background:rgba(190,219,241,.35)
+}
+.shot-ambient .shot-preview-ui b{
+  left:12%;top:54%;width:11%;height:1px;background:rgba(148,191,217,.20)
+}
+.shot-ambient .shot-preview-ui small{
+  right:10%;top:20%;width:8%;height:8%;border-radius:50%;border:1px solid rgba(185,230,244,.45)
+}
+.shot-nebula .shot-cosmos{transform:translateX(-24%)}
+.shot-nebula .shot-preview-ui i{
+  right:6%;top:15%;width:28%;height:37%;
+  border:1px solid rgba(181,213,251,.24);background:rgba(115,153,223,.08);
+  box-shadow:0 0 20px rgba(100,130,210,.14)
+}
+.shot-nebula .shot-preview-ui b{
+  right:6%;top:60%;width:28%;height:22%;
+  border:1px solid rgba(175,220,248,.20);background:rgba(105,164,226,.08)
+}
+.shot-nebula .shot-preview-ui small{
+  left:7%;bottom:14%;width:15%;height:2px;background:rgba(155,175,236,.47)
+}
+.shot-studio .shot-preview-ui i{
+  left:6%;top:8%;width:25%;height:82%;border-right:1px solid rgba(156,206,227,.28);
+  background:repeating-linear-gradient(0deg,transparent 0 17px,rgba(145,201,225,.15) 17px 19px,transparent 19px 24px)
+}
+.shot-studio .shot-preview-ui b{
+  left:38%;top:8%;width:55%;height:16%;background:rgba(158,205,231,.18);border:1px solid rgba(155,204,240,.21)
+}
+.shot-studio .shot-preview-ui small{
+  left:38%;bottom:8%;width:55%;height:49%;border:1px solid rgba(155,204,240,.18);
+  background:linear-gradient(160deg,rgba(100,170,199,.20),rgba(55,100,139,.035))
+}
+.shot-studio .shot-cosmos{display:none}
+.shot-polar .shot-cosmos{transform:translateX(-25%) scale(.78)}
+.shot-polar .shot-preview-ui i{
+  right:7%;top:12%;width:36%;height:5%;background:rgba(219,233,244,.64)
+}
+.shot-polar .shot-preview-ui b{
+  right:7%;top:31%;width:36%;height:40%;border:1px solid rgba(227,239,250,.24);
+  background:linear-gradient(90deg,transparent 48%,rgba(223,232,245,.21) 49%,transparent 51%)
+}
+.shot-polar .shot-preview-ui small{
+  right:7%;top:82%;width:22%;height:2%;background:rgba(216,233,247,.32)
+}
+.study-shot{height:153px}
+.variant{transition:background .2s,border-color .2s,transform .2s}
+.variant:focus-visible{outline:2px solid #e1f2ff;outline-offset:2px}
+@media(min-width:1100px){
+  .design-mode.dashboard-open .main-content{gap:1.4%}
+  .design-mode.dashboard-open .presence{
+    width:11%;min-width:120px;justify-content:center;gap:0
+  }
+  .design-mode.dashboard-open .ring-visual{
+    width:118px;height:118px;min-width:118px;min-height:118px;transform:scale(.94)
+  }
+  .design-mode.dashboard-open .presence-ambient{
+    width:170px;height:170px;top:calc(50% - 95px)
+  }
+  .design-mode.dashboard-open .presence-content,
+  .design-mode.dashboard-open .presence-floor{display:none}
+  .design-mode.dashboard-open .presence::after{
+    content:"JARVIS / PRESENT";position:absolute;top:calc(50% + 79px);
+    color:#67859d;font-size:9px;letter-spacing:.15em;white-space:nowrap;
+  }
+  .design-mode.dashboard-open .workspace{
+    width:87%;padding-left:13px;max-height:calc(100vh - 205px);
+  }
+  .design-mode .workspace-heading{margin-bottom:12px;padding-bottom:13px}
+  .design-mode .design-intro{margin:0 0 16px}
+  .design-mode .design-intro h3{
+    font-size:32px;line-height:1.22;margin:9px 0 6px
+  }
+  .design-mode .design-intro p{
+    font-size:11px;line-height:1.55;max-width:800px;margin:0 0 9px
+  }
+  .design-mode .variant-list{
+    grid-template-columns:repeat(4,minmax(0,1fr));gap:13px
+  }
+  .design-mode .study-shot{height:175px}
+  .design-mode .study-info{
+    grid-template-columns:23px 1fr;gap:4px;padding:12px 5px 10px
+  }
+  .design-mode .study-info strong{font-size:16px}
+  .design-mode .study-info small{font-size:10px}
+  .design-mode .design-footer{margin-top:16px;padding-top:13px}
+}
+@media(max-width:610px){
+  .study-shot{height:112px}
+  .board-hero-copy>p:not(.board-kicker){font-size:12px}
+  .footnote{font-size:9px}
+}
