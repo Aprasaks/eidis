@@ -127,7 +127,7 @@ final class ElevenLabsVoiceService: ObservableObject {
             status = "키체인에서 API 키를 읽을 수 없습니다. 앱에서 키를 다시 저장해 주세요."
             return
         }
-        guard let url = URL(string: "https://api.elevenlabs.io/v1/voices/\\(id)") else {
+        guard let url = URL(string: "https://api.elevenlabs.io/v1/voices/\(id)") else {
             status = "Voice ID 주소가 올바르지 않습니다."
             return
         }
@@ -155,7 +155,7 @@ final class ElevenLabsVoiceService: ObservableObject {
                 }
                 let rawName = details?["name"] as? String ?? "이름 미표시"
                 let name = String(rawName.prefix(60))
-                status = "연결 확인 성공 · 음성 \\(name) · Voice ID 접근 가능. 실제 음성 재생은 유료 미리 듣기로 별도 확인해야 합니다."
+                status = "연결 확인 성공 · 음성 \(name) · Voice ID 접근 가능. 실제 음성 재생은 유료 미리 듣기로 별도 확인해야 합니다."
             case 401:
                 status = "인증 실패(401) · ElevenLabs API 키를 확인하고 다시 저장해 주세요."
             case 403:
@@ -165,7 +165,7 @@ final class ElevenLabsVoiceService: ObservableObject {
             case 429:
                 status = "ElevenLabs 조회 요청 한도(429)에 도달했습니다."
             default:
-                status = "ElevenLabs 연결 확인 실패 · HTTP \\(http.statusCode). 계정과 서비스 상태를 확인해 주세요."
+                status = "ElevenLabs 연결 확인 실패 · HTTP \(http.statusCode). 계정과 서비스 상태를 확인해 주세요."
             }
         } catch {
             status = "ElevenLabs 네트워크 연결 확인 실패 · 인터넷 연결이나 서비스 상태를 확인해 주세요."
