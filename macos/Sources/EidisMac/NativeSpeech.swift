@@ -140,10 +140,9 @@ final class LocalSpeechListener: ObservableObject {
 final class LocalCommandClient: ObservableObject {
     @Published private(set) var busy = false
     @Published private(set) var lastResponse = "아직 실행한 명령이 없습니다."
-    private let speaker = AVSpeechSynthesizer()
     private var conversationID: String?
 
-    func submit(_ text: String, bridge: JarvisBridge) async {
+    func submit(_ text: String, bridge: JarvisBridge, voice: JarvisVoiceService) async {
         let phrase = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !phrase.isEmpty else { return }
         guard !busy else { return }
@@ -179,11 +178,7 @@ final class LocalCommandClient: ObservableObject {
             conversationID = answer.conversation_id
             bridge.event = JarvisVisualEvent(reply: answer)
             lastResponse = answer.text
-            speaker.stopSpeaking(at: .immediate)
-            let utterance = AVSpeechUtterance(string: answer.spoken)
-            utterance.voice = AVSpeechSynthesisVoice(language: "ko-KR")
-            utterance.rate = 0.48
-            speaker.speak(utterance)
+            voice.speak(answer.spoken)
         } catch {
             lastResponse = "로컬 서버 연결 실패: \(error.localizedDescription)"
         }
@@ -192,22 +187,61 @@ final class LocalCommandClient: ObservableObject {
 
 struct NativeSpeechPanel: View {
     @ObservedObject var bridge: JarvisBridge
+    @ObservedObject var voice: JarvisVoiceService
     @StateObject private var listener = LocalSpeechListener()
     @StateObject private var client = LocalCommandClient()
     @State private var typedCommand = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
             Label("자비스의 귀 · 한국어 음성 명령", systemImage: "mic")
                 .font(.headline)
             Text("사용자가 누르는 동안만 마이크를 엽니다. 지원되는 Mac에서는 한국어 온디바이스 음성 인식만 사용합니다. 항상 듣기·화면 분석·외부 AI 연결은 아직 없습니다.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
+            GroupBox("자비스 목소리") {
+                VStack(alignment: .leading, spacing: 9) {
+                    HStack(spacing: 12) {
+                        if voice.availableVoices.isEmpty {
+                            Text("이 Mac에 설치된 한국어 목소리가 없습니다.")
+                                .font(.caption)
+                        } else {
+                            Picker("목소리", selection: $voice.voiceID) {
+                                ForEach(voice.availableVoices, id: \.identifier) { option in
+                                    Text(option.name).tag(option.identifier)
+                                }
+                            }
+                            .frame(maxWidth: 390)
+                        }
+                        Button("미리 듣기") { voice.preview() }
+                            .disabled(voice.availableVoices.isEmpty)
+                        Button("초기화") { voice.resetToDefault() }
+                            .disabled(voice.availableVoices.isEmpty)
+                    }
+                    HStack(spacing: 10) {
+                        Text("말하는 속도").font(.caption).frame(width: 74, alignment: .leading)
+                        Slider(value: $voice.speed, in: 0.38...0.58, step: 0.01)
+                        Text(String(format: "%.2f", voice.speed))
+                            .font(.caption.monospacedDigit()).frame(width: 36)
+                    }
+                    HStack(spacing: 10) {
+                        Text("음높이").font(.caption).frame(width: 74, alignment: .leading)
+                        Slider(value: $voice.pitch, in: 0.75...1.25, step: 0.05)
+                        Text(String(format: "%.2f", voice.pitch))
+                            .font(.caption.monospacedDigit()).frame(width: 36)
+                    }
+                    Text("설치는 필요 없고 macOS에 있는 음성을 사용합니다. 선택한 설정은 다음 실행에도 유지됩니다.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
+            }
             HStack {
                 Button(listener.isListening ? "완료하고 명령 전달" : "마이크로 말하기") {
                     if listener.isListening {
                         let phrase = listener.stop()
-                        Task { await client.submit(phrase, bridge: bridge) }
+                        Task { await client.submit(phrase, bridge: bridge, voice: voice) }
                     } else {
                         Task { await listener.start() }
                     }
@@ -251,14 +285,14 @@ struct NativeSpeechPanel: View {
             Text("완료 검증: 이 탭은 실제 로컬 HTTP 응답이 200일 때만 명령 결과를 표시합니다. 웹 대시보드 탭에도 같은 결과를 전달합니다.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Spacer()
+            }
+            .padding(24)
         }
-        .padding(24)
     }
 
     private func sendTyped() {
         let phrase = typedCommand
         typedCommand = ""
-        Task { await client.submit(phrase, bridge: bridge) }
+        Task { await client.submit(phrase, bridge: bridge, voice: voice) }
     }
 }
