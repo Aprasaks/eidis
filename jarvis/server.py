@@ -62,6 +62,26 @@ class JarvisHandler(BaseHTTPRequestHandler):
                                     "vision": {"remote_configured": vision_ready(),
                                                "remaining": max(0, MAX_VISION_CALLS - self.server.vision_calls)},
                                     "note": "프로토타입. LLM, 실제 화면 이해, Mac 제어는 미연결."})
+        if path == "/api/diagnostics":
+            # Local-only, read-only checks. No network calls, paid APIs,
+            # permission prompts, project contents, or secrets.
+            db_result = self.store.db.execute("PRAGMA quick_check(1)").fetchone()[0]
+            return self._json(200, {
+                "scope": "local_read_only",
+                "server": {"status": "reachable", "host": "127.0.0.1",
+                           "port": self.server.server_port},
+                "database": {"status": "ok" if db_result == "ok" else "check_failed",
+                             "read_checked": True, "write_checked": False},
+                "projects": {"exact_count": self.store.db.execute(
+                    "SELECT COUNT(*) FROM projects").fetchone()[0]},
+                "tools": {"manifest": self.tools.manifest(),
+                          "latest_run": self.store.recent_tool_executions(1)},
+                "not_verified": [
+                    "mac_microphone_audio_capture", "mac_speech_transcription",
+                    "mac_screen_capture", "github_live_network",
+                    "aws_deployment", "paid_ai_provider"
+                ]
+            })
         if path == "/api/memories":
             return self._json(200, {"items": self.store.recent_memories()})
         if path == "/api/projects":

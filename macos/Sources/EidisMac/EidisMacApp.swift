@@ -87,15 +87,9 @@ struct JarvisWindow: View {
             HStack(spacing: 12) {
                 Image(systemName: "circle.hexagongrid")
                     .foregroundStyle(.cyan)
-                Text("JARVIS")
-                    .font(.system(size: 17, weight: .semibold, design: .rounded))
-                Text("NATIVE LAB")
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                Text("개인 AI 작업 공간")
+                    .font(.system(size: 15, weight: .medium))
                 Spacer()
-                Text("v0.8 / 음성·화면·UI 구조 실험 · LLM 미연결")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 22)
             .padding(.vertical, 15)
@@ -172,6 +166,8 @@ struct JarvisWindow: View {
 
                 AccessibilityPanel()
                     .tabItem { Label("UI 구조", systemImage: "rectangle.on.rectangle") }
+                MacReadinessPanel()
+                    .tabItem { Label("진단", systemImage: "stethoscope") }
             }
             .padding(.horizontal, 8)
         }

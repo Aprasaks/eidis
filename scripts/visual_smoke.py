@@ -47,6 +47,17 @@ def check_browser(page, size_name: str, viewport: dict) -> None:
     # readiness signal. Wait for DOM + explicit interactive elements instead.
     page.goto(URL, wait_until="domcontentloaded")
     expect(page.locator("#command-form")).to_be_visible()
+    # The on-device readiness endpoint is an explicit, read-only probe.
+    # It must not claim permission, audio or GitHub live verification.
+    diagnostic = page.evaluate("""async () => {
+      const response = await fetch('/api/diagnostics', {cache:'no-store'});
+      return {status:response.status, body:await response.json()};
+    }""")
+    assert diagnostic["status"] == 200
+    assert diagnostic["body"]["scope"] == "local_read_only"
+    assert diagnostic["body"]["database"]["read_checked"] is True
+    assert diagnostic["body"]["database"]["write_checked"] is False
+    assert "github_live_network" in diagnostic["body"]["not_verified"]
     expect(page.locator("#hero-title")).to_have_text("무엇을 도와드릴까요?")
     expect(page.locator("#workspace")).to_be_hidden()
     expect(page.locator("#system-terminal")).to_be_visible()

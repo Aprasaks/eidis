@@ -46,3 +46,7 @@
 
 ## Tools v1.4 — 읽기 전용 업무 실행
 등록된 공개 GitHub 프로젝트에 대해 **명시적인 상태 확인 요청**이 오면, 허용 도구로 브랜치 HEAD·현재 SHA의 일부 Workflow를 읽고 실행/오류 기록을 남깁니다. 한 서버 실행당 최대 8회 조회, 무단 배포·수정·삭제 도구 없음. 별도 AI 요금 없음. 실제 사용자 Mac의 GitHub 인증/비공개 저장소 접근은 미구현. 자세히: docs/TOOLS_V14.md.
+
+
+## Mac 실기기 진단 v1.5
+앱의 진단 탭에서 버튼을 눌러 Mac 권한 상태·localhost 서버·SQLite 읽기·등록 도구 상태를 권한 요청이나 외부 API 호출 없이 확인할 수 있습니다. START_JARVIS_MAC.command는 서버 HTTP 준비를 확인한 다음 앱을 열도록 변경했습니다. 실제 마이크·화면·GitHub 조회 성공은 사용자 Mac에서 각각 수동 시험해야 합니다. 상세: docs/MAC_READINESS_V15.md.
