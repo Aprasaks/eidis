@@ -32,6 +32,46 @@ class MemoryStore:
                 created_at TEXT NOT NULL
             );
         """)
+        self.db.executescript("""
+            CREATE TABLE IF NOT EXISTS projects (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                goal TEXT NOT NULL DEFAULT '',
+                repo_full_name TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS project_tasks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL REFERENCES projects(id),
+                title TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'todo'
+                    CHECK(status IN ('todo','doing','blocked','done')),
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS project_changes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL,
+                task_id INTEGER NOT NULL,
+                old_status TEXT NOT NULL,
+                new_status TEXT NOT NULL,
+                actor TEXT NOT NULL DEFAULT 'user',
+                changed_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS project_checks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL REFERENCES projects(id),
+                provider TEXT NOT NULL CHECK(provider = 'github'),
+                repository TEXT NOT NULL,
+                branch TEXT NOT NULL,
+                head_sha TEXT NOT NULL,
+                workflow_state TEXT NOT NULL,
+                workflow_conclusion TEXT NOT NULL,
+                workflow_url TEXT NOT NULL DEFAULT '',
+                checked_at TEXT NOT NULL
+            );
+        """)
         self.db.commit()
 
     def count_memories(self) -> int:
