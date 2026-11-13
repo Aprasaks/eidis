@@ -553,6 +553,7 @@ async function generateRequestedDesigns(prompt, provider) {
     if (!response.ok) throw new Error(data.error || '디자인 요청에 실패했습니다.');
     renderGeneratedProposals(data);
     $('#design-request-status').textContent = data.message;
+    $('#design-request').open = false; // Reveal all four studies; keep the edit form easy to reopen.
     showMessage(data.message);
   } catch (error) {
     $('#design-request-status').textContent = '시안 생성 실패: ' + error.message;
