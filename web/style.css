@@ -793,3 +793,12 @@ body::before{
   .workbench-actions{flex-direction:column;align-items:stretch}
   .workbench-actions .line-btn{width:100%}
 }
+
+
+/* Log readability adjustments after screenshot review. */
+.terminal-feed{font-size:12px;line-height:1.72}
+.terminal-time{font-size:10px}
+.terminal-kind{font-size:10px}
+.terminal-filter{font-size:11px}
+.terminal-message{color:#bfd1de}
+.terminal-bottom small{font-size:9px}
