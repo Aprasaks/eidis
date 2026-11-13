@@ -16,6 +16,7 @@ class MemoryStore:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(str(path), check_same_thread=False)
         self.db.row_factory = sqlite3.Row
+        self.db.execute("PRAGMA foreign_keys=ON")
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.execute("PRAGMA busy_timeout=5000")
         self.db.executescript("""
@@ -227,7 +228,7 @@ class MemoryStore:
 
     def save_project_check(self, project_id: object, check: dict) -> dict:
         project = self._project_row(project_id)
-        if not project["repo_full_name"] or check.get("repository") != project["repo_full_name"]:
+        if not project["repo_full_name"] or str(check.get("repository", "")).casefold() != project["repo_full_name"].casefold():
             raise ValueError("연결된 GitHub 저장소와 확인 대상이 일치하지 않습니다.")
         with self.db:
             self.db.execute(
