@@ -1095,3 +1095,36 @@ body.terminal-expanded .terminal-message{font-size:11px}
 @media(prefers-reduced-motion:reduce){
   .terminal-cursor i{animation:none!important;opacity:1}
 }
+
+
+/* Final visual pass: a black galaxy has depth, but never becomes a wallpaper. */
+body::before{opacity:.92}
+.atmosphere::before{
+  content:"";position:absolute;inset:0;pointer-events:none;opacity:.75;
+  background:
+    radial-gradient(ellipse 21% 6% at 54% 11%,rgba(177,162,234,.30) 0%,rgba(96,104,190,.14) 33%,transparent 81%),
+    radial-gradient(ellipse 32% 9% at 40% 18%,rgba(95,112,202,.11) 0%,transparent 83%),
+    radial-gradient(ellipse 38% 11% at 79% 75%,rgba(76,134,206,.18) 0%,transparent 79%),
+    radial-gradient(ellipse 27% 7% at 11% 84%,rgba(91,70,161,.13) 0%,transparent 84%);
+  filter:blur(13px);
+}
+.atmosphere::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 20% 2.5% at 53% 13%,rgba(188,186,249,.13),transparent 79%),
+    radial-gradient(ellipse 31% 2.8% at 73% 70%,rgba(107,166,248,.14),transparent 82%);
+  transform:rotate(-21deg);filter:blur(11px);opacity:.63;
+}
+.ring-visual::after{
+  content:"";position:absolute;inset:4%;border-radius:50%;
+  background:conic-gradient(from 209deg,transparent 0deg,transparent 59deg,
+    rgba(98,153,224,.06) 84deg,rgba(161,207,255,.54) 100deg,
+    rgba(119,166,222,.12) 121deg,transparent 145deg,
+    transparent 278deg,rgba(185,211,249,.26) 300deg,transparent 330deg);
+  mask:radial-gradient(farthest-side,transparent calc(100% - 2px),#000 calc(100% - 1px));
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 2px),#000 calc(100% - 1px));
+  filter:drop-shadow(0 0 7px rgba(145,199,252,.3));opacity:.85;
+  animation:orbit-halo 28s linear infinite;pointer-events:none;
+}
+@keyframes orbit-halo{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.ring-visual::after{animation:none}}
