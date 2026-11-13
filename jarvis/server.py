@@ -10,7 +10,7 @@ from urllib.parse import urlsplit
 
 from .engine import JarvisEngine, CAPABILITIES
 from .design import DesignError, RemoteDesignError, remote_ready, suggest_designs
-from .vision import VisionError, VisionRemoteError, vision_ready, analyze_screen
+from .vision import VisionError, VisionRemoteError, vision_ready, analyze_screen, validate_image
 from .storage import MemoryStore
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
@@ -96,12 +96,14 @@ class JarvisHandler(BaseHTTPRequestHandler):
                     raise VisionError("외부 AI 화면 분석이 비활성화되어 있습니다.")
                 if self.server.vision_calls >= MAX_VISION_CALLS:
                     raise VisionError("현재 서버의 화면 분석 허용 횟수를 모두 사용했습니다. 추가 과금 방지를 위해 중지했습니다.")
-                # Count attempts before requesting the paid API; no automatic retries.
+                question = data.get("question", "")
+                if not isinstance(question, str) or not 3 <= len(question.strip()) <= 450:
+                    raise VisionError("화면 질문은 3~450자로 입력해 주세요.")
+                image = validate_image(data.get("image", ""))
+                # Only validated requests count toward the cap. Count before calling
+                # the provider because even a provider error may incur usage.
                 self.server.vision_calls += 1
-                return self._json(200, analyze_screen(
-                    data.get("question", ""), data.get("image", ""),
-                    consent=True
-                ))
+                return self._json(200, analyze_screen(question, image, consent=True))
             if path == "/api/design/suggest":
                 prompt = data.get("prompt", "")
                 provider = data.get("provider", "rules")
