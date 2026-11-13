@@ -138,7 +138,11 @@ def check_browser(page, size_name: str, viewport: dict) -> None:
     # Natural-language command should trigger local token generation automatically.
     page.locator("#command-input").fill("자비스 대시보드 더 어둡고 간결하게 바꿔")
     page.locator("#command-form button[type=submit]").click()
+    expect(page.locator("#variants-view")).to_be_visible()
+    expect(page.locator("#design-request-status")).to_contain_text("로컬 규칙을")
+    expect(page.locator("#design-prompt")).to_have_value("대시보드 더 어둡고 간결하게 바꿔")
     expect(page.locator("#generated-variant-list .generated-variant")).to_have_count(4)
+    expect(page.locator("#design-request")).not_to_have_attribute("open", "")
     screenshot(page, f"{size_name}_09_voice_style_request")
     page.get_by_role("button", name="이전 화면으로").click()
 
