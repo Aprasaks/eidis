@@ -6,6 +6,7 @@
   <meta name="color-scheme" content="dark"/>
   <title>JARVIS — An intelligence, present.</title>
   <link rel="stylesheet" href="/style.css"/>
+  <script src="/terminal.js" defer></script>
   <script src="/app.js" defer></script>
 </head>
 <body>
@@ -14,7 +15,7 @@
   <div class="app-shell" id="shell">
     <header class="topbar">
       <div class="brand"><span class="brand-symbol">J</span><span class="brand-lockup">JARVIS<small>PERSONAL INTELLIGENCE</small></span></div>
-      <div class="top-right"><span class="top-meta">PRIVATE SYSTEM / 001</span><span class="top-sep">—</span><span id="online-dot" class="live-dot"></span><span id="connection-label">로컬 연결 확인 중</span><span class="top-sep">/</span><span>LAB v0.9</span></div>
+      <div class="top-right"><span class="top-meta">PRIVATE SYSTEM / 001</span><span class="top-sep">—</span><span id="online-dot" class="live-dot"></span><span id="connection-label">로컬 연결 확인 중</span><span class="top-sep">/</span><span>LAB v1.0</span></div>
     </header>
     <main class="main-content">
       <section class="presence" id="presence" aria-label="자비스 호출 인터페이스">
@@ -56,31 +57,28 @@
             </div>
           </div>
 
-          <div class="telemetry-bar" aria-label="실제 로컬 시스템 현황">
-            <div class="telemetry"><span class="telemetry-label">01 / LOCAL CORE</span><strong id="core-status">확인 중</strong><small>이 브라우저의 로컬 서버</small></div>
-            <div class="telemetry"><span class="telemetry-label">02 / DURABLE MEMORY</span><strong id="memory-count">—</strong><small>저장된 기억 항목</small></div>
-            <div class="telemetry"><span class="telemetry-label">03 / LAST ACTIVITY</span><strong id="activity-count">—</strong><small>최근 로컬 명령 기록</small></div>
+          <div class="telemetry-bar" aria-label="로컬 시스템 상태">
+            <div class="telemetry"><span class="telemetry-label">01 / LOCAL CORE</span><strong id="core-status">확인 중</strong><small>로컬 서버 연결 상태</small></div>
+            <div class="telemetry"><span class="telemetry-label">02 / DURABLE MEMORY</span><strong id="memory-count">—</strong><small>명시적으로 저장된 기억</small></div>
           </div>
 
           <div class="workspace-split">
-            <section class="capability-panel" aria-label="연결 기능">
+            <section class="capability-panel" aria-label="연결된 자비스 기능">
               <div class="section-heading"><span class="section-overline">CAPABILITIES</span><span class="section-number">01 / 02</span></div>
-              <h4>연결된 능력</h4>
+              <h4>지금 연결된 능력</h4>
               <div id="live-capabilities" class="live-capabilities">
-                <div class="capability-line"><span>상태를 확인하고 있습니다.</span><span class="muted">대기</span></div>
+                <div class="capability-line"><span>로컬 시스템을 확인 중입니다.</span><span class="muted">확인 중</span></div>
               </div>
             </section>
-            <section class="activity-panel" aria-label="실제 로컬 활동">
-              <div class="section-heading"><span class="section-overline">ACTIVITY</span><span class="section-number">02 / 02</span></div>
-              <h4>가장 최근의 움직임</h4>
-              <div id="activity-feed" class="activity-feed" aria-live="polite"><p class="activity-empty">실제 작업 기록을 불러오고 있습니다.</p></div>
+            <section class="workbench-panel" aria-label="작업 시작">
+              <div class="section-heading"><span class="section-overline">WORKBENCH</span><span class="section-number">02 / 02</span></div>
+              <h4>무엇을 해볼까요?</h4>
+              <p>작업 결과와 오류는 오른쪽 통합 터미널에 표시됩니다. 중앙에는 실제 작업 도구만 남겼습니다.</p>
+              <div class="workbench-actions">
+                <button type="button" id="show-memory" class="line-btn">저장한 기억 <span aria-hidden="true">↗</span></button>
+                <button type="button" id="open-screen" class="line-btn">화면 미리보기 <span aria-hidden="true">↗</span></button>
+              </div>
             </section>
-          </div>
-
-          <div class="action-strip">
-            <span class="action-strip-caption">EXPLORE / LOCAL TOOLS</span>
-            <button type="button" id="show-memory" class="line-btn">저장한 기억 <span aria-hidden="true">↗</span></button>
-            <button type="button" id="open-screen" class="line-btn">화면 미리보기 <span aria-hidden="true">↗</span></button>
           </div>
         </div>
 
@@ -169,10 +167,47 @@
         </div>
       </section>
     </main>
+    <aside class="system-terminal" id="system-terminal" aria-label="자비스 통합 실행 기록">
+      <div class="terminal-header">
+        <div class="terminal-identity">
+          <span class="terminal-indicator" aria-hidden="true"></span>
+          <span class="terminal-heading">JARVIS <strong>CONSOLE</strong></span>
+          <span class="terminal-revision">LOG / 01</span>
+        </div>
+        <button type="button" id="terminal-toggle" class="terminal-toggle" aria-controls="terminal-content" aria-expanded="true" title="통합 로그 접기">−</button>
+      </div>
+      <div id="terminal-content" class="terminal-content">
+        <div class="terminal-toolbar">
+          <div class="terminal-filters" role="group" aria-label="기록 필터">
+            <button type="button" class="terminal-filter selected" data-terminal-filter="all" aria-pressed="true">전체</button>
+            <button type="button" class="terminal-filter" data-terminal-filter="action" aria-pressed="false">실행</button>
+            <button type="button" class="terminal-filter" data-terminal-filter="error" aria-pressed="false">오류</button>
+          </div>
+          <span id="terminal-count" class="terminal-count">0 EVENTS</span>
+        </div>
+        <div id="terminal-feed" class="terminal-feed" role="log" aria-label="로컬 서버 및 현재 화면의 실행 기록" aria-live="off" aria-relevant="additions text">
+          <p class="terminal-placeholder">기록을 연결하고 있습니다…</p>
+        </div>
+        <div class="terminal-footer">
+          <div class="terminal-statusline">
+            <span id="terminal-connection">LOCAL / CHECKING</span>
+            <span id="mic-status">MIC OFF</span>
+          </div>
+          <div class="terminal-bottom">
+            <small>로컬 최근 기록 + 현재 화면 이벤트 · 원문 음성/화면 미저장</small>
+            <button type="button" id="terminal-clear">화면 지우기</button>
+          </div>
+        </div>
+      </div>
+    </aside>
     <footer class="command-dock">
-      <div class="last-response" id="last-response" role="status" aria-live="polite">JARVIS / 로컬 프로토타입이 준비되었습니다. 자비스를 호출해 보세요.</div>
-      <form id="command-form" class="command-form" autocomplete="off"><label for="command-input" class="sr-only">자비스에게 말하기</label><span class="prompt-symbol" aria-hidden="true">⌁</span><input id="command-input" type="text" maxlength="2000" placeholder="자비스에게 말하기… 예: 대시보드 띄워"/><button type="submit" title="명령 보내기" class="send-btn">↗</button><button type="button" id="voice-toggle" class="voice-btn" aria-pressed="false" title="마이크 켜기">◉</button></form>
-      <div class="footnote"><span>입력한 일반 대화는 저장하지 않습니다. “기억해”로 요청한 내용만 로컬 DB에 저장합니다.</span><span id="mic-status">MIC OFF · 브라우저 음성 기능은 환경에 따라 다릅니다.</span></div>
+      <form id="command-form" class="command-form" autocomplete="off">
+        <label for="command-input" class="sr-only">자비스에게 말하기</label>
+        <span class="prompt-symbol" aria-hidden="true">⌁</span>
+        <input id="command-input" type="text" maxlength="2000" placeholder="자비스에게 말하기… 예: 대시보드 띄워"/>
+        <button type="submit" title="명령 보내기" class="send-btn">↗</button>
+        <button type="button" id="voice-toggle" class="voice-btn" aria-pressed="false" title="마이크 켜기">◉</button>
+      </form>
     </footer>
   </div>
 </body>
