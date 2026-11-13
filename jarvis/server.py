@@ -57,7 +57,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
         if path == "/api/memories":
             return self._json(200, {"items": self.store.recent_memories()})
         if path == "/api/activity":
-            return self._json(200, {"items": self.store.recent_activity()})
+            return self._json(200, {"items": self.store.recent_activity(50)})
         if path == "/":
             path = "/index.html"
         if path not in ("/index.html", "/style.css", "/terminal.js", "/app.js"):
