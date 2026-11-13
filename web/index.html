@@ -14,7 +14,7 @@
   <div class="app-shell" id="shell">
     <header class="topbar">
       <div class="brand"><span class="brand-symbol">J</span><span class="brand-lockup">JARVIS<small>PERSONAL INTELLIGENCE</small></span></div>
-      <div class="top-right"><span class="top-meta">PRIVATE SYSTEM / 001</span><span class="top-sep">—</span><span id="online-dot" class="live-dot"></span><span id="connection-label">로컬 연결 확인 중</span><span class="top-sep">/</span><span>LAB v0.7</span></div>
+      <div class="top-right"><span class="top-meta">PRIVATE SYSTEM / 001</span><span class="top-sep">—</span><span id="online-dot" class="live-dot"></span><span id="connection-label">로컬 연결 확인 중</span><span class="top-sep">/</span><span>LAB v0.9</span></div>
     </header>
     <main class="main-content">
       <section class="presence" id="presence" aria-label="자비스 호출 인터페이스">
@@ -149,9 +149,22 @@
           <button type="button" id="back-from-memory" class="quiet-btn back-btn">← 작업 공간으로</button>
         </div>
         <div id="screen-view" hidden>
-          <div class="screen-title"><p class="section-overline">USER CONTROLLED / VISION</p><h3>화면 미리보기</h3><p>명시적으로 선택한 화면만 이 기기에서 보여줍니다. 이미지 업로드·저장이나 AI의 실제 화면 이해는 아직 없습니다.</p></div>
+          <div class="screen-title"><p class="section-overline">USER CONTROLLED / VISION</p><h3>화면 확인</h3><p>선택한 화면은 먼저 기기 안에서 미리봅니다. AI 화면 분석은 별도 API 설정과 이번 한 장의 전송 동의를 받은 경우에만 실행됩니다.</p></div>
           <div class="screen-wrap"><video id="screen-video" autoplay playsinline muted></video><span id="screen-overlay">공유할 화면을 직접 선택해 주세요.</span></div>
           <div class="screen-controls"><button type="button" id="start-share" class="line-btn">화면 선택 및 공유</button><button type="button" id="stop-share" class="quiet-btn">공유 종료</button></div>
+          <section class="vision-analysis" aria-label="선택한 화면 한 장 AI 분석">
+            <span class="section-overline">ON-DEMAND / SINGLE FRAME</span>
+            <h4>이 화면에서 무엇이 보이나요?</h4>
+            <label for="vision-question">AI에 물어볼 질문</label>
+            <input type="text" id="vision-question" maxlength="450" value="지금 화면에서 눈에 띄는 오류나 다음에 확인할 항목을 설명해 줘."/>
+            <label class="vision-consent"><input id="vision-consent" type="checkbox"/>지금 공유한 화면 한 장이 외부 AI 서비스로 전송되며 API 요금이 발생할 수 있다는 점에 동의합니다.</label>
+            <div class="vision-actions">
+              <button type="button" id="analyze-screen" class="line-btn">AI로 현재 화면 한 장 분석 ↗</button>
+              <span id="vision-status" role="status" aria-live="polite">외부 분석 기본 OFF · API 설정 없이는 전송되지 않습니다.</span>
+            </div>
+            <div id="vision-result" class="vision-result" role="region" aria-label="AI 화면 분석 응답" aria-live="polite">아직 분석한 화면이 없습니다.</div>
+            <p class="vision-disclaimer">결과는 화면 한 장에 대한 추정입니다. 다른 창이나 가려진 요소는 알 수 없고, 자비스가 클릭하거나 설정을 바꾸지는 않습니다.</p>
+          </section>
           <button type="button" id="back-from-screen" class="quiet-btn back-btn">← 작업 공간으로</button>
         </div>
       </section>
