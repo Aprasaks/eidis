@@ -100,6 +100,7 @@ function setMode(mode) {
   workspace.hidden = !dashboard;
   workspace.style.display = dashboard ? '' : 'none';
   root.classList.toggle('dashboard-open',dashboard);
+  root.classList.toggle('design-mode', mode === 'variants');
   $('#state-label').textContent = dashboard ? 'PRESENCE / ENGAGED' : 'AWAITING YOUR VOICE';
   $('#hero-title').textContent = dashboard ? '항상 여기 있습니다.' : '부르면, 연결됩니다.';
   $('#workspace-title').textContent = mode === 'variants' ? '디자인 연구실' : mode === 'memories' ? '저장한 기억' : mode === 'screen' ? '화면 미리보기' : '작업 공간';
