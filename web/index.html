@@ -43,6 +43,9 @@
             <h3>필요한 도구만 열어두세요.</h3>
             <p>기억을 확인하거나, 화면을 살펴보거나, 작업 공간을 바꿀 수 있습니다.</p>
             <div class="workspace-shortcuts" aria-label="작업 도구">
+              <button type="button" id="show-projects" class="workspace-shortcut">
+                <span aria-hidden="true">◫</span><strong>프로젝트</strong><small>상태·다음 작업 확인</small>
+              </button>
               <button type="button" id="show-memory" class="workspace-shortcut">
                 <span aria-hidden="true">◇</span><strong>기억</strong><small>저장한 내용 보기</small>
               </button>
@@ -55,6 +58,29 @@
             </div>
           </div>
         </div>
+        <section id="projects-view" class="projects-view" hidden aria-label="프로젝트 상태 기록">
+          <div class="projects-intro">
+            <h3>프로젝트 기록</h3>
+            <p>작업 상태는 직접 입력한 기록입니다. GitHub 증거는 버튼을 눌러 확인했을 때만 별도로 저장됩니다.</p>
+          </div>
+          <details id="new-project-details" class="new-project-details">
+            <summary>+ 프로젝트 추가</summary>
+            <form id="new-project-form" autocomplete="off">
+              <label for="new-project-name">이름</label>
+              <input id="new-project-name" type="text" maxlength="80" required placeholder="예: DECHIVE Wiki"/>
+              <label for="new-project-goal">목표 (선택)</label>
+              <input id="new-project-goal" type="text" maxlength="500" placeholder="완료해야 할 결과"/>
+              <label for="new-project-repo">공개 GitHub 저장소 (선택)</label>
+              <input id="new-project-repo" type="text" maxlength="140" placeholder="owner/repo"/>
+              <button type="submit" class="line-btn">프로젝트 기록하기</button>
+            </form>
+          </details>
+          <div id="projects-message" class="projects-message" role="status" aria-live="polite"></div>
+          <div id="project-list" class="project-list" aria-live="polite">
+            <p class="projects-empty">기록을 불러오고 있습니다.</p>
+          </div>
+          <button type="button" id="back-from-projects" class="quiet-btn back-btn">← 작업 공간으로</button>
+        </section>
         <div id="variants-view" class="variants-view" hidden>
           <div class="design-intro">
             <span class="section-overline">JARVIS / DESIGN LABORATORY</span>
