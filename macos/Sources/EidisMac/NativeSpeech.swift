@@ -154,7 +154,15 @@ final class LocalCommandClient: ObservableObject {
             let url = URL(string: "http://127.0.0.1:8765/api/chat")!
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
-            request.timeoutInterval = 10
+            // A public GitHub check can involve several independent GET requests.
+            // Longer timeout is only for explicit GitHub status requests; this does
+            // not grant broader permissions or start a background task.
+            let compact = phrase.lowercased().replacingOccurrences(of: " ", with: "")
+            let githubInspection = (compact.contains("github") || compact.contains("깃허브")
+                || compact.contains("깃헙"))
+                && (compact.contains("확인") || compact.contains("조회")
+                    || compact.contains("상태") || compact.contains("점검"))
+            request.timeoutInterval = githubInspection ? 36 : 10
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             var commandBody: [String: Any] = [
                 "text": phrase,
