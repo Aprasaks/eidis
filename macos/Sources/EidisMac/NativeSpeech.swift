@@ -142,7 +142,7 @@ final class LocalCommandClient: ObservableObject {
     @Published private(set) var lastResponse = "아직 실행한 명령이 없습니다."
     private var conversationID: String?
 
-    func submit(_ text: String, bridge: JarvisBridge, voice: JarvisVoiceService) async {
+    func submit(_ text: String, bridge: JarvisBridge, voice: JarvisVoiceService, elevenLabs: ElevenLabsVoiceService) async {
         let phrase = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !phrase.isEmpty else { return }
         guard !busy else { return }
@@ -178,7 +178,7 @@ final class LocalCommandClient: ObservableObject {
             conversationID = answer.conversation_id
             bridge.event = JarvisVisualEvent(reply: answer)
             lastResponse = answer.text
-            voice.speak(answer.spoken)
+            await elevenLabs.speak(answer.spoken, fallback: voice)
         } catch {
             lastResponse = "로컬 서버 연결 실패: \(error.localizedDescription)"
         }
@@ -188,6 +188,8 @@ final class LocalCommandClient: ObservableObject {
 struct NativeSpeechPanel: View {
     @ObservedObject var bridge: JarvisBridge
     @ObservedObject var voice: JarvisVoiceService
+    @ObservedObject var elevenLabs: ElevenLabsVoiceService
+    @State private var elevenAPIKeyDraft = ""
     @StateObject private var listener = LocalSpeechListener()
     @StateObject private var client = LocalCommandClient()
     @State private var typedCommand = ""
@@ -237,11 +239,67 @@ struct NativeSpeechPanel: View {
                 }
                 .padding(.vertical, 4)
             }
+            GroupBox("ElevenLabs · 선택한 목소리") {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 10) {
+                        Text("Voice ID").font(.caption).frame(width: 70, alignment: .leading)
+                        TextField("ElevenLabs Voice ID", text: $elevenLabs.voiceID)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.caption.monospaced())
+                            .accessibilityIdentifier("elevenlabs-voice-id")
+                    }
+                    HStack {
+                        Text("모델").font(.caption).frame(width: 70, alignment: .leading)
+                        Picker("모델", selection: $elevenLabs.modelID) {
+                            Text("Flash v2.5 · 빠르고 저렴").tag("eleven_flash_v2_5")
+                            Text("Multilingual v2 · 높은 음질").tag("eleven_multilingual_v2")
+                        }
+                        .labelsHidden()
+                    }
+                    HStack(spacing: 9) {
+                        SecureField("ElevenLabs API 키 (Mac 키체인에 저장)", text: $elevenAPIKeyDraft)
+                            .textFieldStyle(.roundedBorder)
+                            .accessibilityIdentifier("elevenlabs-api-key")
+                        Button("키 저장") {
+                            if elevenLabs.saveKey(elevenAPIKeyDraft) {
+                                elevenAPIKeyDraft = ""
+                            }
+                        }
+                        .disabled(elevenAPIKeyDraft.isEmpty)
+                        Button("키 삭제") { elevenLabs.removeKey() }
+                            .disabled(!elevenLabs.keyPresent)
+                    }
+                    Toggle("이후 자비스 답변을 ElevenLabs로 음성 생성 (텍스트 외부 전송·크레딧 사용)",
+                           isOn: $elevenLabs.enabled)
+                        .disabled(!elevenLabs.keyPresent)
+                        .font(.caption)
+                    HStack(spacing: 12) {
+                        Button("ElevenLabs 미리 듣기 · 크레딧 사용") {
+                            Task { await elevenLabs.preview(fallback: voice) }
+                        }
+                        .disabled(!elevenLabs.keyPresent || elevenLabs.isBusy || elevenLabs.remaining == 0)
+                        Text("이번 앱 실행: 남은 요청 \\(elevenLabs.remaining)/5회")
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                    Text(elevenLabs.keyPresent ? "API 키: Mac 키체인에 저장됨" : "API 키: 미등록")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(elevenLabs.status)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                    Text("기본 OFF. 1회 요청도 유료 크레딧을 소모할 수 있습니다. 600자가 넘는 답변이나 오류는 Mac 목소리로 읽습니다. 음성 생성할 답변 텍스트는 ElevenLabs로 전송됩니다.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
+            }
             HStack {
                 Button(listener.isListening ? "완료하고 명령 전달" : "마이크로 말하기") {
                     if listener.isListening {
                         let phrase = listener.stop()
-                        Task { await client.submit(phrase, bridge: bridge, voice: voice) }
+                        Task { await client.submit(phrase, bridge: bridge, voice: voice, elevenLabs: elevenLabs) }
                     } else {
                         Task { await listener.start() }
                     }
