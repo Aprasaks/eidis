@@ -40,7 +40,7 @@ class ElevenLabsVoiceContract(unittest.TestCase):
         self.assertNotIn("URLSession.shared",ELEVEN)
         self.assertIn("Button(\"ElevenLabs 미리 듣기 · 크레딧 사용\")",SPEECH)
         self.assertIn("Toggle(\"이후 자비스 답변을 ElevenLabs로 음성 생성",SPEECH)
-        self.assertIn("voice.speak",VOICE)
+        self.assertIn("synthesizer.speak",VOICE)
         self.assertIn("await elevenLabs.speak(answer.spoken, fallback: voice)",SPEECH)
         self.assertIn("NativeSpeechPanel(bridge: bridge, voice: voice, elevenLabs: elevenLabs)",APP)
 
