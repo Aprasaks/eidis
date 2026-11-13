@@ -20,6 +20,7 @@
   const names = Object.freeze({
     wake: '음성/텍스트 호출 인식',
     open_dashboard: '작업 공간 열기',
+    close_workspace: '작업 공간 닫기',
     design_options: '디자인 시안 열기',
     design_suggestions: '디자인 설정 생성',
     remember: '기억 저장 완료',
