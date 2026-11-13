@@ -20,6 +20,8 @@ let micRetry = null;
 let activeStream = null;
 let visionBusy = false;
 let visionGeneration = 0;
+let conversationID = null;
+let chatBusy = false;
 let respondTimer = null;
 let summonAt = null;
 let voiceWakeUntil = 0;
@@ -142,26 +144,58 @@ function speak(txt) {
   msg.onerror=resume;
   window.speechSynthesis.speak(msg);
 }
+function displayAssistantReply(message) {
+  const panel = $('#assistant-reply');
+  $('#assistant-reply-text').textContent = String(message || '').slice(0,3200);
+  panel.hidden = false;
+}
+function hideAssistantReply() {
+  $('#assistant-reply').hidden = true;
+  $('#assistant-reply-text').textContent = '';
+}
+$('#assistant-reply-dismiss').addEventListener('click',hideAssistantReply);
+
 async function issue(text) {
-  text=text.trim();if(!text)return;
-  $('#command-input').value='';
+  text = String(text || '').trim();
+  if (!text || chatBusy) return;
+  chatBusy = true;
+  $('#command-input').value = '';
+  const remote = $('#brain-remote-consent').checked;
+  $('#brain-remote-consent').checked = false; // consent is strictly per turn
   try {
-    const r=await fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
-    const data=await r.json();
-    if (!r.ok) throw new Error(data.error || '요청에 실패했습니다.');
-    // Successful commands are already recorded once as durable *metadata* by
-    // the local engine. Do not echo a second log line or private recall content.
-    if (data.action === 'unsupported') {
-      showMessage('이 명령은 아직 지원하지 않습니다. 아무 작업도 실행하지 않았습니다.', 'warning');
+    const response = await fetch('/api/chat', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        text, conversation_id:conversationID, remote_consent:remote,
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || '요청에 실패했습니다.');
+    if (typeof data.conversation_id === 'string') conversationID = data.conversation_id;
+
+    // Actual conversational answers are displayed as answers, not repeated in logs.
+    // No raw conversation text is copied to the terminal.
+    if (['chat_context','chat_local_status','chat_reply','chat_unavailable',
+         'memory_search','chat_reset'].includes(data.action)) {
+      displayAssistantReply(data.text);
+    } else {
+      hideAssistantReply();
     }
     void refreshDashboardData();
     if (data.action === 'wake') summon();
     setMode(data.mode);
     speak(data.spoken);
     if (data.action === 'design_options' && typeof data.design_prompt === 'string') {
-      await generateRequestedDesigns(data.design_prompt, 'rules');
+      await generateRequestedDesigns(data.design_prompt,'rules');
     }
-  } catch (err) {showMessage(`오류: ${err.message}`);}
+  } catch (error) {
+    // Errors appear in the shared terminal; never log the raw question.
+    showMessage('대화 처리 오류: ' + error.message, 'error');
+    displayAssistantReply('요청을 완료하지 못했습니다. 구석의 작업 기록에서 오류를 확인해 주세요.');
+  } finally {
+    chatBusy = false;
+  }
 }
 $('#command-form').addEventListener('submit',e=>{e.preventDefault();issue($('#command-input').value);});
 $('#close-workspace').addEventListener('click',()=>setMode('orb'));
@@ -411,6 +445,12 @@ window.jarvisNativeResult = (reply) => {
   if (!reply || typeof reply !== 'object') return;
   const validModes = new Set(['orb','dashboard','variants','memories','screen']);
   if (!validModes.has(reply.mode) || typeof reply.text !== 'string') return;
+  if (['chat_context','chat_local_status','chat_reply','chat_unavailable',
+       'memory_search','chat_reset'].includes(reply.action)) {
+    displayAssistantReply(reply.text);
+  } else {
+    hideAssistantReply();
+  }
   if (reply.action === 'unsupported') {
     showMessage('지원하지 않는 명령입니다. 아무 작업도 실행하지 않았습니다.', 'warning');
   }
@@ -435,9 +475,15 @@ async function refreshDashboardData() {
     ]);
     if (!statusRes.ok || !activityRes.ok) throw new Error('local service unavailable');
     const events = await activityRes.json();
+    const brainConsent = $('#brain-consent-wrap');
+    const ready = Boolean((await statusRes.json()).brain?.remote_configured);
+    brainConsent.hidden = !ready;
+    if (!ready) $('#brain-remote-consent').checked = false;
     window.JarvisTerminal?.setConnection('connected');
     window.JarvisTerminal?.syncActivity(events.items);
   } catch {
+    $('#brain-consent-wrap').hidden = true;
+    $('#brain-remote-consent').checked = false;
     window.JarvisTerminal?.setConnection('disconnected');
   }
 }
