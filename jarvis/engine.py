@@ -24,7 +24,7 @@ class JarvisEngine:
     def __init__(self, store: MemoryStore):
         self.store = store
 
-    def handle(self, phrase: str) -> dict:
+    def handle(self, phrase: str, *, log_unsupported: bool = True) -> dict:
         if not isinstance(phrase, str):
             raise ValueError("문장 형식이 올바르지 않습니다.")
         phrase = re.sub(r"\s+", " ", phrase).strip()
@@ -89,7 +89,8 @@ class JarvisEngine:
             category, mode = "unsupported", "orb"
             response = "이 명령을 처리할 AI 모델이나 실행 도구는 아직 연결되지 않았습니다. 실행한 것처럼 말씀드리지 않겠습니다."
 
-        self.store.record_event(category, "handled" if category != "unsupported" else "unsupported")
+        if category != "unsupported" or log_unsupported:
+            self.store.record_event(category, "handled" if category != "unsupported" else "unsupported")
         result = {"spoken": response, "text": response, "mode": mode, "action": category,
                   "executed": category not in ("unsupported", "screen", "design_options")}
         if category == "design_options" and design_prompt:
