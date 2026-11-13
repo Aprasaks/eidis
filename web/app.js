@@ -154,10 +154,11 @@ async function issue(text) {
     const r=await fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
     const data=await r.json();
     if (!r.ok) throw new Error(data.error || '요청에 실패했습니다.');
-    // Do not put user-provided memory text into terminal history.
-    showMessage(data.action === 'recall'
-      ? '기억 조회 완료 · 내용은 기억 화면에서만 확인할 수 있습니다.'
-      : data.text, data.action === 'unsupported' ? 'warning' : 'info');
+    // Successful commands are already recorded once as durable *metadata* by
+    // the local engine. Do not echo a second log line or private recall content.
+    if (data.action === 'unsupported') {
+      showMessage('이 명령은 아직 지원하지 않습니다. 아무 작업도 실행하지 않았습니다.', 'warning');
+    }
     void refreshDashboardData();
     if (data.action === 'wake') summon();
     setMode(data.mode);
@@ -416,7 +417,10 @@ window.jarvisNativeResult = (reply) => {
   if (!reply || typeof reply !== 'object') return;
   const validModes = new Set(['orb','dashboard','variants','memories','screen']);
   if (!validModes.has(reply.mode) || typeof reply.text !== 'string') return;
-  showMessage(reply.action === 'recall' ? '기억 조회 완료 · 내용은 기억 화면에서만 확인합니다.' : reply.text);
+  if (reply.action === 'unsupported') {
+    showMessage('지원하지 않는 명령입니다. 아무 작업도 실행하지 않았습니다.', 'warning');
+  }
+  void refreshDashboardData();
   if (reply.action === 'wake') summon();
   setMode(reply.mode);
   if (reply.action === 'design_options' && typeof reply.design_prompt === 'string') {
