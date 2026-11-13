@@ -60,6 +60,15 @@ def check_browser(page, size_name: str, viewport: dict) -> None:
     expect(page.locator("#memory-count")).not_to_have_text("—")
     page.wait_for_timeout(650)
     screenshot(page, f"{size_name}_03_dashboard")
+    if size_name == "desktop":
+        dashboard_fold = page.evaluate("""() => {
+          const dock = document.querySelector('.command-dock').getBoundingClientRect();
+          const tools = ['show-memory', 'open-screen'].map(id =>
+            document.getElementById(id).getBoundingClientRect()
+          );
+          return tools.every(rect => rect.bottom > 0 && rect.bottom < dock.top - 6);
+        }""")
+        assert dashboard_fold, "Dashboard quick actions should be visible above command dock"
 
     page.get_by_role("button", name="화면 다시 설계").click()
     expect(page.locator("#variants-view")).to_be_visible()
