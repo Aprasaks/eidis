@@ -17,6 +17,7 @@ from urllib.request import Request, urlopen
 
 from .engine import JarvisEngine
 from .storage import MemoryStore
+from .tools import ToolRunner, ToolDenied, ToolExecutionError
 
 API_ENDPOINT = "https://api.openai.com/v1/responses"
 MAX_REMOTE_CALLS = 3
@@ -46,8 +47,10 @@ class Conversation:
 
 
 class JarvisBrain:
-    def __init__(self, store: MemoryStore, engine: JarvisEngine):
+    def __init__(self, store: MemoryStore, engine: JarvisEngine,
+                 tools: ToolRunner | None = None):
         self.store, self.engine = store, engine
+        self.tools = tools if tools is not None else ToolRunner(store)
         self.sessions: OrderedDict[str, Conversation] = OrderedDict()
         self.remote_calls = 0
 
@@ -150,6 +153,94 @@ class JarvisBrain:
         except (ValueError, TypeError, KeyError, AttributeError) as exc:
             raise BrainProviderError("AI가 읽을 수 있는 답변을 반환하지 않았습니다.") from exc
 
+
+    @staticmethod
+    def _github_request(phrase: str) -> bool:
+        text = phrase.lower().replace(" ", "")
+        if not any(x in text for x in ("github", "깃허브", "깃헙")):
+            return False
+        # A negative statement must never initiate external activity.
+        if any(x in text for x in (
+            "확인하지마", "확인하지말", "조회하지마", "조회하지말",
+            "확인안해", "조회안해", "확인말고", "조사하지마",
+        )):
+            return False
+        return any(x in text for x in (
+            "상태확인", "상태조회", "상태점검", "확인해", "확인해줘",
+            "조회해", "살펴봐", "점검해", "검사해",
+        ))
+
+    def _github_project_reply(self, utterance: str, sid: str) -> dict:
+        projects = self.store.list_projects(limit=40)
+        candidates = [p for p in projects if p["repo_full_name"]]
+        if not projects:
+            return self._reply(
+                "로컬 자비스에 등록된 프로젝트가 없습니다. 작업 공간 → 프로젝트에서 "
+                "이름과 공개 GitHub 저장소(owner/repo)를 등록해 주세요. "
+                "아직 외부 조회는 실행하지 않았습니다.",
+                "tool_setup_required", sid, mode="projects"
+            )
+        lowered = utterance.casefold()
+        named = [p for p in projects if
+                 p["name"].casefold() in lowered or
+                 (p["repo_full_name"] and (
+                     p["repo_full_name"].casefold() in lowered or
+                     p["repo_full_name"].split("/")[-1].casefold() in lowered
+                 ))]
+        if len(named) == 1:
+            project = named[0]
+        elif len(projects) == 1:
+            project = projects[0]
+        elif len(candidates) == 1 and not named:
+            # Selecting the only *configured* repo is not ambiguous.
+            project = candidates[0]
+        else:
+            names = ", ".join(p["name"] for p in (named or projects)[:8])
+            return self._reply(
+                "어느 프로젝트를 확인할지 지정해 주세요: " + names +
+                ". 예: 'eidis GitHub 상태 확인해'. 아직 GitHub 요청은 실행하지 않았습니다.",
+                "tool_target_ambiguous", sid, mode="projects"
+            )
+        if not project["repo_full_name"]:
+            return self._reply(
+                f'{project["name"]} 프로젝트에 공개 GitHub 저장소가 설정되지 않았습니다. '
+                "프로젝트 화면에 owner/repo를 등록해 주세요. 조회는 실행하지 않았습니다.",
+                "tool_setup_required", sid, mode="projects"
+            )
+        try:
+            result = self.tools.execute(
+                "github.public_verify", project["id"], explicit_request=True
+            )
+        except (ToolDenied, ToolExecutionError) as exc:
+            return self._reply(
+                f'{project["name"]}의 GitHub 조회를 완료하지 못했습니다. {exc}',
+                "tool_github_failed", sid, mode="projects"
+            )
+        checked = result["project"]["last_check"]
+        workflow = (
+            "현재 커밋과 일치하는 최근 Workflow를 찾지 못했습니다."
+            if checked["workflow_state"] == "unavailable"
+            else f'현재 커밋의 Workflow는 {checked["workflow_state"]} / '
+                 f'{checked["workflow_conclusion"]} 상태입니다.'
+        )
+        answer = (
+            f'{project["name"]}: GitHub 공개 API를 지금 직접 조회했습니다. '
+            f'저장소 {checked["repository"]}, 기본 브랜치 {checked["branch"]}, '
+            f'HEAD {checked["head_sha"][:10]}. {workflow} '
+            f'확인 시각 {checked["checked_at"]}. '
+            "이 결과는 GitHub의 일부 증거이며 실제 배포나 작업 완료를 보증하지 않습니다."
+        )
+        reply = self._reply(answer, "tool_github_checked", sid,
+                            source="verified_public_api", mode="projects")
+        reply["executed"] = True
+        reply["tool_receipt"] = {
+            "id": result["receipt"]["id"], "tool": result["receipt"]["tool_name"],
+            "status": result["receipt"]["status"], "outcome": result["receipt"]["outcome"],
+            "project_id": project["id"], "head_sha": checked["head_sha"],
+            "checked_at": checked["checked_at"],
+        }
+        return reply
+
     def handle(self, phrase: object, *, conversation_id: object = None,
                remote_consent: bool = False) -> dict:
         if not isinstance(phrase, str):
@@ -159,6 +250,15 @@ class JarvisBrain:
             raise BrainError("문장은 1~2000자로 입력해 주세요.")
         sid, session = self._session(conversation_id)
         clean = re.sub(r"^(자비스|jarvis)[,，?？!！.\s]*", "", phrase, flags=re.I).strip()
+
+        if self._github_request(clean):
+            reply = self._github_project_reply(clean, sid)
+            self._append(session, phrase, reply["text"])
+            # The tool itself emits a sanitized execution/verification record.
+            # Missing/ambiguous targets are local decisions only.
+            if reply["action"] in ("tool_setup_required", "tool_target_ambiguous"):
+                self.store.record_event(reply["action"], "local")
+            return reply
 
         if clean in ("대화 초기화", "새 대화 시작", "대화 지워", "대화 비워"):
             session.turns.clear()
