@@ -37,7 +37,7 @@ class VoiceSettingsContract(unittest.TestCase):
     def test_ui_has_preview_and_controls(self):
         for text in (
             'GroupBox("자비스 목소리")', 'Picker("목소리", selection: $voice.voiceID)',
-            'Button("미리 듣기")', 'Button("초기화")',
+            'Button("Mac 음성 미리 듣기")', 'Button("초기화")',
             'Slider(value: $voice.speed', 'Slider(value: $voice.pitch'
         ):
             self.assertIn(text, self.speech)
