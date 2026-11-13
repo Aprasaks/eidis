@@ -6,13 +6,14 @@ import mimetypes
 import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, parse_qs
 
 from .engine import JarvisEngine, CAPABILITIES
 from .brain import JarvisBrain, BrainError, BrainProviderError, brain_ready, MAX_REMOTE_CALLS
 from .design import DesignError, RemoteDesignError, remote_ready, suggest_designs
 from .vision import VisionError, VisionRemoteError, vision_ready, analyze_screen, validate_image
 from .storage import MemoryStore
+from .projects import ProjectCheckError, verify_public_github
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 DB_PATH = Path(os.environ.get("JARVIS_DB", str(Path.home() / ".jarvis-lab" / "memory.sqlite3")))
@@ -61,6 +62,15 @@ class JarvisHandler(BaseHTTPRequestHandler):
                                     "note": "프로토타입. LLM, 실제 화면 이해, Mac 제어는 미연결."})
         if path == "/api/memories":
             return self._json(200, {"items": self.store.recent_memories()})
+        if path == "/api/projects":
+            return self._json(200, {"items": self.store.list_projects()})
+        if path == "/api/projects/history":
+            try:
+                values = parse_qs(urlsplit(self.path).query)
+                pid = int(values.get("id", [""])[0])
+                return self._json(200, {"items": self.store.project_changes(pid)})
+            except (ValueError, IndexError) as exc:
+                return self._json(400, {"error": str(exc)})
         if path == "/api/activity":
             return self._json(200, {"items": self.store.recent_activity(50)})
         if path == "/":
@@ -81,7 +91,9 @@ class JarvisHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):  # noqa N802
         path = urlsplit(self.path).path
-        if path not in ("/api/command", "/api/chat", "/api/design/suggest", "/api/vision/analyze"):
+        if path not in ("/api/command", "/api/chat", "/api/design/suggest", "/api/vision/analyze",
+                         "/api/projects", "/api/projects/task", "/api/projects/status",
+                         "/api/projects/github/check"):
             return self._json(404, {"error": "알 수 없는 경로"})
         if not self._same_origin():
             return self._json(403, {"error": "로컬 앱에서만 요청할 수 있습니다."})
@@ -94,6 +106,31 @@ class JarvisHandler(BaseHTTPRequestHandler):
             data = json.loads(self.rfile.read(size))
             if not isinstance(data, dict):
                 raise ValueError("JSON 객체로 요청해야 합니다.")
+            if path == "/api/projects":
+                project = self.store.create_project(
+                    data.get("name"), data.get("goal", ""), data.get("repo", "")
+                )
+                self.store.record_event("project_created", "user")
+                return self._json(200, {"project": project})
+            if path == "/api/projects/task":
+                task = self.store.add_project_task(data.get("project_id"), data.get("title"))
+                self.store.record_event("project_task_added", "user")
+                return self._json(200, {"task": task})
+            if path == "/api/projects/status":
+                project = self.store.update_project_task(
+                    data.get("project_id"), data.get("task_id"), data.get("status")
+                )
+                self.store.record_event("project_task_status", "user")
+                return self._json(200, {"project": project})
+            if path == "/api/projects/github/check":
+                project = self.store._project_row(data.get("project_id"))
+                if not project["repo_full_name"]:
+                    raise ValueError("프로젝트에 GitHub owner/repo가 설정되어 있지 않습니다.")
+                # No auto-refresh, no credentials, no network on page load.
+                check = verify_public_github(project["repo_full_name"])
+                checked = self.store.save_project_check(project["id"], check)
+                self.store.record_event("project_github_checked", "verified")
+                return self._json(200, {"project": checked})
             if path == "/api/chat":
                 reply = self.brain.handle(
                     data.get("text", ""), conversation_id=data.get("conversation_id"),
@@ -126,6 +163,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
                 return self._json(200, result)
             result = self.engine.handle(data.get("text", ""))
             return self._json(200, result)
+        except ProjectCheckError as exc:
+            return self._json(502, {"error": str(exc)})
         except BrainProviderError as exc:
             return self._json(502, {"error": str(exc)})
         except VisionRemoteError as exc:
