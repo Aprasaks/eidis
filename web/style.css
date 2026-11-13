@@ -465,3 +465,38 @@ body::before{
   .board-hero-copy>p:not(.board-kicker){font-size:12px}
   .footnote{font-size:9px}
 }
+
+
+/* v0.6 second pass: the operational dashboard must not hide its actual tools
+   below a fixed command dock on a common 1440x900 desktop viewport. */
+@media(min-width:1100px){
+  .dashboard-open:not(.design-mode) .board-hero{
+    min-height:162px;grid-template-columns:minmax(0,1fr) 156px;
+    padding:5px 0 12px;gap:16px;
+  }
+  .dashboard-open:not(.design-mode) .board-hero-copy h3{
+    font-size:30px;line-height:1.2;margin:11px 0 7px;
+  }
+  .dashboard-open:not(.design-mode) .board-hero-copy>p:not(.board-kicker){
+    font-size:11px;line-height:1.55;max-width:570px;
+  }
+  .dashboard-open:not(.design-mode) .text-action{margin-top:4px;padding:5px 0}
+  .dashboard-open:not(.design-mode) .board-art{
+    min-height:134px;opacity:.43;transform:scale(.81);transform-origin:center right
+  }
+  .dashboard-open:not(.design-mode) .telemetry-bar{padding:12px 0}
+  .dashboard-open:not(.design-mode) .workspace-split{
+    grid-template-columns:minmax(0,1.14fr) minmax(0,.86fr);
+    gap:25px;margin-top:14px
+  }
+  .dashboard-open:not(.design-mode) .live-capabilities{
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:18px
+  }
+  .dashboard-open:not(.design-mode) .capability-line{
+    min-height:39px;gap:6px;font-size:11px
+  }
+  .dashboard-open:not(.design-mode) .capability-line span:last-child{font-size:9px}
+  .dashboard-open:not(.design-mode) .action-strip{
+    margin-top:13px;padding-top:11px
+  }
+}
