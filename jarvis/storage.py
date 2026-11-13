@@ -73,6 +73,19 @@ class MemoryStore:
                 checked_at TEXT NOT NULL
             );
         """)
+        self.db.executescript("""
+            CREATE TABLE IF NOT EXISTS tool_executions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tool_name TEXT NOT NULL,
+                project_id INTEGER NOT NULL REFERENCES projects(id),
+                permission TEXT NOT NULL,
+                status TEXT NOT NULL CHECK(status IN ('started','completed','failed')),
+                outcome TEXT NOT NULL DEFAULT '',
+                head_sha TEXT NOT NULL DEFAULT '',
+                requested_at TEXT NOT NULL,
+                completed_at TEXT NOT NULL DEFAULT ''
+            );
+        """)
         self.db.commit()
 
     def count_memories(self) -> int:
@@ -247,6 +260,53 @@ class MemoryStore:
             "SELECT task_id,old_status,new_status,actor,changed_at "
             "FROM project_changes WHERE project_id=? ORDER BY id DESC LIMIT ?",
             (project["id"],max(1,min(50,int(limit))))
+        )]
+
+
+    def start_tool_execution(self, name: str, project_id: int, permission: str) -> int:
+        project = self._project_row(project_id)
+        if name != "github.public_verify" or permission != "read_external":
+            raise ValueError("등록된 읽기 전용 도구만 실행 기록을 남길 수 있습니다.")
+        with self.db:
+            cur = self.db.execute(
+                "INSERT INTO tool_executions(tool_name,project_id,permission,status,requested_at) "
+                "VALUES (?,?,?,?,?)",
+                (name,project["id"],permission,"started",iso_now())
+            )
+        return cur.lastrowid
+
+    def finish_tool_execution(self, run_id: int, status: str,
+                              outcome: str, sha: str = "") -> dict:
+        if type(run_id) is not int or status not in ("completed","failed"):
+            raise ValueError("실행 기록 형식이 잘못되었습니다.")
+        if outcome not in ("head_observed","head_and_workflow_observed",
+                           "provider_unavailable","invalid_evidence"):
+            raise ValueError("검증되지 않은 결과 분류입니다.")
+        with self.db:
+            cur = self.db.execute(
+                "UPDATE tool_executions SET status=?,outcome=?,head_sha=?,completed_at=? "
+                "WHERE id=? AND status='started'",
+                (status,outcome,sha[:40] if status=="completed" else "",iso_now(),run_id)
+            )
+        if cur.rowcount != 1:
+            raise ValueError("이미 종료된 실행이거나 존재하지 않는 기록입니다.")
+        return self.get_tool_execution(run_id)
+
+    def get_tool_execution(self, run_id: int) -> dict:
+        row = self.db.execute(
+            "SELECT id,tool_name,project_id,permission,status,outcome,head_sha,"
+            "requested_at,completed_at FROM tool_executions WHERE id=?",(run_id,)
+        ).fetchone()
+        if row is None:
+            raise ValueError("실행 기록이 존재하지 않습니다.")
+        return dict(row)
+
+    def recent_tool_executions(self, limit: int = 20) -> list[dict]:
+        limit = max(1,min(40,int(limit)))
+        return [dict(x) for x in self.db.execute(
+            "SELECT id,tool_name,project_id,permission,status,outcome,head_sha,"
+            "requested_at,completed_at FROM tool_executions ORDER BY id DESC LIMIT ?",
+            (limit,)
         )]
 
     def close(self):
