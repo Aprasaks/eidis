@@ -1,23 +1,28 @@
-# JARVIS — S1 개발 상태 (2026-11-12)
+# JARVIS 작업 상태 — 2026-11-13
 
-## 기존 main 확인
-- Python 기반 로컬 서버, 명시적 SQLite 기억, 규칙 기반 텍스트 명령.
-- 브라우저 UI: 입자 원, 대시보드, 3개 사전 정의된 스타일, 화면 미리보기.
-- SwiftUI 네이티브 셸: 화면 한 장 캡처, 한국어 TTS. 이전 GitHub macOS 컴파일 성공.
-- 사용자 Mac Desktop Commander 장치는 마지막 확인 시 오프라인.
+## main에서 검증된 것
+- Python 로컬 코어, SQLite의 명시적 기억, 규칙 기반 명령 처리.
+- Mac SwiftUI 음성·화면 앱 코드, 음성 권한이 포함된 개발용 .app 패키징 (CI 컴파일 통과, 사용자 Mac 실기기 권한 승인 미검증).
+- JARVIS UI v0.6: 입자 호출 → 대시보드, 네 개의 사전 제작 디자인 시안.
+- Chromium 화면/반응형 테스트 및 macOS CI 통과.
 
-## feature/native-speech-s1 개발 중
-- 명시적으로 켜는 한국어 온디바이스 음성 인식(Speech), 동의 기반 마이크 권한.
-- 로컬 API 호출 뒤 검증된 응답을 자비스 UI로 반영.
-- NSMicrophoneUsageDescription / NSSpeechRecognitionUsageDescription을 포함한 개발용 .app 패키징.
-- workflow에서 Swift 컴파일뿐 아니라 패키징·Info.plist·코드서명 상태도 검사하도록 보강.
+## 이번 S4: Prompt Design Studio v0.7 개발 중
+- `jarvis/design.py`: 사용자의 디자인 문장을 로컬에서 안전한 4개 디자인 토큰 설정으로 조합.
+- `POST /api/design/suggest`: 로컬 규칙 기반 또는 명시적으로 동의한 외부 AI 응답.
+- 자연어 명령으로 로컬 설계안 요청, 디자인 연구실에서 새 시안 미리보기·승인·취소.
+- 외부 AI OpenAI Responses API 어댑터는 추가했지만 기본 OFF이며 키/요금 없이는 실제 API 실행하지 않음.
+- API 입력/출력 검증, 개인정보/명령 로깅 제한, 비용/원격 요청 승인 정책.
+- API 단위 테스트(가짜 AI 응답), 실제 Chromium 화면 전환 검사 추가.
 
-## 구현하지 않은 것
-- 상시 호출어, LLM 판단, 실제 화면 AI 해석, Mac 자동 조작.
-- 클라우드, iPhone, 자율 업무, 디자인 AI 생성.
-- Mac 실기기 권한 동작은 GitHub Actions만으로 검증 불가.
+## 여전히 남은 검증과 기능
+- 현재 PR의 Python/웹/Swift/실제 Chromium CI 통과 확인.
+- 사용자 Mac에서 마이크·화면 캡처/손쉬운 사용 권한 실제 승인 및 UX 테스트.
+- 외부 AI 모델 실제 호출 성공/디자인 품질 검증(별도 API 비용/명시적 승인 필요).
+- 자비스 대화 일반 AI 판단, 자연어 외부 도구 사용, 실제 AI 화면 이해, Mac 자동 조작.
+- 클라우드/아이폰/상시 자율 작업은 미구현.
+- 앞서 작업한 읽기 전용 접근성 UI PR #3은 macOS CI 실패 상태로 별도 보류, main에 병합하지 않음.
 
-## 바로 다음 검증
-1. PR CI의 Python/JS/Swift/macOS 패키징이 통과하는지 확인.
-2. 실제 Mac에서 `START_JARVIS_MAC.command`로 권한·마이크·화면 확인.
-3. 이후 접근성 UI 구조를 읽는 **읽기 전용** 기능을 추가하고, LLM/행동 정책과 분리해 검증.
+## 우선순위
+1. v0.7 PR CI 정상화 → 결과 확인 → main 병합.
+2. 로컬 디자인 생성 결과가 실제 브라우저에서 보이고 정확히 되돌아가는지 확인.
+3. S2 접근성 코드 오류와 Mac 실기기 검증은 기기 권한이 가능해진 때 진행.
