@@ -39,7 +39,7 @@ class JARVISUIContract(unittest.TestCase):
         expected = {
             "particles", "ring-visual", "workspace", "workspace-title",
             "state-label", "hero-title", "command-form",
-            "command-input", "voice-toggle", "mic-status", "online-dot",
+            "command-input", "voice-toggle", "mic-status",
             "dashboard-view", "variants-view", "memories-view", "screen-view",
             "close-workspace", "show-variants", "show-memory", "open-screen",
             "back-from-memory", "back-from-screen",
@@ -47,13 +47,23 @@ class JARVISUIContract(unittest.TestCase):
             "vision-question", "vision-consent", "analyze-screen",
             "vision-status", "vision-result",
             "memories-list", "demo-wake", "demo-dashboard",
-            "live-capabilities", "system-terminal", "terminal-toggle", "terminal-content",
+            "system-terminal", "terminal-toggle", "terminal-content",
             "terminal-feed", "terminal-clear", "terminal-count", "terminal-connection",
-            "core-status",
-            "memory-count", "connection-label",
-            "board-redesign", "design-status", "apply-design", "cancel-design",
+            "design-status", "apply-design", "cancel-design",
         }
         self.assertFalse(expected - set(self.doc.ids), "필수 UI 후크 누락")
+
+    def test_idle_is_minimal(self):
+        self.assertIn("무엇을 도와드릴까요?", self.html)
+        self.assertNotIn('class="topbar"', self.html)
+        self.assertNotIn("LAB v1.", self.html)
+        self.assertNotIn('class="brand"', self.html)
+        self.assertNotIn('id="core-status"', self.html)
+        self.assertNotIn('id="memory-count"', self.html)
+        self.assertNotIn('id="live-capabilities"', self.html)
+        self.assertNotIn('id="connection-label"', self.html)
+        self.assertNotIn('id="activity-feed"', self.html)
+        self.assertIn('class="terminal-cursor"', self.html)
 
     def test_design_previews_have_real_choices(self):
         self.assertEqual(
