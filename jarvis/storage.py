@@ -54,6 +54,20 @@ class MemoryStore:
             "SELECT id, content, project, created_at FROM memories ORDER BY id DESC LIMIT ?", (limit,)
         )]
 
+    def search_memories(self, query: str, limit: int = 5) -> list[dict]:
+        """Search explicitly saved notes. No automatic transcript indexing."""
+        if not isinstance(query, str) or not 1 <= len(query.strip()) <= 120:
+            raise ValueError("검색어를 1~120자로 입력해 주세요.")
+        # Treat SQL LIKE wildcards as literal user characters.
+        value = query.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        size = max(1, min(10, int(limit)))
+        return [dict(row) for row in self.db.execute(
+            "SELECT id, content, project, created_at FROM memories "
+            "WHERE content LIKE ? ESCAPE '\\' OR project LIKE ? ESCAPE '\\' "
+            "ORDER BY id DESC LIMIT ?",
+            (f"%{value}%", f"%{value}%", size),
+        )]
+
     def record_event(self, category: str, result: str) -> None:
         """Do NOT save raw transcripts by default. Only event type and result."""
         with self.db:

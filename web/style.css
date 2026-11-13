@@ -1128,3 +1128,37 @@ body::before{opacity:.92}
 }
 @keyframes orbit-halo{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.ring-visual::after{animation:none}}
+
+
+/* Context brain: actual replies may be read without opening the log terminal. */
+.assistant-reply{
+  position:relative;
+  display:flex;align-items:flex-start;gap:14px;text-align:left;
+  max-width:min(570px,60vw);max-height:230px;overflow:auto;
+  margin:8px auto 24px;padding:16px 17px 16px 19px;
+  background:linear-gradient(140deg,rgba(10,22,40,.86),rgba(6,13,24,.77));
+  border:1px solid rgba(150,195,230,.24);border-radius:12px;
+  box-shadow:0 20px 55px rgba(0,0,0,.20);
+  color:#d4e7f3;font-size:13px;line-height:1.8;
+  white-space:pre-wrap;overflow-wrap:anywhere;
+}
+.assistant-reply[hidden],.brain-consent[hidden]{display:none!important}
+.assistant-reply span{flex:1;min-width:0}
+.assistant-reply button{
+  border:0;background:transparent;color:#829bb3;
+  font-size:16px;padding:0 2px;align-self:flex-start;
+}
+.assistant-reply button:hover{color:#f3f8ff}
+.brain-consent{
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  color:#a7bdce;font-size:10px;line-height:1.45;
+  margin:0 auto 9px;padding:0 12px;text-align:center;
+}
+.brain-consent input{accent-color:#a7d9ff}
+@media(max-width:1099px){
+  .assistant-reply{max-width:min(640px,82vw);font-size:12px}
+}
+@media(max-width:610px){
+  .assistant-reply{max-width:100%;max-height:210px;font-size:12px;padding:12px 13px}
+  .brain-consent{font-size:9px}
+}
