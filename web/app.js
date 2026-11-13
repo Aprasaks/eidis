@@ -9,6 +9,10 @@ const views = ['dashboard-view','variants-view','memories-view','screen-view'];
 let activeMode = 'orb';
 let currentTheme = 'nebula';
 let designOriginalTheme = 'nebula';
+let designOriginalSpec = null;
+let activeGeneratedSpec = null;
+let designApplying = false;
+let designBusy = false;
 let recognizing = false;
 let wantMic = false;
 let recognition = null;
@@ -89,10 +93,15 @@ function summon() {
   if (summonAt === null) {summonAt = performance.now();root.classList.add('awakened');}
 }
 function setMode(mode) {
+  // A preview is never committed just by navigating away.
+  if (activeMode === 'variants' && mode !== 'variants' && !designApplying) {
+    restoreOriginalDesign();
+  }
   if (mode !== 'screen' && activeStream) stopScreen();
   if (mode !== 'orb') summon();
   if (mode === 'variants' && activeMode !== 'variants') {
     designOriginalTheme = currentTheme;
+    designOriginalSpec = activeGeneratedSpec ? {...activeGeneratedSpec} : null;
     updateVariantSelection();
   }
   activeMode = mode;
@@ -144,6 +153,9 @@ async function issue(text) {
     if (data.action === 'wake') summon();
     setMode(data.mode);
     speak(data.spoken);
+    if (data.action === 'design_options' && typeof data.design_prompt === 'string') {
+      await generateRequestedDesigns(data.design_prompt, 'rules');
+    }
   } catch (err) {showMessage(`오류: ${err.message}`);}
 }
 $('#command-form').addEventListener('submit',e=>{e.preventDefault();issue($('#command-input').value);});
@@ -167,6 +179,7 @@ const themeNames = Object.keys(themeLabels);
 
 function setTheme(theme) {
   if (!Object.hasOwn(themeLabels, theme)) return;
+  clearGeneratedStyles();
   currentTheme = theme;
   for (const name of themeNames) root.classList.remove('theme-' + name);
   root.classList.add('theme-' + theme);
@@ -175,13 +188,16 @@ function setTheme(theme) {
 
 function updateVariantSelection() {
   for (const button of document.querySelectorAll('.variant')) {
-    button.setAttribute('aria-pressed', String(button.dataset.theme === currentTheme));
+    const selected = button.dataset.theme
+      ? button.dataset.theme === currentTheme
+      : Boolean(activeGeneratedSpec && button.dataset.generatedId === activeGeneratedSpec.id);
+    button.setAttribute('aria-pressed', String(selected));
   }
   const info = $('#design-status');
   if (info) {
-    info.textContent = themeLabels[currentTheme] +
+    info.textContent = activeDesignLabel() +
       ' 미리보기 중 · 화면 디자인만 달라집니다. 이전에 적용한 시안은 ' +
-      themeLabels[designOriginalTheme] + '입니다.';
+      (designOriginalSpec?.title || themeLabels[designOriginalTheme] || '이전 설정') + '입니다.';
   }
 }
 
@@ -190,13 +206,18 @@ for (const button of document.querySelectorAll('.variant')) {
 }
 $('#apply-design').addEventListener('click', () => {
   designOriginalTheme = currentTheme;
-  showMessage(themeLabels[currentTheme] + ' 디자인을 이 실행 화면에 적용했습니다. 변경 사항은 서버 데이터에 영향을 주지 않습니다.');
+  designOriginalSpec = activeGeneratedSpec ? {...activeGeneratedSpec} : null;
+  showMessage(activeDesignLabel() + ' 디자인을 이 화면에 적용했습니다. 서버와 Mac 설정은 변경되지 않았습니다.');
+  designApplying = true;
   setMode('dashboard');
+  designApplying = false;
 });
 $('#cancel-design').addEventListener('click', () => {
-  setTheme(designOriginalTheme);
-  showMessage('이전 디자인으로 돌아왔습니다.');
+  restoreOriginalDesign();
+  showMessage('이전에 적용했던 디자인으로 돌아왔습니다.');
+  designApplying = true;
   setMode('dashboard');
+  designApplying = false;
 });
 root.classList.add('theme-nebula');
 
@@ -309,6 +330,9 @@ window.jarvisNativeResult = (reply) => {
   showMessage(reply.text);
   if (reply.action === 'wake') summon();
   setMode(reply.mode);
+  if (reply.action === 'design_options' && typeof reply.design_prompt === 'string') {
+    void generateRequestedDesigns(reply.design_prompt, 'rules');
+  }
 };
 
 
@@ -408,3 +432,146 @@ setInterval(() => {
   }
 }, 25000);
 void refreshDashboardData();
+
+
+/* Prompt-to-design workflow: the browser renders only validated design tokens.
+   No HTML/CSS returned by a model is executed. */
+const generatedClasses = [
+  'theme-generated','generated-layout-balanced','generated-layout-focus','generated-layout-panorama',
+  'generated-density-airy','generated-density-normal','generated-density-compact',
+  'generated-orb-soft','generated-orb-thin','generated-orb-radiant'
+];
+const safeHex = /^#[0-9a-fA-F]{6}$/;
+function validGeneratedSpec(spec) {
+  return spec && typeof spec === 'object' && ['ai','rules'].includes(spec.source) &&
+    typeof spec.id === 'string' && /^((rules|ai)-[1-4])$/.test(spec.id) &&
+    typeof spec.title === 'string' && spec.title.length <= 28 &&
+    ['balanced','focus','panorama'].includes(spec.layout) &&
+    ['airy','normal','compact'].includes(spec.density) &&
+    ['soft','thin','radiant'].includes(spec.orb) &&
+    ['background','accent','surface','foreground'].every(k => safeHex.test(spec[k]));
+}
+function clearGeneratedStyles() {
+  for (const name of generatedClasses) root.classList.remove(name);
+  for (const key of ['bg','accent','surface','text']) root.style.removeProperty('--gen-' + key);
+  activeGeneratedSpec = null;
+}
+function activeDesignLabel() {
+  return activeGeneratedSpec?.title || themeLabels[currentTheme] || '디자인';
+}
+function setGeneratedDesign(spec) {
+  if (!validGeneratedSpec(spec)) {
+    showMessage('디자인 데이터가 유효하지 않아 적용하지 않았습니다.');
+    return;
+  }
+  for (const name of themeNames) root.classList.remove('theme-' + name);
+  clearGeneratedStyles();
+  root.classList.add('theme-generated', 'generated-layout-' + spec.layout,
+    'generated-density-' + spec.density, 'generated-orb-' + spec.orb);
+  const vars = {bg: spec.background, accent: spec.accent, surface: spec.surface, text: spec.foreground};
+  for (const [key,value] of Object.entries(vars)) root.style.setProperty('--gen-' + key, value);
+  currentTheme = 'generated';
+  activeGeneratedSpec = {...spec};
+  updateVariantSelection();
+}
+function restoreOriginalDesign() {
+  if (designOriginalSpec) setGeneratedDesign(designOriginalSpec);
+  else setTheme(designOriginalTheme);
+}
+function showGeneratedGallery(show) {
+  const preset = $('#preset-variant-list');
+  const generated = $('#generated-variant-list');
+  preset.hidden = show;
+  generated.hidden = !show;
+  preset.style.display = show ? 'none' : '';
+  generated.style.display = show ? '' : 'none';
+}
+function renderGeneratedProposals(data) {
+  if (!data || !Array.isArray(data.proposals) ||
+      data.proposals.length !== 4 || !data.proposals.every(validGeneratedSpec)) {
+    throw new Error('디자인 네 개를 안전하게 확인할 수 없습니다.');
+  }
+  const grid = $('#generated-variant-list');
+  grid.replaceChildren();
+  for (const spec of data.proposals) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'variant generated-variant';
+    btn.dataset.generatedId = spec.id;
+    btn.setAttribute('aria-pressed', 'false');
+    btn.setAttribute('aria-label', spec.title + ' 생성 시안 미리보기');
+
+    const shot = document.createElement('span'); shot.className = 'study-shot generated-study-shot';
+    shot.style.setProperty('--study-bg', spec.background);
+    shot.style.setProperty('--study-surface', spec.surface);
+    shot.style.setProperty('--study-accent', spec.accent);
+    const orb = document.createElement('i');orb.className = 'generated-study-orb';
+    const panel = document.createElement('b');panel.className = 'generated-study-panel';
+    const gridLines = document.createElement('small');gridLines.className = 'generated-study-lines';
+    shot.append(orb,panel,gridLines);
+    const info = document.createElement('span');info.className='study-info';
+    const number = document.createElement('span');number.className='study-index';
+    number.textContent = (spec.id.split('-')[1] || '?').padStart(2,'0') + ' /';
+    const title = document.createElement('strong');title.textContent = spec.title;
+    const desc = document.createElement('small');desc.textContent = spec.description;
+    info.append(number,title,desc);
+    btn.append(shot,info);
+    btn.addEventListener('click', () => setGeneratedDesign(spec));
+    grid.appendChild(btn);
+  }
+  showGeneratedGallery(true);
+  $('#design-origin').textContent = (data.provider === 'ai' ? 'AI MODEL' : 'LOCAL RULES') +
+    ' / 요청에 따라 새로 구성한 4개 시안';
+  updateVariantSelection();
+}
+async function generateRequestedDesigns(prompt, provider) {
+  if (designBusy) return;
+  const phrase = String(prompt || '').trim();
+  if (phrase.length < 3 || phrase.length > 320) {
+    $('#design-request-status').textContent = '요청은 3~320자로 입력해 주세요.';
+    return;
+  }
+  const consent = provider === 'ai' && $('#design-consent').checked;
+  if (provider === 'ai' && !consent) {
+    $('#design-request-status').textContent = '외부 AI에 보낼 내용을 확인하고 동의해 주세요.';
+    $('#design-request').open = true;
+    return;
+  }
+  designBusy = true;
+  $('#design-generate').disabled = true;
+  $('#design-request').open = true;
+  $('#design-prompt').value = phrase;
+  $('#design-request-status').textContent = provider === 'ai'
+    ? '외부 AI에서 디자인 설정을 요청하고 있습니다…'
+    : '기기에 있는 규칙으로 디자인 설정을 구성하고 있습니다…';
+  try {
+    const response = await fetch('/api/design/suggest', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({prompt:phrase,provider,consent})
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || '디자인 요청에 실패했습니다.');
+    renderGeneratedProposals(data);
+    $('#design-request-status').textContent = data.message;
+    showMessage(data.message);
+  } catch (error) {
+    $('#design-request-status').textContent = '시안 생성 실패: ' + error.message;
+    showMessage('시안 생성 실패: ' + error.message);
+  } finally {
+    designBusy = false;
+    $('#design-generate').disabled = false;
+  }
+}
+$('#design-request-form').addEventListener('submit', event => {
+  event.preventDefault();
+  void generateRequestedDesigns($('#design-prompt').value, $('#design-provider').value);
+});
+$('#design-provider').addEventListener('change', () => {
+  const ai = $('#design-provider').value === 'ai';
+  $('#design-consent-label').hidden = !ai;
+  $('#design-consent-label').style.display = ai ? 'flex' : 'none';
+  $('#design-consent').checked = false;
+  $('#design-request-status').textContent = ai
+    ? '실제 외부 모델 호출에는 설정된 API 키·유료 이용 요금·매 요청 동의가 필요합니다.'
+    : '무료 로컬 방식입니다. AI 모델이 생성한 결과라고 표시하지 않습니다.';
+});
