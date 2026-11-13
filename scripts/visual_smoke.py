@@ -72,7 +72,7 @@ def check_browser(page, size_name: str, viewport: dict) -> None:
     expect(page.locator("#workspace")).to_be_visible()
     expect(page.locator("#dashboard-view")).to_be_visible()
     expect(page.locator(".quiet-workspace")).to_be_visible()
-    expect(page.locator(".workspace-shortcut")).to_have_count(3)
+    expect(page.locator(".workspace-shortcut")).to_have_count(4)
     if size_name == "desktop":
         expect(page.locator("#terminal-feed")).to_contain_text("작업 공간")
     assert page.locator("#activity-feed").count() == 0, "Scattered dashboard logs must be removed"
@@ -87,6 +87,30 @@ def check_browser(page, size_name: str, viewport: dict) -> None:
           return tools.every(rect => rect.bottom > 0 && rect.bottom < dock.top - 6);
         }""")
         assert dashboard_fold, "Dashboard quick actions should be visible above command dock"
+
+    # Projects are stored explicitly, and a public GitHub lookup never fires
+    # automatically while opening, registering or changing a task.
+    outbound_checks=[]
+    page.on("request", lambda req: outbound_checks.append(req.url)
+            if "/api/projects/github/check" in req.url else None)
+    page.locator("#show-projects").click()
+    expect(page.locator("#projects-view")).to_be_visible()
+    page.locator("#new-project-details summary").click()
+    project_name=f"Visual QA {size_name}"
+    page.locator("#new-project-name").fill(project_name)
+    page.locator("#new-project-goal").fill("실제 회귀 검증")
+    page.get_by_role("button",name="프로젝트 기록하기").click()
+    expect(page.locator(".project-entry").filter(has_text=project_name)).to_be_visible()
+    new_task=page.get_by_role("textbox",name=project_name+" 새 작업")
+    new_task.fill("실제 Mac 화면 승인 확인")
+    page.get_by_role("button",name="+ 작업").last.click()
+    task_state=page.get_by_role("combobox",name="실제 Mac 화면 승인 확인 상태 변경").last
+    task_state.select_option("blocked")
+    expect(page.locator(".project-entry").filter(has_text=project_name)).to_contain_text("막힘 1")
+    assert outbound_checks == [], "GitHub API must only run after an explicit verification click"
+    screenshot(page,f"{size_name}_14_projects_manual_state")
+    page.locator("#back-from-projects").click()
+    expect(page.locator("#dashboard-view")).to_be_visible()
 
     page.locator("#show-variants").click()
     expect(page.locator("#variants-view")).to_be_visible()
