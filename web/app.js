@@ -178,7 +178,8 @@ async function issue(text) {
     // Actual conversational answers are displayed as answers, not repeated in logs.
     // No raw conversation text is copied to the terminal.
     if (['chat_context','chat_local_status','chat_reply','chat_unavailable',
-         'memory_search','chat_reset','project_overview'].includes(data.action)) {
+         'memory_search','chat_reset','project_overview','tool_github_checked',
+         'tool_github_failed','tool_setup_required','tool_target_ambiguous'].includes(data.action)) {
       displayAssistantReply(data.text);
     } else {
       hideAssistantReply();
@@ -186,6 +187,10 @@ async function issue(text) {
     void refreshDashboardData();
     if (data.action === 'wake') summon();
     setMode(data.mode);
+    if (data.mode === 'projects' && ['project_overview','tool_github_checked',
+         'tool_github_failed','tool_setup_required','tool_target_ambiguous'].includes(data.action)) {
+      projectMessage(data.text, data.action === 'tool_github_failed');
+    }
     speak(data.spoken);
     if (data.action === 'design_options' && typeof data.design_prompt === 'string') {
       await generateRequestedDesigns(data.design_prompt,'rules');
@@ -449,7 +454,8 @@ window.jarvisNativeResult = (reply) => {
   const validModes = new Set(['orb','dashboard','projects','variants','memories','screen']);
   if (!validModes.has(reply.mode) || typeof reply.text !== 'string') return;
   if (['chat_context','chat_local_status','chat_reply','chat_unavailable',
-       'memory_search','chat_reset','project_overview'].includes(reply.action)) {
+       'memory_search','chat_reset','project_overview','tool_github_checked',
+         'tool_github_failed','tool_setup_required','tool_target_ambiguous'].includes(reply.action)) {
     displayAssistantReply(reply.text);
   } else {
     hideAssistantReply();
@@ -460,6 +466,10 @@ window.jarvisNativeResult = (reply) => {
   void refreshDashboardData();
   if (reply.action === 'wake') summon();
   setMode(reply.mode);
+  if (reply.mode === 'projects' && ['project_overview','tool_github_checked',
+       'tool_github_failed','tool_setup_required','tool_target_ambiguous'].includes(reply.action)) {
+    projectMessage(reply.text, reply.action === 'tool_github_failed');
+  }
   if (reply.action === 'design_options' && typeof reply.design_prompt === 'string') {
     void generateRequestedDesigns(reply.design_prompt, 'rules');
   }
