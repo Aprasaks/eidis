@@ -74,11 +74,11 @@ class ToolRunner:
         state = result.get("workflow_state")
         conclusion = result.get("workflow_conclusion")
         if state not in ("completed", "queued", "in_progress", "requested",
-                         "waiting", "pending", "unavailable"):
+                         "waiting", "pending", "unavailable", "unknown"):
             raise ToolExecutionError("Workflow 상태를 신뢰할 수 없습니다.")
         if conclusion not in ("success", "failure", "cancelled", "timed_out",
                               "skipped", "action_required", "neutral",
-                              "unknown", "pending"):
+                              "unknown", "pending", "startup_failure", "stale"):
             raise ToolExecutionError("Workflow 결론 형식이 올바르지 않습니다.")
         # The verifier deliberately leaves the URL empty if no run for this SHA.
         url = result.get("workflow_url")
