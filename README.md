@@ -50,3 +50,7 @@
 
 ## Mac 실기기 진단 v1.5
 앱의 진단 탭에서 버튼을 눌러 Mac 권한 상태·localhost 서버·SQLite 읽기·등록 도구 상태를 권한 요청이나 외부 API 호출 없이 확인할 수 있습니다. START_JARVIS_MAC.command는 서버 HTTP 준비를 확인한 다음 앱을 열도록 변경했습니다. 실제 마이크·화면·GitHub 조회 성공은 사용자 Mac에서 각각 수동 시험해야 합니다. 상세: docs/MAC_READINESS_V15.md.
+
+
+## Mac 음성 출력 설정
+Mac 앱의 음성 탭에서 **설치된 한국어 목소리 선택, 속도/음높이 조절, 미리 듣기**가 가능합니다. 설정은 UserDefaults에 보존되며 모든 네이티브 음성 응답에 동일하게 적용합니다. 별도 유료 TTS API 호출 없음. 자세히: docs/VOICE_SETTINGS_V16.md.
