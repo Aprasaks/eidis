@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from .engine import JarvisEngine, CAPABILITIES
+from .brain import JarvisBrain, BrainError, BrainProviderError, brain_ready, MAX_REMOTE_CALLS
 from .design import DesignError, RemoteDesignError, remote_ready, suggest_designs
 from .vision import VisionError, VisionRemoteError, vision_ready, analyze_screen, validate_image
 from .storage import MemoryStore
@@ -23,6 +24,7 @@ MAX_VISION_CALLS = 3
 class JarvisHandler(BaseHTTPRequestHandler):
     store: MemoryStore
     engine: JarvisEngine
+    brain: JarvisBrain
     server_version = "JARVIS-Lab/0.1"
 
     def _json(self, status: int, payload: dict) -> None:
@@ -51,6 +53,9 @@ class JarvisHandler(BaseHTTPRequestHandler):
             return self._json(200, {"name": "JARVIS Lab", "version": "0.1.0",
                                     "capabilities": CAPABILITIES, "memory_count": self.store.count_memories(),
                                     "design": {"local_available": True, "remote_configured": remote_ready()},
+                                    "brain": {"local_context": True, "remote_configured": brain_ready(),
+                                              "remaining": max(0, MAX_REMOTE_CALLS - self.brain.remote_calls),
+                                              "history": "RAM only; explicit notes use SQLite"},
                                     "vision": {"remote_configured": vision_ready(),
                                                "remaining": max(0, MAX_VISION_CALLS - self.server.vision_calls)},
                                     "note": "프로토타입. LLM, 실제 화면 이해, Mac 제어는 미연결."})
@@ -76,7 +81,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):  # noqa N802
         path = urlsplit(self.path).path
-        if path not in ("/api/command", "/api/design/suggest", "/api/vision/analyze"):
+        if path not in ("/api/command", "/api/chat", "/api/design/suggest", "/api/vision/analyze"):
             return self._json(404, {"error": "알 수 없는 경로"})
         if not self._same_origin():
             return self._json(403, {"error": "로컬 앱에서만 요청할 수 있습니다."})
@@ -89,6 +94,12 @@ class JarvisHandler(BaseHTTPRequestHandler):
             data = json.loads(self.rfile.read(size))
             if not isinstance(data, dict):
                 raise ValueError("JSON 객체로 요청해야 합니다.")
+            if path == "/api/chat":
+                reply = self.brain.handle(
+                    data.get("text", ""), conversation_id=data.get("conversation_id"),
+                    remote_consent=data.get("remote_consent") is True,
+                )
+                return self._json(200, reply)
             if path == "/api/vision/analyze":
                 if data.get("consent") is not True:
                     raise VisionError("이번 화면 한 장의 외부 전송에 동의해 주세요.")
@@ -115,6 +126,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
                 return self._json(200, result)
             result = self.engine.handle(data.get("text", ""))
             return self._json(200, result)
+        except BrainProviderError as exc:
+            return self._json(502, {"error": str(exc)})
         except VisionRemoteError as exc:
             return self._json(502, {"error": str(exc)})
         except RemoteDesignError as exc:
@@ -133,7 +146,10 @@ def make_server(host: str = "127.0.0.1", port: int = 8765, db_path: Path | None 
     if host not in ("127.0.0.1", "localhost"):
         raise ValueError("원격 노출을 막기 위해 localhost만 허용합니다.")
     store = MemoryStore(db_path or DB_PATH)
-    handler = type("LocalHandler", (JarvisHandler,), {"store": store, "engine": JarvisEngine(store)})
+    engine = JarvisEngine(store)
+    brain = JarvisBrain(store, engine)
+    handler = type("LocalHandler", (JarvisHandler,),
+                   {"store": store, "engine": engine, "brain": brain})
     server = HTTPServer(("127.0.0.1", port), handler)
     server.vision_calls = 0
     return server
