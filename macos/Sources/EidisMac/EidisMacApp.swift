@@ -20,6 +20,8 @@ final class ScreenObserver: ObservableObject {
     @Published private(set) var preview: NSImage?
     @Published private(set) var status = "화면 캡처가 꺼져 있습니다."
     @Published private(set) var busy = false
+    @Published private(set) var recognizedText = ""
+    @Published private(set) var recognizedLineCount = 0
 
     func captureOnce() {
         guard !busy else { return }
@@ -36,7 +38,13 @@ final class ScreenObserver: ObservableObject {
                     status = "캡처 가능한 디스플레이가 없습니다."
                     return
                 }
-                let filter = SCContentFilter(display: display, excludingWindows: [])
+                // Do not OCR JARVIS's own window; capture the other visible apps.
+                let ownApps = shareable.applications.filter {
+                    $0.bundleIdentifier == Bundle.main.bundleIdentifier
+                }
+                let filter = SCContentFilter(display: display,
+                                             excludingApplications: ownApps,
+                                             exceptingWindows: [])
                 let configuration = SCStreamConfiguration()
                 configuration.width = display.width
                 configuration.height = display.height
@@ -49,9 +57,26 @@ final class ScreenObserver: ObservableObject {
                     cgImage: frame,
                     size: NSSize(width: CGFloat(frame.width), height: CGFloat(frame.height))
                 )
-                status = "화면 1장을 로컬 메모리에서 미리보고 있습니다. AI 분석·업로드 없음."
+                recognizedText = ""
+                recognizedLineCount = 0
+                status = "화면 캡처 완료 · Mac에서 글자를 읽고 있습니다."
+                do {
+                    // Recognition runs off the UI thread. Never stores or uploads the image.
+                    let result = try await Task.detached(priority: .userInitiated) {
+                        try LocalScreenText.recognize(in: frame)
+                    }.value
+                    recognizedText = result.text
+                    recognizedLineCount = result.lineCount
+                    status = result.lineCount > 0
+                        ? "로컬 글자 인식 완료 · \(result.lineCount)줄 · 외부 전송 없음."
+                        : "캡처 성공 · 인식할 글자를 찾지 못했습니다. 그림이나 도표의 의미는 아직 분석하지 않습니다."
+                } catch {
+                    status = "화면 캡처 성공 · 로컬 글자 인식 실패: \(error.localizedDescription)"
+                }
             } catch {
                 preview = nil
+                recognizedText = ""
+                recognizedLineCount = 0
                 status = "화면 확인 실패: \(error.localizedDescription)"
             }
         }
@@ -59,7 +84,9 @@ final class ScreenObserver: ObservableObject {
 
     func clear() {
         preview = nil
-        status = "화면 미리보기를 지웠습니다. 별도 파일은 저장하지 않았습니다."
+        recognizedText = ""
+        recognizedLineCount = 0
+        status = "캡처 화면과 인식한 글자를 메모리에서 지웠습니다. 파일로 저장하지 않았습니다."
     }
 }
 
@@ -113,12 +140,12 @@ struct JarvisWindow: View {
                         VStack(alignment: .leading, spacing: 5) {
                             Text("자비스의 눈 · 수동 캡처 테스트")
                                 .font(.headline)
-                            Text("버튼을 누른 경우에만 첫 번째 디스플레이를 한 번 캡처합니다.")
+                            Text("버튼을 누른 경우에만 화면을 한 번 캡처하고 글자를 Mac에서 읽습니다.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Button("화면 1장 확인") { vision.captureOnce() }
+                        Button("화면 캡처 + 글자 읽기") { vision.captureOnce() }
                             .disabled(vision.busy)
                         Button("지우기") { vision.clear() }
                             .disabled(vision.busy || vision.preview == nil)
@@ -144,6 +171,35 @@ struct JarvisWindow: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 14))
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("로컬 글자 인식 (한국어·영어)")
+                                .font(.subheadline.weight(.medium))
+                            Spacer()
+                            if !vision.recognizedText.isEmpty {
+                                Text("\(vision.recognizedLineCount)줄")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Button("글자 복사") {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(vision.recognizedText, forType: .string)
+                            }
+                            .disabled(vision.recognizedText.isEmpty || vision.busy)
+                        }
+                        ScrollView {
+                            Text(vision.recognizedText.isEmpty
+                                 ? "화면 캡처 후 인식한 글자가 여기에 표시됩니다. 이 기능은 그림이나 화면 전체의 의미를 이해하지 않습니다."
+                                 : vision.recognizedText)
+                                .font(.system(size: 12, design: .monospaced))
+                                .foregroundStyle(vision.recognizedText.isEmpty ? .secondary : .primary)
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .frame(height: 140)
+                        .padding(10)
+                        .background(.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 9))
+                    }
                     Text(vision.status)
                         .font(.caption)
                         .foregroundStyle(.secondary)
