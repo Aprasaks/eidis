@@ -44,6 +44,8 @@ class JARVISUIContract(unittest.TestCase):
             "close-workspace", "show-variants", "show-memory", "open-screen",
             "back-from-memory", "back-from-screen",
             "screen-video", "screen-overlay", "start-share", "stop-share",
+            "vision-question", "vision-consent", "analyze-screen",
+            "vision-status", "vision-result",
             "memories-list", "demo-wake", "demo-dashboard",
             "live-capabilities", "activity-feed", "core-status",
             "memory-count", "activity-count", "connection-label",

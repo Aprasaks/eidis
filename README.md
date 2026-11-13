@@ -26,3 +26,7 @@
 - GitHub Actions는 테스트만 실행하고 자동 배포나 시스템 변경을 하지 않습니다.
 
 자세한 기술 설계: `docs/ARCHITECTURE.md`; 디자인 생성과 API 동의: `docs/DESIGN_STUDIO_V07.md`; macOS 실행: `macos/README.md`.
+
+
+## Read-only vision (v0.9)
+사용자가 선택한 화면의 한 장을 **별도 동의가 있을 때만** 외부 AI 모델로 분석하는 경로가 추가되었습니다. 기본 OFF, 별도 API 사용료, 로컬 미리보기는 무료. 사용법·정보보호: `docs/VISION_V09.md`. 실제 Mac 권한과 유료 API 실호출은 미검증입니다.

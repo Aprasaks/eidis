@@ -116,6 +116,19 @@ def check_browser(page, size_name: str, viewport: dict) -> None:
     screenshot(page, f"{size_name}_07_memories")
     page.get_by_role("button", name="작업 공간으로").click()
 
+    # Vision controls must be present, but no request may be issued without
+    # a separate consent and a user-chosen live screen.
+    page.get_by_role("button", name="화면 미리보기").click()
+    expect(page.locator("#screen-view")).to_be_visible()
+    requests = []
+    page.on("request", lambda req: requests.append(req.url) if "/api/vision/analyze" in req.url else None)
+    expect(page.locator("#vision-consent")).not_to_be_checked()
+    page.get_by_role("button", name="AI로 현재 화면 한 장 분석").click()
+    expect(page.locator("#vision-status")).to_contain_text("먼저 화면 공유")
+    assert not requests, "Vision API must never be invoked before screen selection/consent"
+    screenshot(page, f"{size_name}_10_vision_off")
+    page.get_by_role("button", name="작업 공간으로").click()
+
     # Existing input command should keep working after transitions.
     page.locator("#command-input").fill("자비스 대시보드 좀 바꿔")
     page.locator("#command-form button[type=submit]").click()

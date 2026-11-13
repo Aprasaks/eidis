@@ -10,11 +10,14 @@ from urllib.parse import urlsplit
 
 from .engine import JarvisEngine, CAPABILITIES
 from .design import DesignError, RemoteDesignError, remote_ready, suggest_designs
+from .vision import VisionError, VisionRemoteError, vision_ready, analyze_screen, validate_image
 from .storage import MemoryStore
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 DB_PATH = Path(os.environ.get("JARVIS_DB", str(Path.home() / ".jarvis-lab" / "memory.sqlite3")))
 MAX_BODY = 12_000
+MAX_VISION_BODY = 1_450_000
+MAX_VISION_CALLS = 3
 
 
 class JarvisHandler(BaseHTTPRequestHandler):
@@ -48,6 +51,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
             return self._json(200, {"name": "JARVIS Lab", "version": "0.1.0",
                                     "capabilities": CAPABILITIES, "memory_count": self.store.count_memories(),
                                     "design": {"local_available": True, "remote_configured": remote_ready()},
+                                    "vision": {"remote_configured": vision_ready(),
+                                               "remaining": max(0, MAX_VISION_CALLS - self.server.vision_calls)},
                                     "note": "프로토타입. LLM, 실제 화면 이해, Mac 제어는 미연결."})
         if path == "/api/memories":
             return self._json(200, {"items": self.store.recent_memories()})
@@ -71,7 +76,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):  # noqa N802
         path = urlsplit(self.path).path
-        if path not in ("/api/command", "/api/design/suggest"):
+        if path not in ("/api/command", "/api/design/suggest", "/api/vision/analyze"):
             return self._json(404, {"error": "알 수 없는 경로"})
         if not self._same_origin():
             return self._json(403, {"error": "로컬 앱에서만 요청할 수 있습니다."})
@@ -79,11 +84,26 @@ class JarvisHandler(BaseHTTPRequestHandler):
             return self._json(415, {"error": "JSON만 지원합니다."})
         try:
             size = int(self.headers.get("Content-Length", "0"))
-            if not 1 <= size <= MAX_BODY:
+            if not 1 <= size <= (MAX_VISION_BODY if path == '/api/vision/analyze' else MAX_BODY):
                 return self._json(413, {"error": "요청이 너무 큽니다."})
             data = json.loads(self.rfile.read(size))
             if not isinstance(data, dict):
                 raise ValueError("JSON 객체로 요청해야 합니다.")
+            if path == "/api/vision/analyze":
+                if data.get("consent") is not True:
+                    raise VisionError("이번 화면 한 장의 외부 전송에 동의해 주세요.")
+                if not vision_ready():
+                    raise VisionError("외부 AI 화면 분석이 비활성화되어 있습니다.")
+                if self.server.vision_calls >= MAX_VISION_CALLS:
+                    raise VisionError("현재 서버의 화면 분석 허용 횟수를 모두 사용했습니다. 추가 과금 방지를 위해 중지했습니다.")
+                question = data.get("question", "")
+                if not isinstance(question, str) or not 3 <= len(question.strip()) <= 450:
+                    raise VisionError("화면 질문은 3~450자로 입력해 주세요.")
+                image = validate_image(data.get("image", ""))
+                # Only validated requests count toward the cap. Count before calling
+                # the provider because even a provider error may incur usage.
+                self.server.vision_calls += 1
+                return self._json(200, analyze_screen(question, image, consent=True))
             if path == "/api/design/suggest":
                 prompt = data.get("prompt", "")
                 provider = data.get("provider", "rules")
@@ -95,6 +115,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
                 return self._json(200, result)
             result = self.engine.handle(data.get("text", ""))
             return self._json(200, result)
+        except VisionRemoteError as exc:
+            return self._json(502, {"error": str(exc)})
         except RemoteDesignError as exc:
             return self._json(502, {"error": str(exc)})
         except (ValueError, json.JSONDecodeError, AttributeError) as exc:
@@ -112,4 +134,6 @@ def make_server(host: str = "127.0.0.1", port: int = 8765, db_path: Path | None 
         raise ValueError("원격 노출을 막기 위해 localhost만 허용합니다.")
     store = MemoryStore(db_path or DB_PATH)
     handler = type("LocalHandler", (JarvisHandler,), {"store": store, "engine": JarvisEngine(store)})
-    return HTTPServer(("127.0.0.1", port), handler)
+    server = HTTPServer(("127.0.0.1", port), handler)
+    server.vision_calls = 0
+    return server

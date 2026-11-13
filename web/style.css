@@ -596,3 +596,34 @@ body::before{
   .generated-layout-focus .workspace-split,
   .generated-layout-balanced .workspace-split{grid-template-columns:1fr!important}
 }
+
+
+/* v0.9: one-frame read-only vision, opt-in remote analysis. */
+.vision-analysis{
+  margin:22px 0 10px;padding:19px 20px 17px;
+  border:1px solid rgba(163,203,229,.20);background:rgba(11,24,39,.53);border-radius:7px;
+}
+.vision-analysis h4{font-size:18px;letter-spacing:-.04em;font-weight:520;margin:10px 0 13px}
+.vision-analysis>label:not(.vision-consent){font-size:11px;display:block;margin-bottom:8px;color:#a9c2d5}
+#vision-question{
+  width:100%;padding:12px 14px;border-radius:5px;border:1px solid rgba(171,208,231,.31);
+  background:rgba(5,12,21,.74);color:#e9f5fa;font-size:12px;
+}
+.vision-consent{
+  display:flex;gap:9px;align-items:flex-start;color:#bacddc;
+  line-height:1.7;font-size:11px;margin:15px 0
+}
+.vision-consent input{accent-color:#b5e6ff;margin:4px 0 0}
+.vision-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.vision-actions span{font-size:10px;color:#85a5ba;line-height:1.5}
+.vision-result{
+  min-height:54px;max-height:280px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;
+  background:rgba(3,11,21,.6);border:1px solid rgba(148,189,222,.12);
+  border-radius:5px;padding:14px;color:#d2e6f1;font-size:12px;line-height:1.8;
+}
+.vision-disclaimer{font-size:10px;line-height:1.7;color:#728da2;margin:12px 0 0}
+@media(max-width:610px){
+  .vision-analysis{padding:15px 13px}
+  .vision-actions{align-items:stretch;flex-direction:column}
+  .vision-actions>button{width:100%}
+}
