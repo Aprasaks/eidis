@@ -351,6 +351,6 @@ struct NativeSpeechPanel: View {
     private func sendTyped() {
         let phrase = typedCommand
         typedCommand = ""
-        Task { await client.submit(phrase, bridge: bridge, voice: voice) }
+        Task { await client.submit(phrase, bridge: bridge, voice: voice, elevenLabs: elevenLabs) }
     }
 }
