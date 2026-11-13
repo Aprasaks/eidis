@@ -65,6 +65,7 @@ final class ScreenObserver: ObservableObject {
 
 struct JarvisWindow: View {
     @StateObject private var voice = JarvisVoiceService()
+    @StateObject private var elevenLabs = ElevenLabsVoiceService()
     @StateObject private var vision = ScreenObserver()
     @StateObject private var bridge = JarvisBridge()
     @State private var reloadID = UUID()
@@ -104,7 +105,7 @@ struct JarvisWindow: View {
                 .padding(18)
                 .tabItem { Label("자비스", systemImage: "sparkles") }
 
-                NativeSpeechPanel(bridge: bridge, voice: voice)
+                NativeSpeechPanel(bridge: bridge, voice: voice, elevenLabs: elevenLabs)
                     .tabItem { Label("음성", systemImage: "mic") }
 
                 VStack(alignment: .leading, spacing: 16) {
