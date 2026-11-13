@@ -278,7 +278,7 @@ struct NativeSpeechPanel: View {
                             Task { await elevenLabs.preview(fallback: voice) }
                         }
                         .disabled(!elevenLabs.keyPresent || elevenLabs.isBusy || elevenLabs.remaining == 0)
-                        Text("이번 앱 실행: 남은 요청 \\(elevenLabs.remaining)/5회")
+                        Text("이번 앱 실행: 남은 요청 \(elevenLabs.remaining)/5회")
                             .font(.caption.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
