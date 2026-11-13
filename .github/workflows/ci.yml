@@ -26,6 +26,7 @@ jobs:
           python-version: '3.11'
       - run: python -m compileall -q app.py jarvis tests
       - run: python -m unittest discover -s tests -v
+      - run: node --check web/terminal.js
       - run: node --check web/app.js
       - run: bash -n START_JARVIS.command START_JARVIS_MAC.command macos/scripts/package-app.sh
 
