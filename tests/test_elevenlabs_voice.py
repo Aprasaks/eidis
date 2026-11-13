@@ -30,7 +30,7 @@ class ElevenLabsVoiceContract(unittest.TestCase):
         self.assertNotIn('logger.info(key)',ELEVEN)
 
     def test_provider_is_opt_in_cost_bounded_and_falls_back(self):
-        self.assertIn("self.enabled = defaults.bool(forKey: Self.enabledKey) && self.keyPresent",ELEVEN)
+        self.assertIn("self.enabled = defaults.bool(forKey: Self.enabledKey) && hasSavedKey",ELEVEN)
         self.assertIn("guard (enabled || explicitlyPreviewed) && keyPresent",ELEVEN)
         self.assertIn("private static let maxRequests = 5",ELEVEN)
         self.assertIn("private static let maxCharacters = 600",ELEVEN)
