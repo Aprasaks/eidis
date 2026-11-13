@@ -18,6 +18,8 @@ let wantMic = false;
 let recognition = null;
 let micRetry = null;
 let activeStream = null;
+let visionBusy = false;
+let visionGeneration = 0;
 let respondTimer = null;
 let summonAt = null;
 let voiceWakeUntil = 0;
@@ -254,9 +256,87 @@ function stopScreen() {
   activeStream=null;
   $('#screen-video').srcObject=null;
   $('#screen-overlay').style.display='';
+  visionGeneration++;
+  $('#vision-consent').checked = false;
+  $('#vision-result').textContent = '아직 분석한 화면이 없습니다.';
+  $('#vision-status').textContent = '공유가 종료되었습니다. 별도 API 호출이 자동으로 시작되지 않습니다.';
 }
 $('#start-share').addEventListener('click',shareScreen);
 $('#stop-share').addEventListener('click',()=>{stopScreen();showMessage('화면 공유를 종료했습니다.');});
+
+/* A single explicit click sends one downscaled JPEG only if remote vision is
+   configured and the user confirms this specific request. No background stream. */
+async function analyzeSharedScreenOnce() {
+  const status = $('#vision-status');
+  const output = $('#vision-result');
+  const button = $('#analyze-screen');
+  if (visionBusy) return;
+  const question = $('#vision-question').value.trim();
+  if (!activeStream || activeStream.getVideoTracks().every(t=>t.readyState!=='live')) {
+    status.textContent = '먼저 화면 공유를 선택해 주세요.';
+    return;
+  }
+  if (!$('#vision-consent').checked) {
+    status.textContent = '이번 화면 한 장의 외부 전송 동의가 필요합니다.';
+    return;
+  }
+  if (question.length < 3 || question.length > 450) {
+    status.textContent = '질문은 3~450자로 입력해 주세요.';
+    return;
+  }
+
+  visionBusy = true;
+  button.disabled = true;
+  const capturedGeneration = visionGeneration;
+  try {
+    const configResponse = await fetch('/api/status',{cache:'no-store'});
+    if (!configResponse.ok) throw new Error('로컬 자비스 서버에 연결할 수 없습니다.');
+    const config = await configResponse.json();
+    if (!config.vision?.remote_configured) {
+      throw new Error('외부 AI 화면 분석이 꺼져 있습니다. 별도 API 키와 허용 설정이 필요합니다.');
+    }
+    if (config.vision.remaining <= 0) {
+      throw new Error('이 실행 세션의 화면 분석 한도에 도달했습니다.');
+    }
+    const video = $('#screen-video');
+    if (capturedGeneration !== visionGeneration || video.readyState < 2 ||
+        !video.videoWidth || !video.videoHeight) {
+      throw new Error('화면을 캡처할 수 없습니다. 잠시 후 다시 시도해 주세요.');
+    }
+    const scale = Math.min(1, 1200 / Math.max(video.videoWidth,video.videoHeight));
+    const frame = document.createElement('canvas');
+    frame.width = Math.max(1,Math.round(video.videoWidth*scale));
+    frame.height = Math.max(1,Math.round(video.videoHeight*scale));
+    frame.getContext('2d').drawImage(video,0,0,frame.width,frame.height);
+    const image = frame.toDataURL('image/jpeg',0.63);
+    frame.width = 0;frame.height = 0;
+    if (image.length > 1_380_000) {
+      throw new Error('화면 이미지가 너무 큽니다. 작은 창을 선택해 주세요.');
+    }
+    status.textContent = '동의한 화면 한 장을 분석하도록 전송했습니다…';
+    const response = await fetch('/api/vision/analyze', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({question,image,consent:true})
+    });
+    const answer = await response.json();
+    if (!response.ok) throw new Error(answer.error || '화면 분석에 실패했습니다.');
+    if (capturedGeneration !== visionGeneration) return;
+    output.textContent = answer.text || '분석 결과를 표시할 수 없습니다.';
+    status.textContent = 'AI 분석 완료 · 화면 한 장만 전달 · 앱 조작 없음';
+  } catch (err) {
+    if (capturedGeneration === visionGeneration) {
+      status.textContent = '화면 분석 불가: ' + err.message;
+      output.textContent = '실제 AI 분석이 완료되지 않았습니다.';
+    }
+  } finally {
+    $('#vision-consent').checked = false;
+    visionBusy = false;
+    button.disabled = false;
+  }
+}
+$('#analyze-screen').addEventListener('click',()=>{void analyzeSharedScreenOnce();});
+
 
 const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 function micButtonState() {
