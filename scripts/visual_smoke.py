@@ -181,6 +181,25 @@ def check_browser(page, size_name: str, viewport: dict) -> None:
         page.locator("#terminal-toggle").click()
 
     # Presence state should remain available.
+    # The brain shares the existing input with command routing. Conversational
+    # answers stay near the orb, never in the small diagnostic terminal.
+    page.locator("#command-input").fill("오늘 테스트에서는 맥락의 지속성을 확인하고 있어")
+    page.locator("#command-form button[type=submit]").click()
+    expect(page.locator("#assistant-reply")).to_be_visible()
+    expect(page.locator("#assistant-reply-text")).to_contain_text("AI 모델은 연결되지")
+    expect(page.locator("#brain-consent-wrap")).to_be_hidden()
+
+    page.locator("#command-input").fill("방금 내가 뭐라고 했지?")
+    page.locator("#command-form button[type=submit]").click()
+    expect(page.locator("#assistant-reply-text")).to_contain_text("맥락의 지속성을")
+    assert "맥락의 지속성을" not in page.locator("#terminal-feed").inner_text(), \
+        "Raw dialogue may not be copied into terminal logs"
+    screenshot(page, f"{size_name}_13_context_brain")
+
+    page.locator("#command-input").fill("대화 초기화")
+    page.locator("#command-form button[type=submit]").click()
+    expect(page.locator("#assistant-reply-text")).to_contain_text("임시 맥락을 비웠습니다")
+
     # Closing by voice-style text command must return to the quiet idle screen.
     page.locator("#command-input").fill("자비스 대시보드 닫아")
     page.locator("#command-form button[type=submit]").click()
