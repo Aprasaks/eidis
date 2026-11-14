@@ -241,6 +241,127 @@ class JarvisBrain:
         }
         return reply
 
+    @staticmethod
+    def _project_key(text: str) -> str:
+        # Ignore punctuation and spaces in a project name or repo slug.
+        return re.sub(r"[^0-9a-z가-힣]+", "", text.casefold())
+
+    def _named_project_status(self, utterance: str, sid: str,
+                              *, addressed_self: bool = False) -> dict | None:
+        # Read saved project information only. Status questions must never
+        # start a network call, and a GitHub HEAD never proves a deployment.
+        compact = self._project_key(utterance)
+        if not any(word in compact for word in (
+            "어디까지", "진행", "상태", "현황", "남았", "남은",
+            "마지막", "최근", "어떻게됐", "할일", "해야할",
+            "다음", "뭐해야", "뭘해야", "해야해",
+        )):
+            return None
+        projects = self.store.list_projects(limit=40)
+        names = []
+        for project in projects:
+            aliases = [project["name"]]
+            if project["repo_full_name"]:
+                aliases.append(project["repo_full_name"].split("/")[-1])
+            if any(self._project_key(alias) in compact
+                   for alias in aliases if self._project_key(alias)):
+                names.append(project)
+        self_alias = False
+        if not names and addressed_self:
+            # "자비스, 다음 할 일 뭐야?" refers to JARVIS itself, not WIKI.
+            # Never guess the self project if a different project was named,
+            # if the request is a global project list, or if no exact self
+            # record is saved.
+            lead = ("다음", "지금", "현재", "너", "네", "니", "내", "우리",
+                    "어디까지", "뭐해야", "뭘해야", "남은", "남았", "할일",
+                    "해야할", "진행", "상태", "현황")
+            global_query = ("프로젝트목록", "전체프로젝트", "프로젝트현황",
+                            "프로젝트상태", "우리프로젝트")
+            if compact.startswith(lead) and not any(x in compact for x in global_query):
+                matching_self = [
+                    item for item in projects
+                    if item["name"] == "JARVIS eidis"
+                    and item["repo_full_name"] == "Aprasaks/eidis"
+                ]
+                if len(matching_self) == 1:
+                    names = matching_self
+                    self_alias = True
+        if not names:
+            return None
+        if len(names) > 1:
+            return self._reply(
+                "어느 프로젝트의 저장된 상태를 볼지 지정해 주세요: "
+                + ", ".join(p["name"] for p in names[:8]),
+                "project_target_ambiguous", sid, mode="projects"
+            )
+        project = names[0]
+        counts = project["task_counts"]
+        tasks = project["tasks"]
+        status_names = {"todo": "예정", "doing": "진행", "blocked": "막힘", "done": "완료"}
+        if self_alias:
+            # Short, speakable result. The newest pending entries are presented
+            # as *recorded* tasks, never automatically ranked or verified.
+            recent = (
+                [item for item in reversed(tasks) if item["status"] == "doing"] +
+                [item for item in reversed(tasks) if item["status"] == "todo"]
+            )[:3]
+            items = (
+                "최근 등록된 미완료 작업: " +
+                "; ".join(f'{t["title"][:65]} ({status_names[t["status"]]})'
+                          for t in recent) + ". "
+            ) if recent else "진행 또는 예정으로 기록된 작업이 없습니다. "
+            answer = (
+                f'자비스 자신의 프로젝트 기록입니다. 완료 {counts["done"]}, '
+                f'진행 {counts["doing"]}, 예정 {counts["todo"]}, '
+                f'막힘 {counts["blocked"]}건. {items}'
+                "이건 저장된 사용자 기록이며 실제 코드 실행·테스트·배포 상태를 "
+                "새로 확인한 것은 아닙니다."
+            )
+            return self._reply(answer, "project_self_overview", sid, mode="projects")
+        if tasks:
+            listed = "; ".join(
+                f'{task["title"][:80]} ({status_names.get(task["status"], "상태 미상")})'
+                for task in tasks[-6:]
+            )
+            task_summary = "기록된 작업: " + listed + "."
+        else:
+            task_summary = "직접 등록된 세부 작업은 아직 없습니다."
+        next_tasks = (
+            [item for item in tasks if item["status"] == "doing"] +
+            [item for item in tasks if item["status"] == "todo"]
+        )[:3]
+        if next_tasks:
+            task_summary += " 다음 이어 할 일(사용자 기록): " + "; ".join(
+                f'{item["title"][:80]} ({status_names[item["status"]]})'
+                for item in next_tasks
+            ) + "."
+        blocked = [item for item in tasks if item["status"] == "blocked"][:2]
+        if blocked:
+            task_summary += " 막힌 작업(사용자 기록): " + "; ".join(
+                item["title"][:80] for item in blocked
+            ) + "."
+        observed = project["last_check"]
+        if observed:
+            workflow = ( "현재 HEAD에 일치하는 Workflow를 확인하지 못했습니다"
+                if observed["workflow_state"] == "unavailable" else
+                f'Workflow {observed["workflow_state"]}/{observed["workflow_conclusion"]}')
+            github = (
+                f'마지막 GitHub 확인 기록 {observed["checked_at"]}: '
+                f'{observed["repository"]}의 {observed["branch"]} 브랜치 '
+                f'커밋 {observed["head_sha"][:10]}; {workflow}.'
+            )
+        else:
+            github = "GitHub 최신 상태 확인 기록은 없습니다."
+        answer = (
+            f'{project["name"]}의 로컬 기록입니다. 목표: {project["goal"][:200] or "미입력"}. '
+            f'직접 기록한 작업은 예정 {counts["todo"]}, 진행 {counts["doing"]}, '
+            f'막힘 {counts["blocked"]}, 완료 {counts["done"]}건. '
+            f'{task_summary} {github} '
+            "이 답변은 저장된 기록을 읽은 것이며 지금 새 조회를 실행하지 않았습니다. "
+            "실제 AWS 배포나 작업 완료 여부는 별도 확인이 필요합니다."
+        )
+        return self._reply(answer, "project_named_overview", sid, mode="projects")
+
     def handle(self, phrase: object, *, conversation_id: object = None,
                remote_consent: bool = False) -> dict:
         if not isinstance(phrase, str):
@@ -249,6 +370,9 @@ class JarvisBrain:
         if not 1 <= len(phrase) <= 2000:
             raise BrainError("문장은 1~2000자로 입력해 주세요.")
         sid, session = self._session(conversation_id)
+        addressed_self = re.match(
+            r"^(?:자비스|jarvis)(?=[,，?？!！.\s]|$)", phrase, flags=re.I
+        ) is not None
         clean = re.sub(r"^(자비스|jarvis)[,，?？!！.\s]*", "", phrase, flags=re.I).strip()
 
         if self._github_request(clean):
@@ -259,6 +383,14 @@ class JarvisBrain:
             if reply["action"] in ("tool_setup_required", "tool_target_ambiguous"):
                 self.store.record_event(reply["action"], "local")
             return reply
+
+        named_project = self._named_project_status(
+            clean, sid, addressed_self=addressed_self
+        )
+        if named_project is not None:
+            self._append(session, phrase, named_project["text"])
+            self.store.record_event(named_project["action"], "local")
+            return named_project
 
         if clean in ("대화 초기화", "새 대화 시작", "대화 지워", "대화 비워"):
             session.turns.clear()

@@ -17,14 +17,21 @@ struct AccessibleNode: Identifiable {
     let label: String
 }
 
-/// One-shot, read-only view of the selected app's accessibility tree.
-///
-/// Deliberately never calls AXUIElementSetAttributeValue or AXUIElementPerformAction.
-/// It never asks for kAXValueAttribute, selected text or user-entered text.
+/// One-shot inspection of one user-selected app's accessibility tree.
+/// A separate, user-approved, one-shot AXPress can target only the allowlisted
+/// refresh button; there is no auto-clicking, typing, or generic action path.
+/// Never asks for kAXValueAttribute, selected text or user-entered text.
 @MainActor
 final class AccessibilityInspector: ObservableObject {
     @Published private(set) var targets: [AccessibleTargetApp] = []
-    @Published var selectedPID: pid_t = 0
+    @Published var selectedPID: pid_t = 0 {
+        didSet {
+            if selectedPID != oldValue {
+                invalidateInspection()
+                status = "대상 앱이 변경됐습니다. 다시 '화면 구조 읽기'를 눌러야 합니다."
+            }
+        }
+    }
     @Published private(set) var rows: [AccessibleNode] = []
     @Published private(set) var status = "앱을 선택한 다음 ‘화면 구조 읽기’를 누르세요."
     @Published private(set) var lastAppName = ""
@@ -33,6 +40,32 @@ final class AccessibilityInspector: ObservableObject {
     private let maxElements = 80
     private let maxDepth = 3
     private let maxChildren = 12
+    private var inspectedPID: pid_t = 0
+    private var inspectedBundleID = ""
+    private var inspectedWindow: AXUIElement?
+    private var inspectedAt: Date?
+    private var allowedElements: [UUID: AXUIElement] = [:]
+
+    // A scan can only authorize a fresh, unambiguous candidate.
+    var safeRefreshNodes: [AccessibleNode] {
+        guard inspected else { return [] }
+        let candidates = rows.filter {
+            JarvisSafePressPolicy.allows(role: $0.role, label: $0.label)
+                && allowedElements[$0.id] != nil
+        }
+        return candidates.count == 1 ? candidates : []
+    }
+
+    private func invalidateInspection() {
+        rows = []
+        inspected = false
+        inspectedPID = 0
+        inspectedBundleID = ""
+        inspectedWindow = nil
+        inspectedAt = nil
+        allowedElements = [:]
+        lastAppName = ""
+    }
 
     init() {
         refreshTargets()
@@ -70,9 +103,7 @@ final class AccessibilityInspector: ObservableObject {
     }
 
     func inspectSelected() {
-        rows = []
-        inspected = false
-        lastAppName = ""
+        invalidateInspection()
 
         guard AXIsProcessTrusted() else {
             status = "접근성 권한이 없습니다. ‘권한 요청’ 버튼을 눌러 macOS에서 승인해 주세요."
@@ -82,8 +113,9 @@ final class AccessibilityInspector: ObservableObject {
             status = "대상 앱을 선택해 주세요."
             return
         }
-        guard NSRunningApplication(processIdentifier: target.pid) != nil else {
-            status = "선택한 앱이 종료됐습니다. 앱 목록을 새로고침해 주세요."
+        guard let running = NSRunningApplication(processIdentifier: target.pid),
+              !running.isTerminated, running.bundleIdentifier == target.bundleID else {
+            status = "선택한 앱이 종료됐거나 변경됐습니다. 앱 목록을 새로고침해 주세요."
             refreshTargets()
             return
         }
@@ -94,12 +126,17 @@ final class AccessibilityInspector: ObservableObject {
         let startingElement: AXUIElement
         if let focused = elementAttribute(app, kAXFocusedWindowAttribute as CFString) {
             startingElement = focused
+            inspectedWindow = focused
         } else if let windows = elementArrayAttribute(app, kAXWindowsAttribute as CFString),
                   let first = windows.first {
             startingElement = first
+            inspectedWindow = first
         } else {
             startingElement = app
         }
+        inspectedPID = target.pid
+        inspectedBundleID = target.bundleID
+        inspectedAt = Date()
 
         var visited = Set<CFHashCode>()
         var results: [AccessibleNode] = []
@@ -112,10 +149,70 @@ final class AccessibilityInspector: ObservableObject {
     }
 
     func clear() {
-        rows = []
-        lastAppName = ""
-        inspected = false
-        status = "읽은 화면 구조를 앱 메모리에서 지웠습니다."
+        invalidateInspection()
+        status = "읽은 UI 구조와 실행 대상 참조를 앱 메모리에서 지웠습니다."
+    }
+
+    /// Called ONLY by the explicit confirmation dialog in AccessibilityPanel.
+    /// No retries, no arbitrary action names, no automatic confirmation.
+    func pressApprovedRefresh(nodeID: UUID) {
+        defer { invalidateInspection() } // one attempt per scan, even on failure
+        guard AXIsProcessTrusted() else {
+            status = "접근성 권한이 없습니다. 버튼을 누르지 않았습니다."
+            return
+        }
+        guard inspected, selectedPID == inspectedPID, inspectedPID > 0,
+              let scannedAt = inspectedAt,
+              Date().timeIntervalSince(scannedAt) <= 60,
+              let inspectedWindow,
+              let node = safeRefreshNodes.first(where: { $0.id == nodeID }),
+              let element = allowedElements[nodeID] else {
+            status = "선택한 버튼의 확인 기록이 오래됐거나 모호합니다. 다시 화면 구조를 읽어 주세요. 실행 없음."
+            return
+        }
+        guard let running = NSRunningApplication(processIdentifier: inspectedPID),
+              !running.isTerminated,
+              running.bundleIdentifier == inspectedBundleID,
+              let known = targets.first(where: { $0.pid == inspectedPID }),
+              known.bundleID == inspectedBundleID else {
+            status = "대상 앱이 변경되거나 종료됐습니다. 실행하지 않았습니다."
+            return
+        }
+        let app = AXUIElementCreateApplication(inspectedPID)
+        AXUIElementSetMessagingTimeout(app, 0.25)
+        let liveWindow = elementAttribute(app, kAXFocusedWindowAttribute as CFString)
+            ?? elementArrayAttribute(app, kAXWindowsAttribute as CFString)?.first
+        guard let liveWindow, CFEqual(liveWindow, inspectedWindow) else {
+            status = "대상 창이 바뀌었습니다. 다시 조회한 후 승인해 주세요. 실행 없음."
+            return
+        }
+        AXUIElementSetMessagingTimeout(element, 0.25)
+        let currentRole = stringAttribute(element, kAXRoleAttribute as CFString) ?? ""
+        let currentLabel = sanitized(stringAttribute(element, kAXTitleAttribute as CFString) ?? "")
+        guard currentRole == node.role, currentLabel == node.label,
+              JarvisSafePressPolicy.allows(role: currentRole, label: currentLabel) else {
+            status = "버튼 정보가 변경됐거나 허용 목록 밖입니다. 실행하지 않았습니다."
+            return
+        }
+        var enabledValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXEnabledAttribute as CFString,
+                                            &enabledValue) == .success,
+              enabledValue as? Bool == true else {
+            status = "버튼이 비활성화됐거나 상태를 확인할 수 없습니다. 실행하지 않았습니다."
+            return
+        }
+        var actionNames: CFArray?
+        guard AXUIElementCopyActionNames(element, &actionNames) == .success,
+              let actions = actionNames as? [String],
+              actions.contains(kAXPressAction as String) else {
+            status = "이 버튼은 접근성 새로고침 동작을 지원하지 않습니다. 실행하지 않았습니다."
+            return
+        }
+        // Exactly one OS accessibility action on this allowlisted element.
+        let result = AXUIElementPerformAction(element, kAXPressAction as CFString)
+        status = result == .success
+            ? "선택한 앱의 새로고침 버튼에 AXPress 1회 요청 성공. 실제 화면 변경 여부는 직접 다시 확인해야 합니다."
+            : "새로고침 버튼 실행 실패 (AX 코드 \(result.rawValue)). 임의로 재시도하지 않았습니다."
     }
 
     private func walk(_ element: AXUIElement,
@@ -146,7 +243,11 @@ final class AccessibilityInspector: ObservableObject {
         } else {
             label = ""
         }
-        result.append(AccessibleNode(depth: depth, role: role, label: label))
+        let node = AccessibleNode(depth: depth, role: role, label: label)
+        result.append(node)
+        if JarvisSafePressPolicy.allows(role: role, label: label) {
+            allowedElements[node.id] = element
+        }
 
         // Stay bounded to avoid blocking on very large or malformed accessibility trees.
         if depth >= maxDepth || result.count >= maxElements { return }
@@ -188,7 +289,9 @@ final class AccessibilityInspector: ObservableObject {
 }
 
 struct AccessibilityPanel: View {
-    @StateObject private var inspector = AccessibilityInspector()
+    @ObservedObject var inspector: AccessibilityInspector
+    @State private var pendingRefreshID: UUID?
+    @State private var showOneShotConfirmation = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -251,10 +354,44 @@ struct AccessibilityPanel: View {
                     .padding(10)
                 }
             }
-            Text("이 화면은 UI 구조를 보는 실험입니다. 버튼 클릭, 텍스트 입력, 브라우저 조작 또는 AI 분석은 수행하지 않습니다.")
+            GroupBox("승인 기반 1회 조작 · 새로고침만") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(JarvisSafePressPolicy.explanation)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if inspector.safeRefreshNodes.isEmpty {
+                        Text("현재 조회한 UI에서 실행 가능한 새로고침 버튼을 단 하나로 확인하지 못했어요. 다른 조작은 제공하지 않습니다.")
+                            .font(.caption)
+                    }
+                    ForEach(inspector.safeRefreshNodes) { node in
+                        HStack {
+                            Text("선택 앱: \(inspector.lastAppName) · 버튼: \(node.label)")
+                                .font(.callout)
+                            Spacer()
+                            Button("1회 실행 승인 화면") {
+                                pendingRefreshID = node.id
+                                showOneShotConfirmation = true
+                            }
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            Text("자동 클릭·입력·제출·삭제는 수행하지 않습니다. 새로고침도 미저장 데이터를 잃을 수 있으므로 승인 전 확인하세요.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
         .padding(24)
+        .confirmationDialog("선택한 앱의 새로고침을 한 번 실행할까요?",
+                            isPresented: $showOneShotConfirmation,
+                            titleVisibility: .visible) {
+            Button("지금 새로고침 1회 실행") {
+                if let id = pendingRefreshID { inspector.pressApprovedRefresh(nodeID: id) }
+                pendingRefreshID = nil
+            }
+            Button("취소", role: .cancel) { pendingRefreshID = nil }
+        } message: {
+            Text("\(inspector.lastAppName)의 새로고침을 한 번 누릅니다. 미저장 내용이 사라질 수 있습니다. 실행 후 자동 재시도하지 않습니다.")
+        }
     }
 }

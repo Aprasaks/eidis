@@ -40,6 +40,18 @@ jobs:
         run: swift --version
       - name: Build development JARVIS.app (no TCC prompts in CI)
         run: bash macos/scripts/package-app.sh
+      - name: Test local screenshot-text question logic
+        run: |
+          swiftc -o /tmp/jarvis-screen-insights-test macos/tests/main.swift macos/Sources/EidisMac/LocalScreenInsights.swift macos/Sources/EidisMac/JarvisSafePressPolicy.swift macos/Sources/EidisMac/ApprovedProjectsPanel.swift macos/Sources/EidisMac/LocalGitInspector.swift macos/Sources/EidisMac/JarvisHandoffReport.swift macos/Sources/EidisMac/JarvisWorkspaceResume.swift macos/Sources/EidisMac/WorkspaceResumePanel.swift macos/Sources/EidisMac/JarvisWorkspaceCommand.swift
+          /tmp/jarvis-screen-insights-test
+      - name: Test fixed-command local Git reader
+        run: |
+          swiftc -o /tmp/jarvis-local-git-test macos/tests/git/main.swift macos/Sources/EidisMac/LocalGitInspector.swift
+          /tmp/jarvis-local-git-test "$PWD"
+      - name: Smoke test native Work UI offscreen (no TCC prompts)
+        run: |
+          swiftc -o /tmp/jarvis-ui-smoke macos/tests/ui/main.swift macos/Sources/EidisMac/ApprovedProjectsPanel.swift macos/Sources/EidisMac/JarvisWorkspaceResume.swift macos/Sources/EidisMac/WorkspaceResumePanel.swift macos/Sources/EidisMac/JarvisHandoffReport.swift macos/Sources/EidisMac/LocalGitInspector.swift macos/Sources/EidisMac/JarvisWorkspaceCommand.swift
+          /tmp/jarvis-ui-smoke
       - name: Verify bundle structure, usage descriptions and signature
         run: |
           test -x dist/JARVIS.app/Contents/MacOS/EidisMac
