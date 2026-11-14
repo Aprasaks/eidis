@@ -117,3 +117,42 @@ precondition(continuity.nextTasks.map { $0.title } == ["진행 중인 B", "할 �
 precondition(continuity.blockedTasks.map { $0.title } == ["막힌 작업"])
 precondition(continuity.nextTasks.allSatisfy { $0.status != "done" })
 print("PASS persisted tasks provide deterministic doing-first next steps")
+
+let handoffTime = Date(timeIntervalSince1970: 1_700_000_000)
+let unlinked = JarvisHandoffReport.make(
+    project: workDecoded.items[1], localFolderConnected: false,
+    localEvidence: nil, createdAt: handoffTime)
+precondition(unlinked.body.contains("등록된 진행/예정 작업 없음"))
+precondition(unlinked.body.contains("연결된 Mac 폴더 없음"))
+precondition(unlinked.body.contains("확인 기록 없음"))
+precondition(unlinked.body.contains("AWS 배포·사이트 공개"))
+precondition(unlinked.body.contains("요약 생성: "))
+print("PASS handoff reports missing evidence without inventing completion")
+
+let localSample = LocalGitEvidence(
+    rootPath: "/private/not-for-clipboard/local-project",
+    branch: "feature/local", headSHA: String(repeating: "b", count: 40),
+    changedTrackedEntries: 2, untrackedEntries: 1, checkedAt: handoffTime)
+let linkedReport = JarvisHandoffReport.make(
+    project: workDecoded.items[0], localFolderConnected: true,
+    localEvidence: localSample, createdAt: handoffTime)
+precondition(linkedReport.body.contains("Mac 로컬 Git"))
+precondition(linkedReport.body.contains("feature/local"))
+precondition(linkedReport.body.contains("추적 2, 미추적 1"))
+precondition(linkedReport.body.contains("HEAD: " + String(repeating: "b", count: 40)))
+precondition(linkedReport.body.contains("GitHub · 마지막 승인 조회 기록"))
+precondition(linkedReport.body.contains(String(repeating: "a", count: 40)))
+precondition(linkedReport.body.contains("Workflow: 당시 HEAD와 일치하는 실행 증거를 확인하지 못함"))
+precondition(!linkedReport.body.contains("/private/not-for-clipboard"))
+precondition(linkedReport.body.contains("현재 시점 재검사 아님"))
+print("PASS handoff separates last local Git and last GitHub evidence without path exposure")
+
+let taskReport = JarvisHandoffReport.make(
+    project: continuity, localFolderConnected: true,
+    localEvidence: nil, createdAt: handoffTime)
+precondition(taskReport.body.contains("[진행] 진행 중인 B"))
+precondition(taskReport.body.contains("[예정] 할 일 A"))
+precondition(taskReport.body.contains("[막힘] 막힌 작업"))
+precondition(!taskReport.body.contains("[진행] 완료 작업"))
+precondition(taskReport.body.contains("폴더는 연결됐지만 이번 실행에서 Git 상태 확인 기록이 없음"))
+print("PASS handoff preserves next tasks, blockers, and unverified local state")

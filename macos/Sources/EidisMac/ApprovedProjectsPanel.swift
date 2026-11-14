@@ -389,6 +389,32 @@ struct ApprovedProjectsPanel: View {
                     Spacer()
                 }
                 if let selected {
+                    GroupBox("프로젝트 인수인계 · 저장된 사실과 미확인 항목") {
+                        VStack(alignment: .leading, spacing: 10) {
+                            let summary = JarvisHandoffReport.make(
+                                project: selected,
+                                localFolderConnected: work.localFolder(projectId: selected.id) != nil,
+                                localEvidence: work.localEvidence[selected.id])
+                            HStack {
+                                Text("지금 이어서 할 일을 한눈에")
+                                    .font(.subheadline.weight(.medium))
+                                Spacer()
+                                Button("인수인계 내용 복사") {
+                                    NSPasteboard.general.clearContents()
+                                    NSPasteboard.general.setString(summary.body, forType: .string)
+                                }
+                                .help("선택한 프로젝트 기록을 클립보드에 복사합니다. 복사된 내용에는 작업 이름과 목표가 포함됩니다.")
+                            }
+                            Text(summary.body)
+                                .font(.system(size: 12, design: .monospaced))
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Text("조회 기록은 작성 당시의 스냅샷입니다. 이 요약을 열거나 복사해도 Git·GitHub·AWS 조회나 배포를 실행하지 않습니다.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                     GroupBox("프로젝트 상태 · 로컬에 저장된 기록") {
                         VStack(alignment: .leading, spacing: 9) {
                             Text(selected.goal.isEmpty ? "목표 미입력" : selected.goal)
