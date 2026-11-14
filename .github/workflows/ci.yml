@@ -44,6 +44,10 @@ jobs:
         run: |
           swiftc -o /tmp/jarvis-screen-insights-test macos/tests/main.swift macos/Sources/EidisMac/LocalScreenInsights.swift macos/Sources/EidisMac/JarvisSafePressPolicy.swift macos/Sources/EidisMac/ApprovedProjectsPanel.swift
           /tmp/jarvis-screen-insights-test
+      - name: Test fixed-command local Git reader
+        run: |
+          swiftc -o /tmp/jarvis-local-git-test macos/tests/git/main.swift macos/Sources/EidisMac/LocalGitInspector.swift
+          /tmp/jarvis-local-git-test "$PWD"
       - name: Verify bundle structure, usage descriptions and signature
         run: |
           test -x dist/JARVIS.app/Contents/MacOS/EidisMac

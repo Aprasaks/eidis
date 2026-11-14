@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftUI
 
@@ -95,6 +96,64 @@ final class ApprovedWorkModel: ObservableObject {
     @Published private(set) var busy = false
     @Published private(set) var status = "로컬 프로젝트를 불러오지 않았습니다."
     @Published private(set) var lastReceipt: WorkCheckReceipt?
+    @Published private(set) var localEvidence: [Int: LocalGitEvidence] = [:]
+    @Published private(set) var localMessages: [Int: String] = [:]
+
+    private func localFolderKey(_ id: Int) -> String {
+        "jarvis.work.local-git-folder.\(id)"
+    }
+
+    func localFolder(projectId: Int) -> String? {
+        UserDefaults.standard.string(forKey: localFolderKey(projectId))
+    }
+
+    func disconnectLocalFolder(projectId: Int) {
+        guard !busy else { return }
+        UserDefaults.standard.removeObject(forKey: localFolderKey(projectId))
+        localEvidence.removeValue(forKey: projectId)
+        localMessages[projectId] = "로컬 Git 폴더 연결을 해제했습니다. 실제 파일이나 저장소는 변경하지 않았습니다."
+    }
+
+    func connectLocalFolder(projectId: Int, url: URL) async {
+        guard !busy, projects.contains(where: { $0.id == projectId }) else { return }
+        busy = true
+        localEvidence.removeValue(forKey: projectId)
+        defer { busy = false }
+        do {
+            let evidence = try await Task.detached(priority: .userInitiated) {
+                try LocalGitInspector.inspect(folderURL: url)
+            }.value
+            guard projects.contains(where: { $0.id == projectId }) else {
+                throw WorkActionError.server("대상 프로젝트가 변경되어 연결하지 않았습니다.")
+            }
+            UserDefaults.standard.set(evidence.rootPath, forKey: localFolderKey(projectId))
+            localEvidence[projectId] = evidence
+            localMessages[projectId] = "사용자가 선택한 Git 폴더를 연결하고 한 번 읽었습니다. 파일 수정이나 외부 전송은 없었습니다."
+        } catch {
+            localMessages[projectId] = "폴더 연결 실패: \(error.localizedDescription). 기존 연결은 그대로 보존했습니다."
+        }
+    }
+
+    func inspectLocalFolder(projectId: Int) async {
+        guard !busy, projects.contains(where: { $0.id == projectId }),
+              let saved = localFolder(projectId: projectId) else { return }
+        busy = true
+        localEvidence.removeValue(forKey: projectId)
+        defer { busy = false }
+        do {
+            let evidence = try await Task.detached(priority: .userInitiated) {
+                try LocalGitInspector.inspect(folderURL: URL(fileURLWithPath: saved))
+            }.value
+            guard projects.contains(where: { $0.id == projectId }),
+                  localFolder(projectId: projectId) == saved else {
+                throw WorkActionError.server("프로젝트나 연결 경로가 변경돼 결과를 적용하지 않았습니다.")
+            }
+            localEvidence[projectId] = evidence
+            localMessages[projectId] = "사용자 요청으로 로컬 Git 상태를 한 번 확인했습니다. 파일 수정·GitHub 조회·DB 변경 없음."
+        } catch {
+            localMessages[projectId] = "로컬 Git 조회 실패: \(error.localizedDescription). 이전 결과를 현재 상태로 표시하지 않습니다."
+        }
+    }
 
     private let base = URL(string: "http://127.0.0.1:8765")!
     private let decoder: JSONDecoder = {
@@ -275,6 +334,20 @@ struct ApprovedProjectsPanel: View {
         work.projects.first(where: { $0.id == selectedProjectId })
     }
 
+    private func chooseLocalFolder(projectId: Int) {
+        guard !work.busy else { return }
+        let picker = NSOpenPanel()
+        picker.title = "직접 확인할 Git 프로젝트 폴더 선택"
+        picker.message = "선택한 저장소만 로컬에서 읽습니다. 코드 수정·GitHub 전송은 하지 않습니다."
+        picker.prompt = "이 폴더 연결"
+        picker.canChooseDirectories = true
+        picker.canChooseFiles = false
+        picker.allowsMultipleSelection = false
+        picker.canCreateDirectories = false
+        guard picker.runModal() == .OK, let url = picker.url else { return }
+        Task { await work.connectLocalFolder(projectId: projectId, url: url) }
+    }
+
     private func load() async {
         await work.refresh()
         if !work.projects.contains(where: { $0.id == selectedProjectId }) {
@@ -409,6 +482,60 @@ struct ApprovedProjectsPanel: View {
                                 Divider()
                             }
                             Text("완료·막힘은 내가 기록하는 상태야. GitHub 조회나 AWS 배포 성공 여부와 자동으로 연결하지 않아.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    GroupBox("Mac 코드 상태 · 사용자가 선택한 로컬 Git 저장소") {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("연결된 프로젝트 폴더는 이 Mac의 앱 설정에만 저장합니다. 실제 코드는 확인 버튼을 눌렀을 때만 읽습니다.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            HStack(spacing: 8) {
+                                Button(work.localFolder(projectId: selected.id) == nil
+                                       ? "Git 폴더 연결" : "다른 Git 폴더 선택") {
+                                    chooseLocalFolder(projectId: selected.id)
+                                }
+                                .disabled(work.busy)
+                                Button("현재 코드 상태 한 번 확인") {
+                                    Task { await work.inspectLocalFolder(projectId: selected.id) }
+                                }
+                                .disabled(work.busy || work.localFolder(projectId: selected.id) == nil)
+                                Button("연결 해제") {
+                                    work.disconnectLocalFolder(projectId: selected.id)
+                                }
+                                .disabled(work.busy || work.localFolder(projectId: selected.id) == nil)
+                            }
+                            if let linked = work.localFolder(projectId: selected.id) {
+                                Text("연결된 폴더: \(linked)")
+                                    .font(.caption)
+                                    .textSelection(.enabled)
+                            } else {
+                                Text("연결된 Mac 폴더 없음")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if let evidence = work.localEvidence[selected.id] {
+                                Text("로컬 브랜치: \(evidence.branch)")
+                                Text("현재 로컬 HEAD: \(evidence.headSHA.prefix(12))")
+                                    .textSelection(.enabled)
+                                Text("Git 추적 변경 항목: \(evidence.changedTrackedEntries)개 · 미추적 항목: \(evidence.untrackedEntries)개")
+                                Text("확인 시각: \(evidence.checkedAt.formatted(date: .abbreviated, time: .standard))")
+                                    .font(.caption)
+                                Text(evidence.isDirty
+                                     ? "로컬 작업 폴더에 변경 항목이 있습니다. 자동 커밋하지 않았습니다."
+                                     : "Git status 기준 변경 항목이 없습니다. 배포·원격 동기화 완료를 의미하지 않습니다.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if let message = work.localMessages[selected.id] {
+                                Text(message)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .textSelection(.enabled)
+                            }
+                            Text("GitHub 원격 기록과 Mac 로컬 코드는 서로 다를 수 있습니다. 파일 내용·파일명은 표시·업로드하지 않습니다.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
