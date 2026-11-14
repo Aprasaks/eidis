@@ -15,8 +15,8 @@ struct WorkProject: Decodable, Identifiable {
 
     // Derived only from locally saved user task states, not GitHub evidence.
     var nextTasks: [WorkTask] {
-        Array((tasks.filter { $0.status == "doing" } +
-               tasks.filter { $0.status == "todo" }).prefix(5))
+        Array((tasks.filter { $0.status == "doing" }.reversed() +
+               tasks.filter { $0.status == "todo" }.reversed()).prefix(5))
     }
 
     var blockedTasks: [WorkTask] {
@@ -87,6 +87,37 @@ struct WorkCheckProposal: Identifiable, Equatable {
 
     var explanation: String {
         "GitHub 공개 API에서 \(repository)의 기본 브랜치 최신 HEAD와 그 커밋에 맞는 Workflow 기록을 한 번 읽습니다. 기록은 로컬 프로젝트 DB에 남습니다. 파일 변경·푸시·배포·삭제는 하지 않습니다."
+    }
+}
+
+/// A local task state transition proposed by the user. Creating the proposal
+/// never writes to SQLite, contacts GitHub or opens an external application.
+struct WorkTaskStartProposal: Identifiable {
+    let id = UUID()
+    let projectId: Int
+    let projectName: String
+    let repository: String
+    let taskId: Int
+    let taskTitle: String
+    let createdAt: Date
+
+    static func forTask(_ task: WorkTask, in project: WorkProject,
+                        now: Date = Date()) -> WorkTaskStartProposal? {
+        guard task.id > 0, task.status == "todo",
+              project.tasks.contains(where: {
+                  $0.id == task.id && $0.title == task.title && $0.status == "todo"
+              }) else { return nil }
+        return WorkTaskStartProposal(
+            projectId: project.id, projectName: project.name,
+            repository: project.repoFullName, taskId: task.id,
+            taskTitle: task.title, createdAt: now)
+    }
+
+    var explanation: String {
+        "프로젝트: \(projectName)\n작업: \(taskTitle)\n" +
+        "이 한 작업의 로컬 기록만 ‘예정’에서 ‘진행’으로 변경합니다. " +
+        "실제 개발·완료·배포를 의미하지 않습니다. " +
+        "기록 성공 후 Finder/GitHub 열기 제안만 준비하며, 실제 열기는 별도 승인이 필요합니다."
     }
 }
 
@@ -282,6 +313,63 @@ final class ApprovedWorkModel: ObservableObject {
         }
     }
 
+    /// Re-read before changing any task: the approved project, task title and
+    /// original TODO state must still match. Never retry an uncertain write.
+    func beginApprovedTask(_ proposal: WorkTaskStartProposal) async -> Bool {
+        guard !busy else { return false }
+        let age = Date().timeIntervalSince(proposal.createdAt)
+        guard (0...120).contains(age) else {
+            status = "작업 시작 승인이 만료됐습니다. 제안을 다시 만들어 주세요."
+            return false
+        }
+        busy = true
+        defer { busy = false }
+        do {
+            let current: WorkProjectsReply = try await fetch("/api/projects")
+            guard let project = current.items.first(where: {
+                $0.id == proposal.projectId &&
+                $0.name == proposal.projectName &&
+                $0.repoFullName == proposal.repository
+            }),
+                  project.tasks.contains(where: {
+                      $0.id == proposal.taskId &&
+                      $0.title == proposal.taskTitle &&
+                      $0.status == "todo"
+                  }) else {
+                throw WorkActionError.server(
+                    "대상 프로젝트나 작업 상태가 승인 이후 변경됐습니다. 상태를 갱신하지 않았습니다.")
+            }
+            let body = try JSONSerialization.data(withJSONObject: [
+                "project_id": proposal.projectId, "task_id": proposal.taskId,
+                "status": "doing"
+            ])
+            let result: WorkProjectUpdatedReply = try await fetch(
+                "/api/projects/status", body: body)
+            guard result.project.id == proposal.projectId,
+                  result.project.name == proposal.projectName,
+                  result.project.repoFullName == proposal.repository,
+                  result.project.tasks.contains(where: {
+                      $0.id == proposal.taskId &&
+                      $0.title == proposal.taskTitle &&
+                      $0.status == "doing"
+                  }) else {
+                throw WorkActionError.server("서버 응답을 확인하지 못했습니다. 자동 재시도하지 않습니다.")
+            }
+            if let index = projects.firstIndex(where: { $0.id == proposal.projectId }) {
+                projects[index] = result.project
+            } else {
+                projects = current.items.map {
+                    $0.id == proposal.projectId ? result.project : $0
+                }
+            }
+            status = "승인한 작업을 진행으로 기록했습니다: \(proposal.taskTitle). 실제 개발·배포 완료는 아닙니다. 아래 작업 공간 제안은 별도로 승인해야 열립니다."
+            return true
+        } catch {
+            status = "작업 시작 실패 또는 미확인: \(error.localizedDescription). 자동 재시도하지 않습니다. 로컬 기록을 새로 확인해 주세요."
+            return false
+        }
+    }
+
     func runApprovedCheck(_ proposal: WorkCheckProposal) async {
         guard !busy else { return }
         busy = true
@@ -349,6 +437,9 @@ struct ApprovedProjectsPanel: View {
     @State private var proposal: WorkCheckProposal?
     @State private var confirmationVisible = false
     @State private var newTaskTitle = ""
+    @State private var taskStartProposal: WorkTaskStartProposal?
+    @State private var taskStartConfirmationVisible = false
+    @State private var taskWorkspaceRequest: JarvisWorkspaceCommand?
 
     private var selected: WorkProject? {
         work.projects.first(where: { $0.id == selectedProjectId })
@@ -415,6 +506,8 @@ struct ApprovedProjectsPanel: View {
                     .frame(maxWidth: 470)
                     .onChange(of: selectedProjectId) { _, _ in
                         proposal = nil
+                        taskStartProposal = nil
+                        taskWorkspaceRequest = nil
                         newTaskTitle = ""
                     }
                     Spacer()
@@ -480,6 +573,56 @@ struct ApprovedProjectsPanel: View {
                                         .font(.caption)
                                 }
                             }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    GroupBox("다음 할 일 시작 · 승인 후 로컬 작업 상태 기록") {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("최근 등록된 미완료 작업 중 진행 중인 작업을 먼저 보여줍니다. 순서는 자동 우선순위 판단이 아닙니다.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            if selected.nextTasks.isEmpty {
+                                Text("시작할 작업이 없습니다. 아래에 예정 작업을 추가해 주세요.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            ForEach(selected.nextTasks) { task in
+                                HStack(alignment: .center, spacing: 10) {
+                                    Text(task.title)
+                                        .lineLimit(2)
+                                    Spacer()
+                                    if task.status == "todo" {
+                                        Button("이 작업 시작 제안") {
+                                            taskStartProposal = WorkTaskStartProposal.forTask(
+                                                task, in: selected)
+                                        }
+                                        .disabled(work.busy)
+                                    } else {
+                                        Text("진행 중으로 기록됨")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        Button("작업 공간 열기 제안") {
+                                            taskWorkspaceRequest = JarvisWorkspaceCommand(
+                                                projectId: selected.id, projectName: selected.name,
+                                                repository: selected.repoFullName,
+                                                destination: .choose)
+                                        }
+                                        .disabled(work.busy)
+                                    }
+                                }
+                            }
+                            if let taskStartProposal {
+                                Text(taskStartProposal.explanation)
+                                    .font(.caption)
+                                    .textSelection(.enabled)
+                                Button("시작 승인 화면") {
+                                    taskStartConfirmationVisible = true
+                                }
+                                .disabled(work.busy)
+                            }
+                            Text("작업 시작을 승인해도 코드 변경·커밋·배포는 자동 실행되지 않습니다.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -600,8 +743,10 @@ struct ApprovedProjectsPanel: View {
                     }
                     WorkspaceResumePanel(
                         project: selected, work: work,
-                        requestedWorkspace: requestedWorkspace?.projectId == selected.id
-                            ? requestedWorkspace : nil
+                        requestedWorkspace: taskWorkspaceRequest?.projectId == selected.id
+                            ? taskWorkspaceRequest
+                            : (requestedWorkspace?.projectId == selected.id
+                                ? requestedWorkspace : nil)
                     )
                         .id(selected.id)
                     GroupBox("1단계 · 외부 작업 제안") {
@@ -647,7 +792,27 @@ struct ApprovedProjectsPanel: View {
         }
         .task { await load() }
         .onChange(of: requestedWorkspace?.id) { _, _ in
+            taskWorkspaceRequest = nil
             applyRequestedProject()
+        }
+        .confirmationDialog("이 작업의 상태를 진행 중으로 기록할까요?",
+                            isPresented: $taskStartConfirmationVisible,
+                            titleVisibility: .visible) {
+            Button("승인하고 이 작업 시작 기록") {
+                guard let proposal = taskStartProposal else { return }
+                taskStartProposal = nil
+                Task {
+                    if await work.beginApprovedTask(proposal) {
+                        taskWorkspaceRequest = JarvisWorkspaceCommand(
+                            projectId: proposal.projectId,
+                            projectName: proposal.projectName,
+                            repository: proposal.repository, destination: .choose)
+                    }
+                }
+            }
+            Button("취소", role: .cancel) { taskStartProposal = nil }
+        } message: {
+            Text(taskStartProposal?.explanation ?? "승인할 작업이 없습니다.")
         }
         .confirmationDialog("이 공개 GitHub 조회를 한 번 승인할까요?",
                             isPresented: $confirmationVisible,
