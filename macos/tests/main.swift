@@ -52,3 +52,25 @@ print("PASS selected app accessibility controls, redaction, no click")
 let noInspection = LocalScreenInsights.answer(question: "버튼 있어?", recognizedText: "화면 글자", uiElements: [])
 precondition(noInspection.contains("UI 구조 확인 기록이 없어요"))
 print("PASS no implicit accessibility inspection")
+
+let allowed = [
+    ("AXButton", "Refresh"), ("AXButton", "새로고침"),
+    ("AXButton", "Reload this page"), ("AXButton", "  reload ")
+]
+for (role, label) in allowed {
+    precondition(JarvisSafePressPolicy.allows(role: role, label: label))
+}
+let blocked = [
+    ("AXButton", "Delete"), ("AXButton", "삭제"),
+    ("AXButton", "Send"), ("AXButton", "Submit"),
+    ("AXButton", "결제"), ("AXButton", "게시"),
+    ("AXButton", "Save"), ("AXButton", "새로고침 삭제"),
+    ("AXButton", "Refresh now and delete"),
+    ("AXTab", "Refresh"), ("AXTextField", "새로고침"),
+    ("AXMenuItem", "Refresh"), ("AXButton", "")
+]
+for (role, label) in blocked {
+    precondition(!JarvisSafePressPolicy.allows(role: role, label: label),
+                 "Unexpected allowed action: \(role) \(label)")
+}
+print("PASS exact-label refresh-only policy blocks destructive/ambiguous controls")

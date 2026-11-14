@@ -276,6 +276,7 @@ struct JarvisWindow: View {
                             .foregroundStyle(.secondary)
                     }
                     .onChange(of: uiInspector.selectedPID) { _, _ in vision.clearAnswer() }
+                    .onChange(of: uiInspector.inspected) { _, _ in vision.clearAnswer() }
                     VStack(alignment: .leading, spacing: 9) {
                         Text("화면 글자에 질문하기 · 로컬 분석")
                             .font(.subheadline.weight(.medium))

@@ -40,8 +40,19 @@ class ScreenTextContractTests(unittest.TestCase):
         self.assertIn("uiInspector.selectedPID", self.screen)
         self.assertIn("AccessibilityInspector", ax)
         self.assertIn("AXUIElementCopyAttributeValue", ax)
-        self.assertNotIn("AXUIElementPerformAction(", ax)
+        # Exactly one AXPress call exists, exclusively in the one-shot
+        # refresh path and gated behind an explicit confirmation dialog.
+        self.assertEqual(ax.count("AXUIElementPerformAction("), 1)
         self.assertNotIn("AXUIElementSetAttributeValue(", ax)
+        self.assertIn("func pressApprovedRefresh(nodeID: UUID)", ax)
+        self.assertIn('Button("지금 새로고침 1회 실행")', ax)
+        self.assertIn("confirmationDialog", ax)
+        self.assertIn("safeRefreshNodes.first(where:", ax)
+        self.assertIn("selectedPID == inspectedPID", ax)
+        self.assertIn("timeIntervalSince(scannedAt) <= 60", ax)
+        self.assertIn("CFEqual(liveWindow, inspectedWindow)", ax)
+        self.assertIn("kAXEnabledAttribute", ax)
+        self.assertIn("kAXPressAction", ax)
 
     def test_ui_questions_keep_source_boundaries(self):
         local = (ROOT / "macos/Sources/EidisMac/LocalScreenInsights.swift").read_text(encoding="utf-8")
