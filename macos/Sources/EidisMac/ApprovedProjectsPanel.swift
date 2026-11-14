@@ -15,8 +15,8 @@ struct WorkProject: Decodable, Identifiable {
 
     // Derived only from locally saved user task states, not GitHub evidence.
     var nextTasks: [WorkTask] {
-        Array((tasks.filter { $0.status == "doing" }.reversed() +
-               tasks.filter { $0.status == "todo" }.reversed()).prefix(5))
+        Array((Array(tasks.filter { $0.status == "doing" }.reversed()) +
+               Array(tasks.filter { $0.status == "todo" }.reversed())).prefix(5))
     }
 
     var blockedTasks: [WorkTask] {
