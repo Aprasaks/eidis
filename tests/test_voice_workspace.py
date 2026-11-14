@@ -22,6 +22,8 @@ class VoiceWorkspaceContractTests(unittest.TestCase):
     def test_native_voice_and_typed_commands_route_to_work_tab(self):
         self.assertIn("JarvisWorkspaceCommandParser.parse(trimmed, projects: projectWork.projects)", self.speech)
         self.assertIn("sendCommand(phrase)", self.speech)
+        self.assertIn('Button("자비스 다음 할 일")', self.speech)
+        self.assertIn('sendCommand("자비스, 다음 할 일 뭐야?")', self.speech)
         self.assertIn('Menu("등록 프로젝트 선택")', self.speech)
         self.assertIn('typedCommand = "\\(project.name) 작업 이어서 열어줘"', self.speech)
         self.assertIn("if projectWork.projects.isEmpty", self.speech)

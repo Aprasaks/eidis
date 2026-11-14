@@ -126,6 +126,48 @@ class BrainTests(unittest.TestCase):
         self.assertFalse(reply["executed"])
         network.assert_not_called()
 
+    def test_self_addressed_status_reads_only_exact_jarvis_project(self):
+        project = self.store.create_project(
+            "JARVIS eidis", "Mac 개인 AI", "Aprasaks/eidis")
+        self.store.add_project_task(project["id"], "오래된 예정 작업")
+        recent = self.store.add_project_task(project["id"], "실제 음성 명령 화면 확인")
+        self.store.update_project_task(project["id"], recent["id"], "doing")
+        self.store.add_project_task(project["id"], "새로운 미검증 권한 확인")
+        with patch("jarvis.tools.verify_public_github") as network:
+            answer = self.brain.handle("자비스, 다음 할 일 뭐야?")
+            alias = self.brain.handle("Jarvis 지금 어디까지 했어?")
+        for reply in (answer, alias):
+            self.assertEqual(reply["action"], "project_self_overview")
+            self.assertFalse(reply["executed"])
+            self.assertEqual(reply["brain_source"], "local")
+            self.assertIn("자비스 자신의 프로젝트 기록", reply["text"])
+            self.assertIn("실제 음성 명령 화면 확인 (진행)", reply["text"])
+            self.assertIn("새로운 미검증 권한 확인 (예정)", reply["text"])
+            self.assertIn("실제 코드 실행·테스트·배포 상태", reply["text"])
+            self.assertNotIn("GitHub 공개 API를 지금 직접 조회", reply["text"])
+            self.assertLess(len(reply["spoken"]), 600)
+        network.assert_not_called()
+
+    def test_self_alias_never_overrides_explicit_wiki_or_global_request(self):
+        self.store.create_project("JARVIS eidis", "Mac AI", "Aprasaks/eidis")
+        wiki = self.store.create_project("DECHIVE.WIKI", "위키", "Aprasaks/dechive-wiki")
+        self.store.add_project_task(wiki["id"], "위키 공개 배포 확인")
+        wiki_answer = self.brain.handle("자비스, DECHIVE.WIKI 다음 해야 할 일은?")
+        self.assertEqual(wiki_answer["action"], "project_named_overview")
+        self.assertIn("위키 공개 배포 확인", wiki_answer["text"])
+        self.assertNotIn("자비스 자신의 프로젝트 기록", wiki_answer["text"])
+        overview = self.brain.handle("자비스, 프로젝트 현황 알려줘")
+        self.assertEqual(overview["action"], "project_overview")
+        unknown = self.brain.handle("자비스, 모르는서비스 다음 할 일 뭐야?")
+        self.assertNotEqual(unknown["action"], "project_self_overview")
+
+    def test_no_self_project_is_not_fabricated(self):
+        self.store.create_project("DECHIVE.WIKI", "위키", "Aprasaks/dechive-wiki")
+        answer = self.brain.handle("자비스, 다음 할 일 뭐야?")
+        self.assertNotEqual(answer["action"], "project_self_overview")
+        answer_without_prefix = self.brain.handle("다음 할 일 뭐야?")
+        self.assertNotEqual(answer_without_prefix["action"], "project_self_overview")
+
     def test_unmatched_project_word_does_not_invent_status(self):
         r = self.brain.handle("모르는서비스 지금 어디까지 진행됐어?")
         self.assertNotEqual(r["action"], "project_named_overview")

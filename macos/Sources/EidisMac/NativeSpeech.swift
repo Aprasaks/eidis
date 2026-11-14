@@ -372,6 +372,11 @@ struct NativeSpeechPanel: View {
                 .frame(minHeight: 95)
             }
             HStack {
+                Button("자비스 다음 할 일") {
+                    sendCommand("자비스, 다음 할 일 뭐야?")
+                }
+                .disabled(routingBusy || client.busy)
+                .help("JARVIS eidis의 저장된 작업을 로컬 서버에서 읽고 답합니다. GitHub 조회나 코드 실행은 하지 않습니다.")
                 Menu("등록 프로젝트 선택") {
                     ForEach(projectWork.projects) { project in
                         Button(project.name) {
