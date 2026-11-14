@@ -22,10 +22,20 @@ final class ScreenObserver: ObservableObject {
     @Published private(set) var busy = false
     @Published private(set) var recognizedText = ""
     @Published private(set) var recognizedLineCount = 0
+    @Published private(set) var questionReply = ""
+
+    func answerQuestion(_ question: String) {
+        guard !busy else { return }
+        questionReply = LocalScreenInsights.answer(question: question, recognizedText: recognizedText)
+    }
 
     func captureOnce() {
         guard !busy else { return }
         busy = true
+        preview = nil
+        recognizedText = ""
+        recognizedLineCount = 0
+        questionReply = ""
         status = "화면 접근 권한을 확인하고 있습니다."
         Task {
             defer { busy = false }
@@ -59,6 +69,7 @@ final class ScreenObserver: ObservableObject {
                 )
                 recognizedText = ""
                 recognizedLineCount = 0
+                questionReply = ""
                 status = "화면 캡처 완료 · Mac에서 글자를 읽고 있습니다."
                 do {
                     // Recognition runs off the UI thread. Never stores or uploads the image.
@@ -77,6 +88,7 @@ final class ScreenObserver: ObservableObject {
                 preview = nil
                 recognizedText = ""
                 recognizedLineCount = 0
+                questionReply = ""
                 status = "화면 확인 실패: \(error.localizedDescription)"
             }
         }
@@ -86,6 +98,7 @@ final class ScreenObserver: ObservableObject {
         preview = nil
         recognizedText = ""
         recognizedLineCount = 0
+        questionReply = ""
         status = "캡처 화면과 인식한 글자를 메모리에서 지웠습니다. 파일로 저장하지 않았습니다."
     }
 }
@@ -96,6 +109,7 @@ struct JarvisWindow: View {
     @StateObject private var vision = ScreenObserver()
     @StateObject private var bridge = JarvisBridge()
     @State private var reloadID = UUID()
+    @State private var screenQuestion = "이 화면에서 오류가 있는지 찾아줘"
 
     var body: some View {
         VStack(spacing: 0) {
@@ -197,6 +211,32 @@ struct JarvisWindow: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         .frame(height: 140)
+                        .padding(10)
+                        .background(.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 9))
+                    }
+                    VStack(alignment: .leading, spacing: 9) {
+                        Text("화면 글자에 질문하기 · 로컬 분석")
+                            .font(.subheadline.weight(.medium))
+                        HStack(spacing: 8) {
+                            TextField("예: 이 화면에서 오류가 뭐야?", text: $screenQuestion)
+                                .textFieldStyle(.roundedBorder)
+                                .onSubmit { vision.answerQuestion(screenQuestion) }
+                            Button("로컬 답변") { vision.answerQuestion(screenQuestion) }
+                                .disabled(vision.recognizedText.isEmpty || vision.busy ||
+                                          screenQuestion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            Button("음성으로 듣기") { voice.speak(vision.questionReply) }
+                                .disabled(vision.questionReply.isEmpty)
+                        }
+                        ScrollView {
+                            Text(vision.questionReply.isEmpty
+                                 ? "인식한 글자를 바탕으로 오류 후보나 관련 문구를 찾아줘요. 화면의 이미지 의미나 원인 진단은 아직 할 수 없어요."
+                                 : vision.questionReply)
+                                .font(.system(size: 12))
+                                .foregroundStyle(vision.questionReply.isEmpty ? .secondary : .primary)
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .frame(height: 105)
                         .padding(10)
                         .background(.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 9))
                     }

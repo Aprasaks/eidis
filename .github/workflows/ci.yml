@@ -40,6 +40,10 @@ jobs:
         run: swift --version
       - name: Build development JARVIS.app (no TCC prompts in CI)
         run: bash macos/scripts/package-app.sh
+      - name: Test local screenshot-text question logic
+        run: |
+          swiftc -o /tmp/jarvis-screen-insights-test macos/tests/main.swift macos/Sources/EidisMac/LocalScreenInsights.swift
+          /tmp/jarvis-screen-insights-test
       - name: Verify bundle structure, usage descriptions and signature
         run: |
           test -x dist/JARVIS.app/Contents/MacOS/EidisMac
