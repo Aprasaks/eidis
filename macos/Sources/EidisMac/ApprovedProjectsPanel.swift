@@ -11,6 +11,29 @@ struct WorkProject: Decodable, Identifiable {
     let tasks: [WorkTask]
     let taskCounts: WorkCounts
     let lastCheck: WorkGitHubEvidence?
+
+    // Derived only from locally saved user task states, not GitHub evidence.
+    var nextTasks: [WorkTask] {
+        Array((tasks.filter { $0.status == "doing" } +
+               tasks.filter { $0.status == "todo" }).prefix(5))
+    }
+
+    var blockedTasks: [WorkTask] {
+        tasks.filter { $0.status == "blocked" }
+    }
+}
+
+enum WorkTaskState: String, CaseIterable, Identifiable {
+    case todo, doing, blocked, done
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .todo: "예정"
+        case .doing: "진행"
+        case .blocked: "막힘"
+        case .done: "완료"
+        }
+    }
 }
 
 struct WorkTask: Decodable, Identifiable {
@@ -35,6 +58,8 @@ struct WorkGitHubEvidence: Decodable {
 }
 
 struct WorkProjectsReply: Decodable { let items: [WorkProject] }
+struct WorkTaskAddedReply: Decodable { let task: WorkTask }
+struct WorkProjectUpdatedReply: Decodable { let project: WorkProject }
 struct WorkCheckReceipt: Decodable {
     let id: Int
     let status: String
@@ -79,7 +104,8 @@ final class ApprovedWorkModel: ObservableObject {
     }()
 
     private func fetch<T: Decodable>(_ path: String, body: Data? = nil) async throws -> T {
-        guard path == "/api/projects" || path == "/api/projects/github/check",
+        guard ["/api/projects", "/api/projects/github/check",
+               "/api/projects/task", "/api/projects/status"].contains(path),
               let url = URL(string: path, relativeTo: base)?.absoluteURL,
               url.host == "127.0.0.1", url.port == 8765 else {
             throw URLError(.badURL)
@@ -112,6 +138,74 @@ final class ApprovedWorkModel: ObservableObject {
             status = "프로젝트 \(result.items.count)개를 로컬 DB에서 읽었습니다. GitHub는 조회하지 않았습니다."
         } catch {
             status = "로컬 프로젝트 확인 실패: \(error.localizedDescription)"
+        }
+    }
+
+    /// A click in the native Work tab is a deliberate local task write.
+    /// No GitHub call, automation, or inferred completion is involved.
+    func addTask(projectId: Int, title: String) async -> Bool {
+        guard !busy else { return false }
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard (1...200).contains(trimmed.count),
+              projects.contains(where: { $0.id == projectId }) else {
+            status = "유효한 프로젝트와 1~200자 작업 이름을 지정해 주세요."
+            return false
+        }
+        busy = true
+        defer { busy = false }
+        do {
+            let body = try JSONSerialization.data(withJSONObject: [
+                "project_id": projectId, "title": trimmed
+            ])
+            let result: WorkTaskAddedReply = try await fetch("/api/projects/task", body: body)
+            guard result.task.id > 0, result.task.title == trimmed,
+                  result.task.status == "todo" else {
+                throw WorkActionError.server("추가 응답을 확인하지 못했습니다. 로컬 목록에서 실제 저장 여부를 확인해 주세요.")
+            }
+            status = "작업 #\(result.task.id) 저장 확인: \(trimmed) · 예정. GitHub 조회나 작업 실행은 하지 않았습니다."
+            if let latest: WorkProjectsReply = try? await fetch("/api/projects") {
+                projects = latest.items
+            } else {
+                status += " 목록 갱신에 실패했으니 로컬 기록 새로 읽기를 눌러 주세요."
+            }
+            return true
+        } catch {
+            status = "작업 저장 실패 또는 상태 미확인: \(error.localizedDescription). 중복 방지를 위해 자동 재시도하지 않습니다."
+            return false
+        }
+    }
+
+    func updateTask(projectId: Int, taskId: Int, next: WorkTaskState) async {
+        guard !busy else { return }
+        guard let project = projects.first(where: { $0.id == projectId }),
+              let task = project.tasks.first(where: { $0.id == taskId }) else {
+            status = "작업을 찾지 못했습니다. 로컬 기록을 새로 읽어 주세요."
+            return
+        }
+        guard task.status != next.rawValue else {
+            status = "이미 같은 상태로 기록되어 있습니다."
+            return
+        }
+        busy = true
+        defer { busy = false }
+        do {
+            // Server explicitly records actor=user and the prior/new status.
+            let body = try JSONSerialization.data(withJSONObject: [
+                "project_id": projectId, "task_id": taskId, "status": next.rawValue
+            ])
+            let result: WorkProjectUpdatedReply = try await fetch("/api/projects/status", body: body)
+            guard result.project.id == projectId,
+                  result.project.tasks.contains(where: {
+                      $0.id == taskId && $0.status == next.rawValue
+                  }) else {
+                throw WorkActionError.server("상태 변경 응답이 요청과 일치하지 않습니다.")
+            }
+            if let index = projects.firstIndex(where: { $0.id == projectId }) {
+                projects[index] = result.project
+            }
+            status = "사용자 기록 변경 완료: \(task.title) → \(next.label). 실제 코드 작업·배포가 완료됐다는 검증은 아닙니다."
+        } catch {
+            status = "상태 변경 실패 또는 미확인: \(error.localizedDescription). 자동 재시도하지 않습니다."
         }
     }
 
@@ -175,6 +269,7 @@ struct ApprovedProjectsPanel: View {
     @State private var selectedProjectId = 0
     @State private var proposal: WorkCheckProposal?
     @State private var confirmationVisible = false
+    @State private var newTaskTitle = ""
 
     private var selected: WorkProject? {
         work.projects.first(where: { $0.id == selectedProjectId })
@@ -214,7 +309,10 @@ struct ApprovedProjectsPanel: View {
                         }
                     }
                     .frame(maxWidth: 470)
-                    .onChange(of: selectedProjectId) { _, _ in proposal = nil }
+                    .onChange(of: selectedProjectId) { _, _ in
+                        proposal = nil
+                        newTaskTitle = ""
+                    }
                     Spacer()
                 }
                 if let selected {
@@ -229,10 +327,90 @@ struct ApprovedProjectsPanel: View {
                             } else {
                                 Text("GitHub 조회 기록 없음")
                             }
-                            ForEach(selected.tasks.prefix(7)) { task in
-                                Text("• \(task.title) [\(task.status)]")
+                            if !selected.nextTasks.isEmpty {
+                                Text("다음 이어 할 일 · 사용자 기록")
+                                    .font(.subheadline.weight(.medium))
+                                ForEach(selected.nextTasks) { task in
+                                    Text("• \(task.title) [\(WorkTaskState(rawValue: task.status)?.label ?? "미상")]")
+                                        .font(.caption)
+                                }
+                                Text("위 순서는 진행 중 → 예정 순서이며, 자동으로 작업을 실행하거나 완료 판정하지 않습니다.")
                                     .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text("이어 할 일로 기록된 작업이 없습니다. 아래에서 직접 추가할 수 있어요.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
+                            if !selected.blockedTasks.isEmpty {
+                                Text("막힌 작업 · 사용자 기록")
+                                    .font(.subheadline.weight(.medium))
+                                ForEach(selected.blockedTasks) { task in
+                                    Text("• \(task.title)")
+                                        .font(.caption)
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    GroupBox("내 작업 기록 · 직접 추가하고 상태 변경") {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                TextField("다음 해야 할 일을 입력하세요", text: $newTaskTitle)
+                                    .textFieldStyle(.roundedBorder)
+                                    .onSubmit {
+                                        let title = newTaskTitle
+                                        Task {
+                                            if await work.addTask(projectId: selected.id, title: title) {
+                                                newTaskTitle = ""
+                                            }
+                                        }
+                                    }
+                                Button("예정 작업 추가") {
+                                    let title = newTaskTitle
+                                    Task {
+                                        if await work.addTask(projectId: selected.id, title: title) {
+                                            newTaskTitle = ""
+                                        }
+                                    }
+                                }
+                                .disabled(work.busy ||
+                                    newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                                    newTaskTitle.count > 200)
+                            }
+                            if selected.tasks.isEmpty {
+                                Text("기록된 작업이 없습니다. 먼저 한 가지를 입력해 주세요.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            ForEach(selected.tasks) { task in
+                                HStack(alignment: .center, spacing: 10) {
+                                    Text(task.title)
+                                        .font(.callout)
+                                        .lineLimit(2)
+                                    Spacer()
+                                    Text(WorkTaskState(rawValue: task.status)?.label ?? "미상")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Menu("상태 변경") {
+                                        ForEach(WorkTaskState.allCases) { state in
+                                            Button(state.label) {
+                                                Task {
+                                                    await work.updateTask(projectId: selected.id,
+                                                                          taskId: task.id,
+                                                                          next: state)
+                                                }
+                                            }
+                                            .disabled(work.busy || state.rawValue == task.status)
+                                        }
+                                    }
+                                    .disabled(work.busy)
+                                }
+                                Divider()
+                            }
+                            Text("완료·막힘은 내가 기록하는 상태야. GitHub 조회나 AWS 배포 성공 여부와 자동으로 연결하지 않아.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }

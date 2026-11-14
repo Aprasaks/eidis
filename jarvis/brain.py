@@ -253,6 +253,7 @@ class JarvisBrain:
         if not any(word in compact for word in (
             "어디까지", "진행", "상태", "현황", "남았", "남은",
             "마지막", "최근", "어떻게됐", "할일", "해야할",
+            "다음", "뭐해야", "뭘해야", "해야해",
         )):
             return None
         projects = self.store.list_projects(limit=40)
@@ -284,6 +285,20 @@ class JarvisBrain:
             task_summary = "기록된 작업: " + listed + "."
         else:
             task_summary = "직접 등록된 세부 작업은 아직 없습니다."
+        next_tasks = (
+            [item for item in tasks if item["status"] == "doing"] +
+            [item for item in tasks if item["status"] == "todo"]
+        )[:3]
+        if next_tasks:
+            task_summary += " 다음 이어 할 일(사용자 기록): " + "; ".join(
+                f'{item["title"][:80]} ({status_names[item["status"]]})'
+                for item in next_tasks
+            ) + "."
+        blocked = [item for item in tasks if item["status"] == "blocked"][:2]
+        if blocked:
+            task_summary += " 막힌 작업(사용자 기록): " + "; ".join(
+                item["title"][:80] for item in blocked
+            ) + "."
         observed = project["last_check"]
         if observed:
             workflow = ( "현재 HEAD에 일치하는 Workflow를 확인하지 못했습니다"

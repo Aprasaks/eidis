@@ -97,3 +97,23 @@ precondition(safeProposal?.repository == "Aprasaks/dechive-wiki")
 precondition(safeProposal?.explanation.contains("파일 변경·푸시·배포·삭제는 하지 않습니다") == true)
 precondition(WorkCheckProposal.forProject(workDecoded.items[1]) == nil)
 print("PASS local project decoding and read-only proposal contract")
+
+let states = WorkTaskState.allCases.map { $0.rawValue }
+precondition(states == ["todo", "doing", "blocked", "done"])
+precondition(WorkTaskState.doing.label == "진행")
+let continuityFixture = """
+{"items":[{"id":7,"name":"TEST","goal":"","repo_full_name":"",
+"tasks":[
+{"id":1,"title":"할 일 A","status":"todo"},
+{"id":2,"title":"막힌 작업","status":"blocked"},
+{"id":3,"title":"진행 중인 B","status":"doing"},
+{"id":4,"title":"완료 작업","status":"done"},
+{"id":5,"title":"할 일 C","status":"todo"}
+],"task_counts":{"todo":2,"doing":1,"blocked":1,"done":1},
+"last_check":null}]}
+"""
+let continuity = try workDecoder.decode(WorkProjectsReply.self, from: Data(continuityFixture.utf8)).items[0]
+precondition(continuity.nextTasks.map { $0.title } == ["진행 중인 B", "할 일 A", "할 일 C"])
+precondition(continuity.blockedTasks.map { $0.title } == ["막힌 작업"])
+precondition(continuity.nextTasks.allSatisfy { $0.status != "done" })
+print("PASS persisted tasks provide deterministic doing-first next steps")

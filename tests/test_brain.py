@@ -105,6 +105,27 @@ class BrainTests(unittest.TestCase):
         self.assertEqual(spaced["action"], "project_named_overview")
         network.assert_not_called()
 
+    def test_named_project_next_actions_are_saved_user_tasks(self):
+        wiki = self.store.create_project(
+            "DECHIVE.WIKI", "영어 지식 아카이브", "Aprasaks/dechive-wiki")
+        started = self.store.add_project_task(wiki["id"], "관리자 페이지 연결")
+        self.store.update_project_task(wiki["id"], started["id"], "doing")
+        self.store.add_project_task(wiki["id"], "배포 도메인 확인")
+        blocked = self.store.add_project_task(wiki["id"], "AWS 접근 권한 해결")
+        self.store.update_project_task(wiki["id"], blocked["id"], "blocked")
+        with patch("jarvis.tools.verify_public_github") as network:
+            reply = self.brain.handle("DECHIVE.WIKI 다음 뭐해야 해?")
+        self.assertEqual(reply["action"], "project_named_overview")
+        self.assertIn("다음 이어 할 일(사용자 기록)", reply["text"])
+        self.assertLess(
+            reply["text"].index("관리자 페이지 연결 (진행)"),
+            reply["text"].rindex("배포 도메인 확인 (예정)")
+        )
+        self.assertIn("막힌 작업(사용자 기록)", reply["text"])
+        self.assertIn("AWS 접근 권한 해결", reply["text"])
+        self.assertFalse(reply["executed"])
+        network.assert_not_called()
+
     def test_unmatched_project_word_does_not_invent_status(self):
         r = self.brain.handle("모르는서비스 지금 어디까지 진행됐어?")
         self.assertNotEqual(r["action"], "project_named_overview")
