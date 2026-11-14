@@ -113,10 +113,27 @@ let continuityFixture = """
 "last_check":null}]}
 """
 let continuity = try workDecoder.decode(WorkProjectsReply.self, from: Data(continuityFixture.utf8)).items[0]
-precondition(continuity.nextTasks.map { $0.title } == ["진행 중인 B", "할 일 A", "할 일 C"])
+precondition(continuity.nextTasks.map { $0.title } == ["진행 중인 B", "할 일 C", "할 일 A"])
 precondition(continuity.blockedTasks.map { $0.title } == ["막힌 작업"])
 precondition(continuity.nextTasks.allSatisfy { $0.status != "done" })
 print("PASS persisted tasks provide deterministic doing-first next steps")
+
+let startedAt = Date(timeIntervalSince1970: 1_700_000_000)
+let recentTodo = continuity.tasks.first(where: { $0.title == "할 일 C" })!
+let currentlyDoing = continuity.tasks.first(where: { $0.title == "진행 중인 B" })!
+let blockedTask = continuity.tasks.first(where: { $0.status == "blocked" })!
+let unrelated = WorkTask(id: 9999, title: "다른 작업", status: "todo")
+let accepted = WorkTaskStartProposal.forTask(recentTodo, in: continuity, now: startedAt)
+precondition(accepted?.projectId == continuity.id)
+precondition(accepted?.taskId == recentTodo.id)
+precondition(accepted?.taskTitle == recentTodo.title)
+precondition(accepted?.explanation.contains("예정") == true)
+precondition(accepted?.explanation.contains("별도 승인") == true)
+precondition(WorkTaskStartProposal.forTask(currentlyDoing, in: continuity) == nil)
+precondition(WorkTaskStartProposal.forTask(blockedTask, in: continuity) == nil)
+precondition(WorkTaskStartProposal.forTask(unrelated, in: continuity) == nil)
+print("PASS explicit todo-only start proposal, recent items first, and blocked/done exclusion")
+
 
 let handoffTime = Date(timeIntervalSince1970: 1_700_000_000)
 let unlinked = JarvisHandoffReport.make(
