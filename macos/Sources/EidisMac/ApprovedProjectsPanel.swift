@@ -98,6 +98,20 @@ final class ApprovedWorkModel: ObservableObject {
     @Published private(set) var lastReceipt: WorkCheckReceipt?
     @Published private(set) var localEvidence: [Int: LocalGitEvidence] = [:]
     @Published private(set) var localMessages: [Int: String] = [:]
+    @Published private(set) var workspaceReceipt: JarvisWorkspaceReceipt?
+
+    /// Only called from a user-confirmed one-shot dialog.
+    func openApprovedWorkspace(_ proposal: JarvisWorkspaceProposal) {
+        guard !busy else { return }
+        let project = projects.first(where: { $0.id == proposal.projectId })
+        let receipt = JarvisWorkspaceResume.perform(
+            proposal: proposal, currentProject: project,
+            currentLinkedFolder: localFolder(projectId: proposal.projectId),
+            opener: { NSWorkspace.shared.open($0) })
+        workspaceReceipt = receipt
+        // A request accepted by macOS is not proof that Finder or a webpage loaded.
+        status = receipt.summary
+    }
 
     private func localFolderKey(_ id: Int) -> String {
         "jarvis.work.local-git-folder.\(id)"
@@ -567,6 +581,8 @@ struct ApprovedProjectsPanel: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    WorkspaceResumePanel(project: selected, work: work)
+                        .id(selected.id)
                     GroupBox("1단계 · 외부 작업 제안") {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("허용 작업: 공개 GitHub HEAD 및 Workflow 읽기")

@@ -156,3 +156,89 @@ precondition(taskReport.body.contains("[막힘] 막힌 작업"))
 precondition(!taskReport.body.contains("[진행] 완료 작업"))
 precondition(taskReport.body.contains("폴더는 연결됐지만 이번 실행에서 Git 상태 확인 기록이 없음"))
 print("PASS handoff preserves next tasks, blockers, and unverified local state")
+
+
+// v2.6 — a proposed app-open action is inert until a direct approval.
+// All test openers are mocks; no Finder or browser is launched.
+let openProject = workDecoded.items[0]
+let expectedGitHub = "https://github.com/Aprasaks/dechive-wiki"
+precondition(JarvisWorkspaceResume.githubURL(for: openProject.repoFullName)?.absoluteString == expectedGitHub)
+for invalid in ["", "owner", "owner/repo/path", "owner/repo?x=1",
+                "owner/../repo", "owner/%2e%2e", "https://evil.test/repo",
+                "owner/repo#frag", "owner/repo with spaces"] {
+    precondition(JarvisWorkspaceResume.githubURL(for: invalid) == nil,
+                 "Invalid GitHub destination accepted: \(invalid)")
+}
+precondition(JarvisWorkspaceResume.prepare(
+    project: openProject, linkedFolder: nil,
+    openFolder: false, openGitHub: false) == nil)
+precondition(JarvisWorkspaceResume.prepare(
+    project: openProject, linkedFolder: nil,
+    openFolder: true, openGitHub: false) == nil)
+
+let referenceTime = Date(timeIntervalSince1970: 1_700_000_000)
+guard let browserProposal = JarvisWorkspaceResume.prepare(
+    project: openProject, linkedFolder: nil,
+    openFolder: false, openGitHub: true, now: referenceTime) else {
+    preconditionFailure("Safe GitHub proposal not created")
+}
+var openedURLs: [URL] = []
+let approvedBrowser = JarvisWorkspaceResume.perform(
+    proposal: browserProposal, currentProject: openProject,
+    currentLinkedFolder: nil, now: referenceTime.addingTimeInterval(8),
+    opener: { url in openedURLs.append(url); return true })
+precondition(openedURLs.map { $0.absoluteString } == [expectedGitHub])
+precondition(approvedBrowser.summary.contains("열기 요청 수락"))
+precondition(approvedBrowser.summary.contains("실제 페이지 로딩"))
+precondition(!approvedBrowser.summary.contains("배포 완료"))
+print("PASS one-shot user-scoped GitHub open request and accurate result")
+
+openedURLs = []
+let expired = JarvisWorkspaceResume.perform(
+    proposal: browserProposal, currentProject: openProject,
+    currentLinkedFolder: nil, now: referenceTime.addingTimeInterval(150),
+    opener: { url in openedURLs.append(url); return true })
+precondition(openedURLs.isEmpty && expired.summary.contains("실행 차단"))
+let mismatched = JarvisWorkspaceResume.perform(
+    proposal: browserProposal, currentProject: workDecoded.items[1],
+    currentLinkedFolder: nil, now: referenceTime,
+    opener: { url in openedURLs.append(url); return true })
+precondition(openedURLs.isEmpty && mismatched.summary.contains("실행 차단"))
+let unavailable = JarvisWorkspaceResume.perform(
+    proposal: browserProposal, currentProject: openProject,
+    currentLinkedFolder: nil, now: referenceTime,
+    opener: { url in openedURLs.append(url); return false })
+precondition(openedURLs.count == 1 && unavailable.summary.contains("요청 실패"))
+print("PASS expired/retargeted approvals blocked and failures not shown as success")
+
+let temp = FileManager.default.temporaryDirectory
+    .appendingPathComponent("jarvis-v26-test-\(UUID().uuidString)", isDirectory: true)
+try FileManager.default.createDirectory(at: temp.appendingPathComponent(".git"),
+                                        withIntermediateDirectories: true)
+defer { try? FileManager.default.removeItem(at: temp) }
+let path = temp.standardizedFileURL.resolvingSymlinksInPath().path
+guard let folderProposal = JarvisWorkspaceResume.prepare(
+    project: openProject, linkedFolder: path,
+    openFolder: true, openGitHub: false, now: referenceTime) else {
+    preconditionFailure("Linked Git folder proposal not created")
+}
+openedURLs = []
+let validFolder = JarvisWorkspaceResume.perform(
+    proposal: folderProposal, currentProject: openProject,
+    currentLinkedFolder: path, now: referenceTime,
+    opener: { url in openedURLs.append(url); return true })
+precondition(openedURLs.count == 1 && openedURLs[0].isFileURL)
+precondition(validFolder.summary.contains("Finder: 선택한 로컬 프로젝트 폴더 열기 요청 수락"))
+openedURLs = []
+let changedFolder = JarvisWorkspaceResume.perform(
+    proposal: folderProposal, currentProject: openProject,
+    currentLinkedFolder: "/unexpected/new-folder", now: referenceTime,
+    opener: { url in openedURLs.append(url); return true })
+precondition(openedURLs.isEmpty && changedFolder.summary.contains("실행 차단"))
+try FileManager.default.removeItem(at: temp.appendingPathComponent(".git"))
+let removedGit = JarvisWorkspaceResume.perform(
+    proposal: folderProposal, currentProject: openProject,
+    currentLinkedFolder: path, now: referenceTime,
+    opener: { url in openedURLs.append(url); return true })
+precondition(openedURLs.isEmpty && removedGit.summary.contains("Git 루트가 아닙니다"))
+print("PASS connected folder scope and missing Git root checks without opening Finder")
