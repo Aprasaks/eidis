@@ -48,6 +48,10 @@ jobs:
         run: |
           swiftc -o /tmp/jarvis-local-git-test macos/tests/git/main.swift macos/Sources/EidisMac/LocalGitInspector.swift
           /tmp/jarvis-local-git-test "$PWD"
+      - name: Smoke test native Work UI offscreen (no TCC prompts)
+        run: |
+          swiftc -o /tmp/jarvis-ui-smoke macos/tests/ui/main.swift macos/Sources/EidisMac/ApprovedProjectsPanel.swift macos/Sources/EidisMac/JarvisWorkspaceResume.swift macos/Sources/EidisMac/WorkspaceResumePanel.swift macos/Sources/EidisMac/JarvisHandoffReport.swift macos/Sources/EidisMac/LocalGitInspector.swift
+          /tmp/jarvis-ui-smoke
       - name: Verify bundle structure, usage descriptions and signature
         run: |
           test -x dist/JARVIS.app/Contents/MacOS/EidisMac
