@@ -161,6 +161,9 @@ struct JarvisWindow: View {
                 .padding(18)
                 .tabItem { Label("자비스", systemImage: "sparkles") }
 
+                ApprovedProjectsPanel()
+                    .tabItem { Label("작업", systemImage: "checklist") }
+
                 NativeSpeechPanel(bridge: bridge, voice: voice, elevenLabs: elevenLabs)
                     .tabItem { Label("음성", systemImage: "mic") }
 

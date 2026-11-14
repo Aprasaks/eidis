@@ -74,3 +74,26 @@ for (role, label) in blocked {
                  "Unexpected allowed action: \(role) \(label)")
 }
 print("PASS exact-label refresh-only policy blocks destructive/ambiguous controls")
+
+let projectFixture = """
+{"items":[{"id":2,"name":"DECHIVE.WIKI","goal":"배포",
+"repo_full_name":"Aprasaks/dechive-wiki",
+"tasks":[{"id":11,"title":"AWS 확인","status":"todo"}],
+"task_counts":{"todo":1,"doing":0,"blocked":0,"done":0},
+"last_check":{"branch":"main","head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+"workflow_state":"unavailable","workflow_conclusion":"unknown",
+"checked_at":"2026-11-14T00:00:00+00:00"}},
+{"id":3,"name":"Local notes","goal":"개인 메모","repo_full_name":"",
+"tasks":[],"task_counts":{"todo":0,"doing":0,"blocked":0,"done":0},"last_check":null}]}
+"""
+let workDecoder = JSONDecoder()
+workDecoder.keyDecodingStrategy = .convertFromSnakeCase
+let workDecoded = try workDecoder.decode(WorkProjectsReply.self, from: Data(projectFixture.utf8))
+precondition(workDecoded.items.count == 2)
+precondition(workDecoded.items[0].lastCheck?.headSha.hasPrefix("aaaaaaaa") == true)
+precondition(workDecoded.items[0].taskCounts.todo == 1)
+let safeProposal = WorkCheckProposal.forProject(workDecoded.items[0])
+precondition(safeProposal?.repository == "Aprasaks/dechive-wiki")
+precondition(safeProposal?.explanation.contains("파일 변경·푸시·배포·삭제는 하지 않습니다") == true)
+precondition(WorkCheckProposal.forProject(workDecoded.items[1]) == nil)
+print("PASS local project decoding and read-only proposal contract")
