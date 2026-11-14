@@ -359,7 +359,7 @@ struct NativeSpeechPanel: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
-            Text("프로젝트 이어하기 예: DECHIVE.WIKI 작업 이어서 열어줘 · 작업 탭에서 별도 승인해야 합니다.")
+            Text("프로젝트 이어하기 예: JARVIS eidis 작업 이어서 열어줘 · 아래 메뉴에서 다른 등록 프로젝트도 선택할 수 있어요.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             GroupBox("인식한 문장") {
@@ -370,6 +370,24 @@ struct NativeSpeechPanel: View {
                         .padding(8)
                 }
                 .frame(minHeight: 95)
+            }
+            HStack {
+                Menu("등록 프로젝트 선택") {
+                    ForEach(projectWork.projects) { project in
+                        Button(project.name) {
+                            typedCommand = "\(project.name) 작업 이어서 열어줘"
+                        }
+                    }
+                }
+                .disabled(projectWork.projects.isEmpty || routingBusy || client.busy)
+                Button("목록 갱신") {
+                    Task { await projectWork.refresh() }
+                }
+                .disabled(projectWork.busy || routingBusy || client.busy)
+                Spacer()
+                Text("선택하면 입력만 됩니다. 실행과 열기 승인은 별개입니다.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             HStack {
                 TextField("마이크가 안 되면 여기서 명령을 입력하세요.", text: $typedCommand)
@@ -390,6 +408,11 @@ struct NativeSpeechPanel: View {
                 .foregroundStyle(.secondary)
             }
             .padding(24)
+        }
+        .task {
+            if projectWork.projects.isEmpty {
+                await projectWork.refresh()
+            }
         }
     }
 

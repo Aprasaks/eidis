@@ -294,3 +294,24 @@ case .ordinary: break
 default: preconditionFailure("Ordinary chat must remain ordinary")
 }
 print("PASS exact project resolution, explicit destination, ambiguous/unsafe/unknown handling")
+
+
+// The assistant itself is a first-class project. WIKI is never required.
+let selfProject = WorkProject(id: 21, name: "JARVIS eidis",
+                              goal: "Local-first assistant", repoFullName: "Aprasaks/eidis",
+                              tasks: [], taskCounts: WorkCounts(todo: 0, doing: 0, blocked: 0, done: 0),
+                              lastCheck: nil)
+let externalWiki = workDecoded.items[0]
+switch JarvisWorkspaceCommandParser.parse(
+    "JARVIS eidis 작업 이어서 열어줘", projects: [selfProject, externalWiki]) {
+case .matched(let requested):
+    precondition(requested.projectId == selfProject.id)
+    precondition(requested.projectName == "JARVIS eidis")
+    precondition(requested.repository == "Aprasaks/eidis")
+    precondition(requested.projectId != externalWiki.id)
+    let p = JarvisWorkspaceResume.prepare(project: selfProject, linkedFolder: nil,
+                                          openFolder: false, openGitHub: true)
+    precondition(p?.githubURL?.absoluteString == "https://github.com/Aprasaks/eidis")
+default: preconditionFailure("JARVIS self-project was not selected exactly")
+}
+print("PASS JARVIS eidis self-project routing is independent of DECHIVE.WIKI")
