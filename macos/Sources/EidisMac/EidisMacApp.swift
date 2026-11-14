@@ -164,7 +164,8 @@ struct JarvisWindow: View {
                 NativeSpeechPanel(bridge: bridge, voice: voice, elevenLabs: elevenLabs)
                     .tabItem { Label("음성", systemImage: "mic") }
 
-                VStack(alignment: .leading, spacing: 16) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
                     HStack {
                         VStack(alignment: .leading, spacing: 5) {
                             Text("자비스의 눈 · 수동 캡처 테스트")
@@ -184,7 +185,7 @@ struct JarvisWindow: View {
                             Image(nsImage: preview)
                                 .resizable()
                                 .scaledToFit()
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .frame(maxWidth: .infinity, maxHeight: 240)
                         } else {
                             VStack(spacing: 10) {
                                 Image(systemName: "display")
@@ -195,10 +196,11 @@ struct JarvisWindow: View {
                                     .font(.caption)
                             }
                             .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .frame(maxWidth: .infinity, maxHeight: 240)
                         }
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 230)
                     .background(.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 14))
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
@@ -260,7 +262,7 @@ struct JarvisWindow: View {
                             }
                             .disabled(!uiInspector.inspected)
                             if uiInspector.inspected {
-                                Text("UI 요소 \\(uiInspector.rows.count)개")
+                                Text("UI 요소 \(uiInspector.rows.count)개")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -304,8 +306,9 @@ struct JarvisWindow: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
+                    }
+                    .padding(18)
                 }
-                .padding(18)
                 .tabItem { Label("화면", systemImage: "eye") }
 
                 AccessibilityPanel(inspector: uiInspector)
