@@ -24,7 +24,16 @@ struct AccessibleNode: Identifiable {
 @MainActor
 final class AccessibilityInspector: ObservableObject {
     @Published private(set) var targets: [AccessibleTargetApp] = []
-    @Published var selectedPID: pid_t = 0
+    @Published var selectedPID: pid_t = 0 {
+        didSet {
+            if selectedPID != oldValue {
+                rows = []
+                lastAppName = ""
+                inspected = false
+                status = "대상 앱이 변경됐습니다. 다시 '화면 구조 읽기'를 눌러야 합니다."
+            }
+        }
+    }
     @Published private(set) var rows: [AccessibleNode] = []
     @Published private(set) var status = "앱을 선택한 다음 ‘화면 구조 읽기’를 누르세요."
     @Published private(set) var lastAppName = ""
@@ -188,7 +197,7 @@ final class AccessibilityInspector: ObservableObject {
 }
 
 struct AccessibilityPanel: View {
-    @StateObject private var inspector = AccessibilityInspector()
+    @ObservedObject var inspector: AccessibilityInspector
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {

@@ -32,5 +32,25 @@ class ScreenTextContractTests(unittest.TestCase):
         self.assertIn('recognizedText = ""', self.screen)
 
 
+    def test_accessibility_is_explicit_and_never_performs_actions(self):
+        ax = (ROOT / "macos/Sources/EidisMac/AccessibilityPanel.swift").read_text(encoding="utf-8")
+        assert "Button(\"선택 앱 UI 구조 읽기\")" in self.screen
+        self.assertIn("uiInspector.inspectSelected()", self.screen)
+        self.assertIn("AccessibilityPanel(inspector: uiInspector)", self.screen)
+        self.assertIn("uiInspector.selectedPID", self.screen)
+        self.assertIn("AccessibilityInspector", ax)
+        self.assertIn("AXUIElementCopyAttributeValue", ax)
+        self.assertNotIn("AXUIElementPerformAction(", ax)
+        self.assertNotIn("AXUIElementSetAttributeValue(", ax)
+
+    def test_ui_questions_keep_source_boundaries(self):
+        local = (ROOT / "macos/Sources/EidisMac/LocalScreenInsights.swift").read_text(encoding="utf-8")
+        self.assertIn("uiElements: [ScreenUIEvidence] = []", local)
+        self.assertIn("선택한 앱의 UI 구조 확인 기록이 없어요", local)
+        self.assertIn("현재 OCR 화면과 동일한 창인지는", local)
+        self.assertIn("safeLine(item.label)", local)
+        self.assertNotIn("URLSession", local)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -24,9 +24,15 @@ final class ScreenObserver: ObservableObject {
     @Published private(set) var recognizedLineCount = 0
     @Published private(set) var questionReply = ""
 
-    func answerQuestion(_ question: String) {
+    func answerQuestion(_ question: String, uiElements: [ScreenUIEvidence] = []) {
         guard !busy else { return }
-        questionReply = LocalScreenInsights.answer(question: question, recognizedText: recognizedText)
+        questionReply = LocalScreenInsights.answer(
+            question: question, recognizedText: recognizedText, uiElements: uiElements
+        )
+    }
+
+    func clearAnswer() {
+        questionReply = ""
     }
 
     func captureOnce() {
@@ -107,9 +113,18 @@ struct JarvisWindow: View {
     @StateObject private var voice = JarvisVoiceService()
     @StateObject private var elevenLabs = ElevenLabsVoiceService()
     @StateObject private var vision = ScreenObserver()
+    @StateObject private var uiInspector = AccessibilityInspector()
     @StateObject private var bridge = JarvisBridge()
     @State private var reloadID = UUID()
     @State private var screenQuestion = "이 화면에서 오류가 있는지 찾아줘"
+
+    private func answerScreenQuestion() {
+        // Only the user's last explicit inspection may contribute UI context.
+        let controls = uiInspector.inspected
+            ? uiInspector.rows.map { ScreenUIEvidence(role: $0.role, label: $0.label) }
+            : []
+        vision.answerQuestion(screenQuestion, uiElements: controls)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -215,14 +230,59 @@ struct JarvisWindow: View {
                         .background(.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 9))
                     }
                     VStack(alignment: .leading, spacing: 9) {
+                        Text("선택한 앱의 버튼·탭 구조 읽기 (별도 권한)")
+                            .font(.subheadline.weight(.medium))
+                        HStack(spacing: 8) {
+                            Picker("앱", selection: $uiInspector.selectedPID) {
+                                if uiInspector.targets.isEmpty {
+                                    Text("실행 중인 앱 없음").tag(pid_t(0))
+                                }
+                                ForEach(uiInspector.targets) { target in
+                                    Text(target.displayName).tag(target.pid)
+                                }
+                            }
+                            .frame(maxWidth: 320)
+                            Button("앱 목록 갱신") {
+                                uiInspector.refreshTargets()
+                                vision.clearAnswer()
+                            }
+                            Button("접근성 권한 요청") { uiInspector.askForPermission() }
+                        }
+                        HStack(spacing: 8) {
+                            Button("선택 앱 UI 구조 읽기") {
+                                uiInspector.inspectSelected()
+                                vision.clearAnswer()
+                            }
+                            .disabled(uiInspector.selectedPID == 0 || vision.busy)
+                            Button("UI 기록 지우기") {
+                                uiInspector.clear()
+                                vision.clearAnswer()
+                            }
+                            .disabled(!uiInspector.inspected)
+                            if uiInspector.inspected {
+                                Text("UI 요소 \\(uiInspector.rows.count)개")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        Text(uiInspector.status)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                        Text("UI 구조는 직접 선택한 앱만 읽습니다. 화면 OCR은 전체 디스플레이이며, 같은 창이라는 보장은 없습니다.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .onChange(of: uiInspector.selectedPID) { _, _ in vision.clearAnswer() }
+                    VStack(alignment: .leading, spacing: 9) {
                         Text("화면 글자에 질문하기 · 로컬 분석")
                             .font(.subheadline.weight(.medium))
                         HStack(spacing: 8) {
                             TextField("예: 이 화면에서 오류가 뭐야?", text: $screenQuestion)
                                 .textFieldStyle(.roundedBorder)
-                                .onSubmit { vision.answerQuestion(screenQuestion) }
-                            Button("로컬 답변") { vision.answerQuestion(screenQuestion) }
-                                .disabled(vision.recognizedText.isEmpty || vision.busy ||
+                                .onSubmit { answerScreenQuestion() }
+                            Button("로컬 답변") { answerScreenQuestion() }
+                                .disabled((vision.recognizedText.isEmpty && !uiInspector.inspected) || vision.busy ||
                                           screenQuestion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                             Button("음성으로 듣기") { voice.speak(vision.questionReply) }
                                 .disabled(vision.questionReply.isEmpty)
@@ -248,7 +308,7 @@ struct JarvisWindow: View {
                 .padding(18)
                 .tabItem { Label("화면", systemImage: "eye") }
 
-                AccessibilityPanel()
+                AccessibilityPanel(inspector: uiInspector)
                     .tabItem { Label("UI 구조", systemImage: "rectangle.on.rectangle") }
                 MacReadinessPanel()
                     .tabItem { Label("진단", systemImage: "stethoscope") }

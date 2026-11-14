@@ -33,3 +33,22 @@ print("PASS credential masking")
 let missingAnswer = LocalScreenInsights.answer(question: "화면에 오류 있어?", recognizedText: "")
 precondition(missingAnswer.contains("아직 인식한 화면 글자"))
 print("PASS no capture fallback")
+
+let controls = [
+    ScreenUIEvidence(role: "AXButton", label: "저장"),
+    ScreenUIEvidence(role: "AXTab", label: "설정"),
+    ScreenUIEvidence(role: "AXTextField", label: "[입력 요소: 내용 비공개]"),
+    ScreenUIEvidence(role: "AXButton", label: "API_KEY=hidden-credential")
+]
+let uiAnswer = LocalScreenInsights.answer(question: "선택한 앱에 버튼이 뭐가 있어?", recognizedText: "", uiElements: controls)
+precondition(uiAnswer.contains("버튼: 저장"))
+precondition(uiAnswer.contains("탭: 설정"))
+precondition(uiAnswer.contains("입력 요소 1개"))
+precondition(!uiAnswer.contains("hidden-credential"))
+precondition(uiAnswer.contains("해당 줄을 숨겼습니다"))
+precondition(uiAnswer.contains("어떤 버튼도 누르지"))
+print("PASS selected app accessibility controls, redaction, no click")
+
+let noInspection = LocalScreenInsights.answer(question: "버튼 있어?", recognizedText: "화면 글자", uiElements: [])
+precondition(noInspection.contains("UI 구조 확인 기록이 없어요"))
+print("PASS no implicit accessibility inspection")
