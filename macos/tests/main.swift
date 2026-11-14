@@ -242,3 +242,55 @@ let removedGit = JarvisWorkspaceResume.perform(
     opener: { url in openedURLs.append(url); return true })
 precondition(openedURLs.isEmpty && removedGit.summary.contains("Git 루트가 아닙니다"))
 print("PASS connected folder scope and missing Git root checks without opening Finder")
+
+// v2.7 — Korean voice / text project routing never opens apps on its own.
+let routedFixtures = workDecoded.items
+precondition(!JarvisWorkspaceCommandParser.isOpenRequest("DECHIVE.WIKI 현재 상태 알려줘"))
+precondition(JarvisWorkspaceCommandParser.isOpenRequest("DECHIVE.WIKI 작업 이어서 열어줘"))
+switch JarvisWorkspaceCommandParser.parse("DECHIVE.WIKI 작업 이어서 열어줘", projects: routedFixtures) {
+case .matched(let request):
+    precondition(request.projectId == 2)
+    precondition(request.projectName == "DECHIVE.WIKI")
+    precondition(request.repository == "Aprasaks/dechive-wiki")
+    precondition(request.destination == .choose)
+    let proposal = JarvisWorkspaceResume.prepare(project: routedFixtures[0],
+        linkedFolder: nil, openFolder: false, openGitHub: true)
+    precondition(proposal?.githubURL?.absoluteString == "https://github.com/Aprasaks/dechive-wiki")
+    print("PASS voice request resolves registered project to proposal, no action")
+default:
+    preconditionFailure("Expected exact named project request")
+}
+switch JarvisWorkspaceCommandParser.parse(
+    "dechive.wiki 깃허브 열어줘", projects: routedFixtures) {
+case .matched(let request): precondition(request.destination == .github)
+default: preconditionFailure("Explicit GitHub destination not recognized")
+}
+switch JarvisWorkspaceCommandParser.parse(
+    "DECHIVE.WIKI 폴더 열어줘", projects: routedFixtures) {
+case .matched(let request): precondition(request.destination == .folder)
+default: preconditionFailure("Explicit Finder destination not recognized")
+}
+switch JarvisWorkspaceCommandParser.parse("내 프로젝트 열어줘", projects: routedFixtures) {
+case .missingProject: break
+default: preconditionFailure("Ambiguous project was guessed")
+}
+switch JarvisWorkspaceCommandParser.parse(
+    "DECHIVE.WIKI 작업 열고 배포해줘", projects: routedFixtures) {
+case .unsupported: break
+default: preconditionFailure("Unsafe command was misrouted")
+}
+switch JarvisWorkspaceCommandParser.parse(
+    "DECHIVE.WIKI 작업 열어줘",
+    projects: routedFixtures + [
+        WorkProject(id: 99, name: "DECHIVE", goal: "", repoFullName: "",
+                    tasks: [], taskCounts: WorkCounts(todo: 0, doing: 0, blocked: 0, done: 0),
+                    lastCheck: nil)
+    ]) {
+case .ambiguous: break
+default: preconditionFailure("Overlapping names must not be guessed")
+}
+switch JarvisWorkspaceCommandParser.parse("오늘 날씨 알려줘", projects: routedFixtures) {
+case .ordinary: break
+default: preconditionFailure("Ordinary chat must remain ordinary")
+}
+print("PASS exact project resolution, explicit destination, ambiguous/unsafe/unknown handling")

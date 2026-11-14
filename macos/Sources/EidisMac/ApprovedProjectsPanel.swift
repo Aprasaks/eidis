@@ -338,8 +338,14 @@ enum WorkActionError: LocalizedError {
 }
 
 struct ApprovedProjectsPanel: View {
-    @StateObject private var work = ApprovedWorkModel()
+    @ObservedObject var work: ApprovedWorkModel
+    let requestedWorkspace: JarvisWorkspaceCommand?
     @State private var selectedProjectId = 0
+
+    init(work: ApprovedWorkModel, requestedWorkspace: JarvisWorkspaceCommand? = nil) {
+        self.work = work
+        self.requestedWorkspace = requestedWorkspace
+    }
     @State private var proposal: WorkCheckProposal?
     @State private var confirmationVisible = false
     @State private var newTaskTitle = ""
@@ -362,12 +368,23 @@ struct ApprovedProjectsPanel: View {
         Task { await work.connectLocalFolder(projectId: projectId, url: url) }
     }
 
+    private func applyRequestedProject() {
+        guard let request = requestedWorkspace,
+              work.projects.contains(where: {
+                  $0.id == request.projectId &&
+                  $0.name == request.projectName &&
+                  $0.repoFullName == request.repository
+              }) else { return }
+        selectedProjectId = request.projectId
+    }
+
     private func load() async {
         await work.refresh()
         if !work.projects.contains(where: { $0.id == selectedProjectId }) {
             selectedProjectId = work.projects.first?.id ?? 0
             proposal = nil
         }
+        applyRequestedProject()
     }
 
     var body: some View {
@@ -581,7 +598,11 @@ struct ApprovedProjectsPanel: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    WorkspaceResumePanel(project: selected, work: work)
+                    WorkspaceResumePanel(
+                        project: selected, work: work,
+                        requestedWorkspace: requestedWorkspace?.projectId == selected.id
+                            ? requestedWorkspace : nil
+                    )
                         .id(selected.id)
                     GroupBox("1단계 · 외부 작업 제안") {
                         VStack(alignment: .leading, spacing: 10) {
@@ -625,6 +646,9 @@ struct ApprovedProjectsPanel: View {
             .padding(22)
         }
         .task { await load() }
+        .onChange(of: requestedWorkspace?.id) { _, _ in
+            applyRequestedProject()
+        }
         .confirmationDialog("이 공개 GitHub 조회를 한 번 승인할까요?",
                             isPresented: $confirmationVisible,
                             titleVisibility: .visible) {

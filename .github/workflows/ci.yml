@@ -42,7 +42,7 @@ jobs:
         run: bash macos/scripts/package-app.sh
       - name: Test local screenshot-text question logic
         run: |
-          swiftc -o /tmp/jarvis-screen-insights-test macos/tests/main.swift macos/Sources/EidisMac/LocalScreenInsights.swift macos/Sources/EidisMac/JarvisSafePressPolicy.swift macos/Sources/EidisMac/ApprovedProjectsPanel.swift macos/Sources/EidisMac/LocalGitInspector.swift macos/Sources/EidisMac/JarvisHandoffReport.swift macos/Sources/EidisMac/JarvisWorkspaceResume.swift macos/Sources/EidisMac/WorkspaceResumePanel.swift
+          swiftc -o /tmp/jarvis-screen-insights-test macos/tests/main.swift macos/Sources/EidisMac/LocalScreenInsights.swift macos/Sources/EidisMac/JarvisSafePressPolicy.swift macos/Sources/EidisMac/ApprovedProjectsPanel.swift macos/Sources/EidisMac/LocalGitInspector.swift macos/Sources/EidisMac/JarvisHandoffReport.swift macos/Sources/EidisMac/JarvisWorkspaceResume.swift macos/Sources/EidisMac/WorkspaceResumePanel.swift macos/Sources/EidisMac/JarvisWorkspaceCommand.swift
           /tmp/jarvis-screen-insights-test
       - name: Test fixed-command local Git reader
         run: |
@@ -50,7 +50,7 @@ jobs:
           /tmp/jarvis-local-git-test "$PWD"
       - name: Smoke test native Work UI offscreen (no TCC prompts)
         run: |
-          swiftc -o /tmp/jarvis-ui-smoke macos/tests/ui/main.swift macos/Sources/EidisMac/ApprovedProjectsPanel.swift macos/Sources/EidisMac/JarvisWorkspaceResume.swift macos/Sources/EidisMac/WorkspaceResumePanel.swift macos/Sources/EidisMac/JarvisHandoffReport.swift macos/Sources/EidisMac/LocalGitInspector.swift
+          swiftc -o /tmp/jarvis-ui-smoke macos/tests/ui/main.swift macos/Sources/EidisMac/ApprovedProjectsPanel.swift macos/Sources/EidisMac/JarvisWorkspaceResume.swift macos/Sources/EidisMac/WorkspaceResumePanel.swift macos/Sources/EidisMac/JarvisHandoffReport.swift macos/Sources/EidisMac/LocalGitInspector.swift macos/Sources/EidisMac/JarvisWorkspaceCommand.swift
           /tmp/jarvis-ui-smoke
       - name: Verify bundle structure, usage descriptions and signature
         run: |

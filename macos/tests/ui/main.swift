@@ -24,7 +24,8 @@ func checkLayout<V: View>(_ view: V, name: String) {
     window.close()
 }
 
-checkLayout(ApprovedProjectsPanel(), name: "Work tab")
+let workModel = MainActor.assumeIsolated { ApprovedWorkModel() }
+checkLayout(ApprovedProjectsPanel(work: workModel), name: "Work tab")
 
 let fixture = """
 {"id":2,"name":"UI fixture","goal":"render test","repo_full_name":"Example/project",
@@ -35,6 +36,10 @@ let decoder = JSONDecoder()
 decoder.keyDecodingStrategy = .convertFromSnakeCase
 let sample = try decoder.decode(WorkProject.self, from: Data(fixture.utf8))
 let model = MainActor.assumeIsolated { ApprovedWorkModel() }
-checkLayout(WorkspaceResumePanel(project: sample, work: model),
+checkLayout(WorkspaceResumePanel(project: sample, work: model, requestedWorkspace: nil),
             name: "Approved workspace panel")
+let routed = JarvisWorkspaceCommand(projectId: sample.id, projectName: sample.name,
+                                   repository: sample.repoFullName, destination: .github)
+checkLayout(WorkspaceResumePanel(project: sample, work: model, requestedWorkspace: routed),
+            name: "Voice-routed workspace proposal")
 print("PASS no permissions requested and no approved action invoked")

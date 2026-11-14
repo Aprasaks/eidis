@@ -109,12 +109,19 @@ final class ScreenObserver: ObservableObject {
     }
 }
 
+private enum JarvisTab: Hashable {
+    case assistant, work, speech, screen, ui, diagnostics
+}
+
 struct JarvisWindow: View {
     @StateObject private var voice = JarvisVoiceService()
     @StateObject private var elevenLabs = ElevenLabsVoiceService()
     @StateObject private var vision = ScreenObserver()
     @StateObject private var uiInspector = AccessibilityInspector()
     @StateObject private var bridge = JarvisBridge()
+    @StateObject private var projectWork = ApprovedWorkModel()
+    @State private var selectedTab: JarvisTab = .assistant
+    @State private var workspaceRequest: JarvisWorkspaceCommand?
     @State private var reloadID = UUID()
     @State private var screenQuestion = "이 화면에서 오류가 있는지 찾아줘"
 
@@ -140,7 +147,7 @@ struct JarvisWindow: View {
 
             Divider()
 
-            TabView {
+            TabView(selection: $selectedTab) {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Text("로컬 자비스 작업 공간")
@@ -160,12 +167,22 @@ struct JarvisWindow: View {
                 }
                 .padding(18)
                 .tabItem { Label("자비스", systemImage: "sparkles") }
+                .tag(JarvisTab.assistant)
 
-                ApprovedProjectsPanel()
+                ApprovedProjectsPanel(work: projectWork, requestedWorkspace: workspaceRequest)
                     .tabItem { Label("작업", systemImage: "checklist") }
+                    .tag(JarvisTab.work)
 
-                NativeSpeechPanel(bridge: bridge, voice: voice, elevenLabs: elevenLabs)
+                NativeSpeechPanel(
+                    bridge: bridge, voice: voice, elevenLabs: elevenLabs,
+                    projectWork: projectWork,
+                    onWorkspaceRequest: { request in
+                        workspaceRequest = request
+                        selectedTab = .work
+                    }
+                )
                     .tabItem { Label("음성", systemImage: "mic") }
+                    .tag(JarvisTab.speech)
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
@@ -314,11 +331,14 @@ struct JarvisWindow: View {
                     .padding(18)
                 }
                 .tabItem { Label("화면", systemImage: "eye") }
+                .tag(JarvisTab.screen)
 
                 AccessibilityPanel(inspector: uiInspector)
                     .tabItem { Label("UI 구조", systemImage: "rectangle.on.rectangle") }
+                    .tag(JarvisTab.ui)
                 MacReadinessPanel()
                     .tabItem { Label("진단", systemImage: "stethoscope") }
+                    .tag(JarvisTab.diagnostics)
             }
             .padding(.horizontal, 8)
         }

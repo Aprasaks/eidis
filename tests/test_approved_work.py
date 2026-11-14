@@ -14,7 +14,7 @@ class ApprovedProjectWorkContract(unittest.TestCase):
         cls.entry = ENTRY.read_text(encoding="utf-8")
 
     def test_has_dedicated_native_work_tab(self):
-        self.assertIn("ApprovedProjectsPanel()", self.entry)
+        self.assertIn("ApprovedProjectsPanel(work: projectWork, requestedWorkspace: workspaceRequest)", self.entry)
         self.assertIn('Label("작업", systemImage: "checklist")', self.entry)
 
     def test_external_check_is_only_in_approved_action(self):

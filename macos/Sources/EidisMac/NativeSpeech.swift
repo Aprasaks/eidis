@@ -189,10 +189,46 @@ struct NativeSpeechPanel: View {
     @ObservedObject var bridge: JarvisBridge
     @ObservedObject var voice: JarvisVoiceService
     @ObservedObject var elevenLabs: ElevenLabsVoiceService
+    @ObservedObject var projectWork: ApprovedWorkModel
+    let onWorkspaceRequest: (JarvisWorkspaceCommand) -> Void
     @State private var elevenAPIKeyDraft = ""
     @StateObject private var listener = LocalSpeechListener()
     @StateObject private var client = LocalCommandClient()
     @State private var typedCommand = ""
+    @State private var routingBusy = false
+    @State private var workspaceRoutingResult = ""
+
+    /// Recognized project-opening phrases stay local and produce only a
+    /// proposal. Ordinary questions retain the existing local chat behavior.
+    private func sendCommand(_ phrase: String) {
+        let trimmed = phrase.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !routingBusy, !client.busy else { return }
+        workspaceRoutingResult = ""
+        if JarvisWorkspaceCommandParser.isOpenRequest(trimmed) {
+            routingBusy = true
+            Task {
+                defer { routingBusy = false }
+                // Only the existing loopback project list is read here.
+                // The parser never guesses a project from incomplete names.
+                if projectWork.projects.isEmpty { await projectWork.refresh() }
+                switch JarvisWorkspaceCommandParser.parse(trimmed, projects: projectWork.projects) {
+                case .ordinary:
+                    await client.submit(trimmed, bridge: bridge, voice: voice, elevenLabs: elevenLabs)
+                case .matched(let request):
+                    workspaceRoutingResult = "\(request.projectName) 작업 공간 열기 제안을 만들었습니다. 작업 탭에서 대상을 확인하고 직접 승인해 주세요. 아직 열지 않았습니다."
+                    onWorkspaceRequest(request)
+                case .missingProject:
+                    workspaceRoutingResult = "입력한 문장과 정확히 일치하는 등록 프로젝트를 찾지 못했습니다. 프로젝트 전체 이름을 적어 주세요. 실행하지 않았습니다."
+                case .ambiguous:
+                    workspaceRoutingResult = "여러 프로젝트명이 일치합니다. 프로젝트 전체 이름을 정확히 입력해 주세요. 실행하지 않았습니다."
+                case .unsupported:
+                    workspaceRoutingResult = "열기와 함께 변경·삭제·배포를 요청하는 문장은 처리하지 않습니다. 작업 공간 열기만 별도로 요청해 주세요."
+                }
+            }
+        } else {
+            Task { await client.submit(trimmed, bridge: bridge, voice: voice, elevenLabs: elevenLabs) }
+        }
+    }
 
     var body: some View {
         ScrollView {
@@ -304,12 +340,12 @@ struct NativeSpeechPanel: View {
                 Button(listener.isListening ? "완료하고 명령 전달" : "마이크로 말하기") {
                     if listener.isListening {
                         let phrase = listener.stop()
-                        Task { await client.submit(phrase, bridge: bridge, voice: voice, elevenLabs: elevenLabs) }
+                        sendCommand(phrase)
                     } else {
                         Task { await listener.start() }
                     }
                 }
-                .disabled(client.busy)
+                .disabled(client.busy || routingBusy)
                 Button("취소") {
                     _ = listener.stop()
                 }
@@ -323,6 +359,9 @@ struct NativeSpeechPanel: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
+            Text("프로젝트 이어하기 예: DECHIVE.WIKI 작업 이어서 열어줘 · 작업 탭에서 별도 승인해야 합니다.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
             GroupBox("인식한 문장") {
                 ScrollView {
                     Text(listener.transcript.isEmpty ? "예: 자비스, 대시보드 띄워" : listener.transcript)
@@ -337,15 +376,16 @@ struct NativeSpeechPanel: View {
                     .textFieldStyle(.roundedBorder)
                     .onSubmit { sendTyped() }
                 Button("실행") { sendTyped() }
-                    .disabled(client.busy || typedCommand.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(client.busy || routingBusy ||
+                              typedCommand.trimmingCharacters(in: .whitespaces).isEmpty)
             }
             GroupBox("자비스 응답") {
-                Text(client.lastResponse)
+                Text(workspaceRoutingResult.isEmpty ? client.lastResponse : workspaceRoutingResult)
                     .frame(maxWidth: .infinity, minHeight: 62, alignment: .topLeading)
                     .textSelection(.enabled)
                     .padding(8)
             }
-            Text("완료 검증: 이 탭은 실제 로컬 HTTP 응답이 200일 때만 명령 결과를 표시합니다. 웹 대시보드 탭에도 같은 결과를 전달합니다.")
+            Text("일반 명령은 로컬 자비스 서버로 전달합니다. 정확한 프로젝트 이름과 '작업 이어서 열어줘'를 포함한 문장은 이 Mac의 작업 탭에 제안을 만들 뿐, 승인 없이 Finder·GitHub를 열지 않습니다.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }
@@ -356,6 +396,6 @@ struct NativeSpeechPanel: View {
     private func sendTyped() {
         let phrase = typedCommand
         typedCommand = ""
-        Task { await client.submit(phrase, bridge: bridge, voice: voice, elevenLabs: elevenLabs) }
+        sendCommand(phrase)
     }
 }

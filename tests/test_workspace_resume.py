@@ -38,7 +38,8 @@ class WorkspaceResumeContractTests(unittest.TestCase):
 
     def test_native_open_does_not_write_or_execute_code(self):
         self.assertEqual(self.work.count("NSWorkspace.shared.open($0)"), 1)
-        self.assertIn('WorkspaceResumePanel(project: selected, work: work)', self.work)
+        self.assertIn('WorkspaceResumePanel(', self.work)
+        self.assertIn('requestedWorkspace: requestedWorkspace?.projectId == selected.id', self.work)
         for forbidden in [
             "Process()", "system(", "osascript", "git push", "git commit",
             "URLSession", "write(to:", "AXUIElementPerformAction",
