@@ -130,6 +130,7 @@ final class ApprovedWorkModel: ObservableObject {
     @Published private(set) var localEvidence: [Int: LocalGitEvidence] = [:]
     @Published private(set) var localMessages: [Int: String] = [:]
     @Published private(set) var workspaceReceipt: JarvisWorkspaceReceipt?
+    @Published private(set) var taskNoteReceipt: JarvisTaskNoteReceipt?
 
     /// Only called from a user-confirmed one-shot dialog.
     func openApprovedWorkspace(_ proposal: JarvisWorkspaceProposal) {
@@ -370,6 +371,35 @@ final class ApprovedWorkModel: ObservableObject {
         }
     }
 
+    /// Saves a single immutable preview after an explicit user approval.
+    /// A fresh API read and the unchanged linked folder are required.
+    func saveApprovedTaskNote(_ proposal: JarvisTaskNoteProposal) async -> Bool {
+        guard !busy else { return false }
+        taskNoteReceipt = nil
+        busy = true
+        defer { busy = false }
+        do {
+            let latest: WorkProjectsReply = try await fetch("/api/projects")
+            let project = latest.items.first(where: {
+                $0.id == proposal.projectId &&
+                $0.name == proposal.projectName &&
+                $0.repoFullName == proposal.repository
+            })
+            let folder = localFolder(projectId: proposal.projectId)
+            let receipt = try await Task.detached(priority: .userInitiated) {
+                try JarvisTaskNote.save(
+                    proposal, currentProject: project,
+                    currentLinkedFolder: folder)
+            }.value
+            taskNoteReceipt = receipt
+            status = receipt.summary
+            return true
+        } catch {
+            status = "실행 메모 저장 실패 또는 미확인: \(error.localizedDescription). 다른 경로에 자동 재시도하지 않습니다."
+            return false
+        }
+    }
+
     func runApprovedCheck(_ proposal: WorkCheckProposal) async {
         guard !busy else { return }
         busy = true
@@ -440,6 +470,10 @@ struct ApprovedProjectsPanel: View {
     @State private var taskStartProposal: WorkTaskStartProposal?
     @State private var taskStartConfirmationVisible = false
     @State private var taskWorkspaceRequest: JarvisWorkspaceCommand?
+    @State private var taskNoteTaskId: Int?
+    @State private var taskNoteDraft = ""
+    @State private var taskNoteProposal: JarvisTaskNoteProposal?
+    @State private var taskNoteConfirmationVisible = false
 
     private var selected: WorkProject? {
         work.projects.first(where: { $0.id == selectedProjectId })
@@ -508,6 +542,9 @@ struct ApprovedProjectsPanel: View {
                         proposal = nil
                         taskStartProposal = nil
                         taskWorkspaceRequest = nil
+                        taskNoteTaskId = nil
+                        taskNoteDraft = ""
+                        taskNoteProposal = nil
                         newTaskTitle = ""
                     }
                     Spacer()
@@ -609,6 +646,12 @@ struct ApprovedProjectsPanel: View {
                                         }
                                         .disabled(work.busy)
                                     }
+                                    Button("실행 메모") {
+                                        taskNoteTaskId = task.id
+                                        taskNoteDraft = JarvisTaskNote.initialSteps()
+                                        taskNoteProposal = nil
+                                    }
+                                    .disabled(work.busy || work.localFolder(projectId: selected.id) == nil)
                                 }
                             }
                             if let taskStartProposal {
@@ -749,6 +792,68 @@ struct ApprovedProjectsPanel: View {
                                 ? requestedWorkspace : nil)
                     )
                         .id(selected.id)
+                    GroupBox("작업 실행 메모 · 미리보기 후 새 파일 1회 저장") {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("실제로 연결한 Git 폴더 안의 .jarvis/notes에 Markdown 파일을 만듭니다. Git 커밋·푸시·코드 실행은 하지 않습니다. 민감한 정보를 입력하지 마세요.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            if work.localFolder(projectId: selected.id) == nil {
+                                Text("먼저 위에서 Git 폴더 연결을 직접 선택해 주세요.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if let noteTask = selected.tasks.first(where: {
+                                $0.id == taskNoteTaskId &&
+                                ($0.status == "doing" || $0.status == "todo")
+                            }) {
+                                Text("선택한 작업: \\(noteTask.title)")
+                                    .font(.subheadline.weight(.medium))
+                                TextEditor(text: $taskNoteDraft)
+                                    .font(.system(size: 12, design: .monospaced))
+                                    .frame(height: 140)
+                                    .border(.gray.opacity(0.4))
+                                    .onChange(of: taskNoteDraft) { _, _ in
+                                        taskNoteProposal = nil
+                                    }
+                                Button("Markdown 저장 내용 미리보기") {
+                                    taskNoteProposal = JarvisTaskNote.prepare(
+                                        project: selected, task: noteTask,
+                                        linkedFolder: work.localFolder(projectId: selected.id),
+                                        steps: taskNoteDraft)
+                                }
+                                .disabled(work.busy ||
+                                          work.localFolder(projectId: selected.id) == nil ||
+                                          taskNoteDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                                          taskNoteDraft.count > 4000)
+                            } else {
+                                Text("위의 ‘다음 할 일 시작’에서 원하는 작업의 실행 메모를 눌러 주세요.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if let taskNoteProposal {
+                                Text(taskNoteProposal.explanation)
+                                    .font(.caption)
+                                    .textSelection(.enabled)
+                                ScrollView {
+                                    Text(taskNoteProposal.preview)
+                                        .font(.system(size: 12, design: .monospaced))
+                                        .textSelection(.enabled)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                .frame(height: 240)
+                                Button("메모 파일 저장 승인 화면") {
+                                    taskNoteConfirmationVisible = true
+                                }
+                                .disabled(work.busy)
+                            }
+                            if let receipt = work.taskNoteReceipt, receipt.projectId == selected.id {
+                                Text(receipt.summary)
+                                    .font(.caption)
+                                    .textSelection(.enabled)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                     GroupBox("1단계 · 외부 작업 제안") {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("허용 작업: 공개 GitHub HEAD 및 Workflow 읽기")
@@ -813,6 +918,18 @@ struct ApprovedProjectsPanel: View {
             Button("취소", role: .cancel) { taskStartProposal = nil }
         } message: {
             Text(taskStartProposal?.explanation ?? "승인할 작업이 없습니다.")
+        }
+        .confirmationDialog("선택한 Markdown 파일을 새로 만들까요?",
+                            isPresented: $taskNoteConfirmationVisible,
+                            titleVisibility: .visible) {
+            Button("승인하고 새 메모 파일 저장") {
+                guard let proposal = taskNoteProposal else { return }
+                taskNoteProposal = nil
+                Task { _ = await work.saveApprovedTaskNote(proposal) }
+            }
+            Button("취소", role: .cancel) { taskNoteProposal = nil }
+        } message: {
+            Text(taskNoteProposal?.explanation ?? "승인할 메모가 없습니다.")
         }
         .confirmationDialog("이 공개 GitHub 조회를 한 번 승인할까요?",
                             isPresented: $confirmationVisible,

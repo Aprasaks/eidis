@@ -332,3 +332,110 @@ case .matched(let requested):
 default: preconditionFailure("JARVIS self-project was not selected exactly")
 }
 print("PASS JARVIS eidis self-project routing is independent of DECHIVE.WIKI")
+
+let noteTemp = FileManager.default.temporaryDirectory
+    .appendingPathComponent("jarvis-task-note-\(UUID().uuidString)", isDirectory: true)
+try FileManager.default.createDirectory(at: noteTemp, withIntermediateDirectories: true)
+defer { try? FileManager.default.removeItem(at: noteTemp) }
+try FileManager.default.createDirectory(
+    at: noteTemp.appendingPathComponent(".git", isDirectory: true),
+    withIntermediateDirectories: false)
+
+let noteTask = continuity.tasks.first(where: { $0.status == "doing" })!
+let noteTime = Date()
+let noteProposal = JarvisTaskNote.prepare(
+    project: continuity, task: noteTask, linkedFolder: noteTemp.path,
+    steps: "1. 현재 실패 원인을 읽는다.\n2. 검증 근거를 기록한다.",
+    at: noteTime, token: "AB12CD34")
+precondition(noteProposal != nil)
+let note = noteProposal!
+precondition(note.filename == "task-3-AB12CD34.md")
+precondition(note.preview.contains("진행 중인 B"))
+precondition(!FileManager.default.fileExists(
+    atPath: noteTemp.appendingPathComponent(note.relativePath).path))
+let written = try JarvisTaskNote.save(
+    note, currentProject: continuity, currentLinkedFolder: noteTemp.path,
+    at: noteTime.addingTimeInterval(1))
+precondition(written.taskId == noteTask.id && written.savedBytes > 100)
+let text = try String(contentsOfFile: written.savedPath, encoding: .utf8)
+precondition(text == note.preview)
+precondition(text.contains("검증 근거를 기록한다"))
+precondition(!text.contains("이 작업을 자동 실행했습니다"))
+print("PASS new Markdown memo created and verified in isolated temporary Git folder")
+
+func expectNoteError(_ expected: JarvisTaskNoteError,
+                     block: () throws -> Void) {
+    do {
+        try block()
+        preconditionFailure("Expected note error \(expected)")
+    } catch let e as JarvisTaskNoteError {
+        precondition(String(describing: e) == String(describing: expected))
+    } catch {
+        preconditionFailure("Unexpected error: \(error)")
+    }
+}
+expectNoteError(.alreadyExists) {
+    _ = try JarvisTaskNote.save(
+        note, currentProject: continuity, currentLinkedFolder: noteTemp.path,
+        at: noteTime.addingTimeInterval(2))
+}
+let afterDuplicate = try String(contentsOfFile: written.savedPath, encoding: .utf8)
+precondition(afterDuplicate == note.preview)
+expectNoteError(.expired) {
+    _ = try JarvisTaskNote.save(
+        note, currentProject: continuity, currentLinkedFolder: noteTemp.path,
+        at: noteTime.addingTimeInterval(121))
+}
+expectNoteError(.targetChanged) {
+    _ = try JarvisTaskNote.save(
+        note, currentProject: workDecoded.items[0], currentLinkedFolder: noteTemp.path,
+        at: noteTime.addingTimeInterval(2))
+}
+expectNoteError(.targetChanged) {
+    _ = try JarvisTaskNote.save(
+        note, currentProject: continuity, currentLinkedFolder: "/tmp/wrong-folder",
+        at: noteTime.addingTimeInterval(2))
+}
+let noGit = FileManager.default.temporaryDirectory
+    .appendingPathComponent("jarvis-not-git-\(UUID().uuidString)", isDirectory: true)
+try FileManager.default.createDirectory(at: noGit, withIntermediateDirectories: true)
+defer { try? FileManager.default.removeItem(at: noGit) }
+let noGitProposal = JarvisTaskNote.prepare(
+    project: continuity, task: noteTask, linkedFolder: noGit.path,
+    steps: "1. 검증한다", at: noteTime, token: "AB12CD35")!
+expectNoteError(.invalidFolder) {
+    _ = try JarvisTaskNote.save(
+        noGitProposal, currentProject: continuity,
+        currentLinkedFolder: noGit.path, at: noteTime.addingTimeInterval(2))
+}
+let redirectedRoot = FileManager.default.temporaryDirectory
+    .appendingPathComponent("jarvis-note-symlink-\(UUID().uuidString)", isDirectory: true)
+try FileManager.default.createDirectory(at: redirectedRoot, withIntermediateDirectories: true)
+defer { try? FileManager.default.removeItem(at: redirectedRoot) }
+try FileManager.default.createDirectory(
+    at: redirectedRoot.appendingPathComponent(".git", isDirectory: true),
+    withIntermediateDirectories: false)
+let external = FileManager.default.temporaryDirectory
+    .appendingPathComponent("jarvis-note-external-\(UUID().uuidString)", isDirectory: true)
+try FileManager.default.createDirectory(at: external, withIntermediateDirectories: true)
+defer { try? FileManager.default.removeItem(at: external) }
+try FileManager.default.createSymbolicLink(
+    atPath: redirectedRoot.appendingPathComponent(".jarvis").path,
+    withDestinationPath: external.path)
+let redirected = JarvisTaskNote.prepare(
+    project: continuity, task: noteTask, linkedFolder: redirectedRoot.path,
+    steps: "1. 위험한 경로 차단", at: noteTime, token: "AB12CD36")!
+expectNoteError(.invalidFolder) {
+    _ = try JarvisTaskNote.save(
+        redirected, currentProject: continuity,
+        currentLinkedFolder: redirectedRoot.path, at: noteTime.addingTimeInterval(2))
+}
+let externalEntries = try FileManager.default.contentsOfDirectory(atPath: external.path)
+precondition(externalEntries.isEmpty)
+precondition(JarvisTaskNote.prepare(
+    project: continuity, task: continuity.tasks[1],
+    linkedFolder: noteTemp.path, steps: "잘못된 작업") == nil)
+precondition(JarvisTaskNote.prepare(
+    project: continuity, task: noteTask,
+    linkedFolder: noteTemp.path, steps: "") == nil)
+print("PASS no overwrite, expired/retargeted approval, missing Git and symlink rejection")
