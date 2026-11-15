@@ -22,3 +22,6 @@ DerivedData/
 
 # Local macOS app build artifact
 dist/
+
+# Local Xcode personal settings
+**/xcuserdata/
