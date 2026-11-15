@@ -1,0 +1,36 @@
+name: EIDIS iOS build
+
+on:
+  pull_request:
+    paths:
+      - 'ios/**'
+      - 'tests/test_eidis_ios_contract.py'
+      - '.github/workflows/eidis-ios.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios-app:
+    runs-on: macos-15
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show Xcode environment
+        run: xcodebuild -version
+      - name: Check iOS Xcode project and privacy declarations
+        run: |
+          plutil -lint ios/EIDIS.xcodeproj/project.pbxproj
+          python3 -m unittest discover -s tests -p test_eidis_ios_contract.py -q
+      - name: Test grounded Korean replies without microphone
+        run: |
+          swiftc -o /tmp/eidis-replies ios/EIDISTests/main.swift ios/EIDIS/Sources/EIDISResponse.swift
+          /tmp/eidis-replies
+      - name: Build EIDIS iPhone simulator app (no signing or TCC)
+        run: |
+          xcodebuild -project ios/EIDIS.xcodeproj -scheme EIDIS \
+            -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath /tmp/eidis-ios-derived \
+            CODE_SIGNING_ALLOWED=NO build
