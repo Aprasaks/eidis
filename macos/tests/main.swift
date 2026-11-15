@@ -439,3 +439,65 @@ precondition(JarvisTaskNote.prepare(
     project: continuity, task: noteTask,
     linkedFolder: noteTemp.path, steps: "") == nil)
 print("PASS no overwrite, expired/retargeted approval, missing Git and symlink rejection")
+
+// v3.1: enumerate and read only this task's notes, never another task's
+// file or a redirected/oversized note.
+let saved = try JarvisNoteLibrary.list(
+    taskId: noteTask.id, linkedFolder: noteTemp.path)
+precondition(saved.count == 1 && saved[0].filename == note.filename)
+let reread = try JarvisNoteLibrary.read(
+    filename: note.filename, taskId: noteTask.id, linkedFolder: noteTemp.path)
+precondition(reread == note.preview)
+let otherTaskNotes = try JarvisNoteLibrary.list(
+    taskId: 123, linkedFolder: noteTemp.path)
+precondition(otherTaskNotes.isEmpty)
+do {
+    _ = try JarvisNoteLibrary.read(
+        filename: note.filename, taskId: 123, linkedFolder: noteTemp.path)
+    preconditionFailure("Cross-task note was read")
+} catch JarvisNoteLibraryError.invalidName {}
+do {
+    _ = try JarvisNoteLibrary.read(
+        filename: "../.git/config", taskId: noteTask.id, linkedFolder: noteTemp.path)
+    preconditionFailure("Traversal filename was read")
+} catch JarvisNoteLibraryError.invalidName {}
+let readOnlySymlink = noteTemp.appendingPathComponent(
+    ".jarvis/notes/task-3-AB12CD37.md")
+try FileManager.default.createSymbolicLink(
+    atPath: readOnlySymlink.path, withDestinationPath: written.savedPath)
+let afterSymlink = try JarvisNoteLibrary.list(
+    taskId: noteTask.id, linkedFolder: noteTemp.path)
+precondition(afterSymlink.count == 1)
+do {
+    _ = try JarvisNoteLibrary.read(
+        filename: readOnlySymlink.lastPathComponent,
+        taskId: noteTask.id, linkedFolder: noteTemp.path)
+    preconditionFailure("Symlinked note was followed")
+} catch JarvisNoteLibraryError.unreadable {}
+let oversized = noteTemp.appendingPathComponent(
+    ".jarvis/notes/task-3-AB12CD38.md")
+try String(repeating: "X", count: 16_500).write(
+    to: oversized, atomically: true, encoding: .utf8)
+let withoutUnsafeNotes = try JarvisNoteLibrary.list(
+    taskId: noteTask.id, linkedFolder: noteTemp.path)
+precondition(withoutUnsafeNotes.count == 1)
+do {
+    _ = try JarvisNoteLibrary.read(
+        filename: oversized.lastPathComponent,
+        taskId: noteTask.id, linkedFolder: noteTemp.path)
+    preconditionFailure("Oversized file read")
+} catch JarvisNoteLibraryError.tooLarge {}
+let emptyNoteFolder = FileManager.default.temporaryDirectory
+    .appendingPathComponent("jarvis-note-empty-\(UUID().uuidString)", isDirectory: true)
+try FileManager.default.createDirectory(
+    at: emptyNoteFolder.appendingPathComponent(".git"), withIntermediateDirectories: true)
+defer { try? FileManager.default.removeItem(at: emptyNoteFolder) }
+let notYetCreated = try JarvisNoteLibrary.list(
+    taskId: noteTask.id, linkedFolder: emptyNoteFolder.path)
+precondition(notYetCreated.isEmpty)
+do {
+    _ = try JarvisNoteLibrary.list(
+        taskId: noteTask.id, linkedFolder: redirectedRoot.path)
+    preconditionFailure("Redirected notes directory was read")
+} catch JarvisNoteLibraryError.invalidFolder {}
+print("PASS previous Markdown notes read-only, scoped task ID, limits and symlink defense")

@@ -131,6 +131,11 @@ final class ApprovedWorkModel: ObservableObject {
     @Published private(set) var localMessages: [Int: String] = [:]
     @Published private(set) var workspaceReceipt: JarvisWorkspaceReceipt?
     @Published private(set) var taskNoteReceipt: JarvisTaskNoteReceipt?
+    @Published private(set) var savedNotes: [JarvisSavedNote] = []
+    @Published private(set) var savedNoteText = ""
+    @Published private(set) var savedNoteMessage = ""
+    @Published private(set) var savedNoteProjectId = 0
+    @Published private(set) var savedNoteTaskId = 0
 
     /// Only called from a user-confirmed one-shot dialog.
     func openApprovedWorkspace(_ proposal: JarvisWorkspaceProposal) {
@@ -400,6 +405,75 @@ final class ApprovedWorkModel: ObservableObject {
         }
     }
 
+    /// Only reads regular task-specific notes under a manually linked Git
+    /// root. Never changes a file or accesses unrelated project data.
+    func loadSavedNotes(projectId: Int, taskId: Int) async {
+        guard !busy else { return }
+        savedNotes = []
+        savedNoteText = ""
+        savedNoteProjectId = 0
+        savedNoteTaskId = 0
+        guard projects.first(where: { $0.id == projectId })?
+            .tasks.contains(where: { $0.id == taskId }) == true,
+              let linked = localFolder(projectId: projectId) else {
+            savedNoteMessage = "프로젝트 작업과 연결된 Git 폴더를 먼저 확인해 주세요."
+            return
+        }
+        busy = true
+        defer { busy = false }
+        do {
+            let files = try await Task.detached(priority: .userInitiated) {
+                try JarvisNoteLibrary.list(taskId: taskId, linkedFolder: linked)
+            }.value
+            guard projects.first(where: { $0.id == projectId })?
+                .tasks.contains(where: { $0.id == taskId }) == true,
+                localFolder(projectId: projectId) == linked else {
+                throw JarvisNoteLibraryError.invalidFolder
+            }
+            savedNotes = files
+            savedNoteProjectId = projectId
+            savedNoteTaskId = taskId
+            savedNoteMessage = files.isEmpty
+                ? "이 작업에서 저장된 메모를 찾지 못했습니다."
+                : "이 작업의 저장된 메모 \\(files.count)개를 목록에 표시했습니다. 내용을 보려면 파일을 직접 선택하세요."
+        } catch {
+            savedNoteMessage = "기존 메모 목록 읽기 실패: \\(error.localizedDescription)"
+        }
+    }
+
+    func readSavedNote(projectId: Int, taskId: Int, filename: String) async {
+        guard !busy, savedNoteProjectId == projectId,
+              savedNoteTaskId == taskId,
+              savedNotes.contains(where: { $0.filename == filename }),
+              let linked = localFolder(projectId: projectId) else { return }
+        busy = true
+        defer { busy = false }
+        savedNoteText = ""
+        do {
+            let content = try await Task.detached(priority: .userInitiated) {
+                try JarvisNoteLibrary.read(
+                    filename: filename, taskId: taskId, linkedFolder: linked)
+            }.value
+            guard savedNoteProjectId == projectId,
+                  savedNoteTaskId == taskId,
+                  localFolder(projectId: projectId) == linked else {
+                throw JarvisNoteLibraryError.invalidFolder
+            }
+            savedNoteText = content
+            savedNoteMessage = "읽기 전용으로 \\(filename)을 열었습니다. 내용을 수정하지 않았습니다."
+        } catch {
+            savedNoteMessage = "메모 읽기 실패: \\(error.localizedDescription)"
+        }
+    }
+
+    func clearSavedNoteSelection() {
+        savedNotes = []
+        savedNoteText = ""
+        savedNoteMessage = ""
+        savedNoteProjectId = 0
+        savedNoteTaskId = 0
+    }
+
     func runApprovedCheck(_ proposal: WorkCheckProposal) async {
         guard !busy else { return }
         busy = true
@@ -545,6 +619,7 @@ struct ApprovedProjectsPanel: View {
                         taskNoteTaskId = nil
                         taskNoteDraft = ""
                         taskNoteProposal = nil
+                        work.clearSavedNoteSelection()
                         newTaskTitle = ""
                     }
                     Spacer()
@@ -650,6 +725,16 @@ struct ApprovedProjectsPanel: View {
                                         taskNoteTaskId = task.id
                                         taskNoteDraft = JarvisTaskNote.initialSteps()
                                         taskNoteProposal = nil
+                                        work.clearSavedNoteSelection()
+                                    }
+                                    .disabled(work.busy || work.localFolder(projectId: selected.id) == nil)
+                                    Button("저장된 메모") {
+                                        taskNoteTaskId = task.id
+                                        taskNoteProposal = nil
+                                        Task {
+                                            await work.loadSavedNotes(
+                                                projectId: selected.id, taskId: task.id)
+                                        }
                                     }
                                     .disabled(work.busy || work.localFolder(projectId: selected.id) == nil)
                                 }
@@ -708,6 +793,16 @@ struct ApprovedProjectsPanel: View {
                                     Text(WorkTaskState(rawValue: task.status)?.label ?? "미상")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
+                                    Button("메모 보기") {
+                                        taskNoteTaskId = task.id
+                                        taskNoteDraft = ""
+                                        taskNoteProposal = nil
+                                        Task {
+                                            await work.loadSavedNotes(
+                                                projectId: selected.id, taskId: task.id)
+                                        }
+                                    }
+                                    .disabled(work.busy || work.localFolder(projectId: selected.id) == nil)
                                     Menu("상태 변경") {
                                         ForEach(WorkTaskState.allCases) { state in
                                             Button(state.label) {
@@ -803,28 +898,74 @@ struct ApprovedProjectsPanel: View {
                                     .foregroundStyle(.secondary)
                             }
                             if let noteTask = selected.tasks.first(where: {
-                                $0.id == taskNoteTaskId &&
-                                ($0.status == "doing" || $0.status == "todo")
+                                $0.id == taskNoteTaskId
                             }) {
                                 Text("선택한 작업: \\(noteTask.title)")
                                     .font(.subheadline.weight(.medium))
-                                TextEditor(text: $taskNoteDraft)
-                                    .font(.system(size: 12, design: .monospaced))
-                                    .frame(height: 140)
-                                    .border(.gray.opacity(0.4))
-                                    .onChange(of: taskNoteDraft) { _, _ in
-                                        taskNoteProposal = nil
+                                Button("이 작업의 저장된 메모 목록 새로 읽기") {
+                                    Task {
+                                        await work.loadSavedNotes(
+                                            projectId: selected.id, taskId: noteTask.id)
                                     }
-                                Button("Markdown 저장 내용 미리보기") {
-                                    taskNoteProposal = JarvisTaskNote.prepare(
-                                        project: selected, task: noteTask,
-                                        linkedFolder: work.localFolder(projectId: selected.id),
-                                        steps: taskNoteDraft)
                                 }
-                                .disabled(work.busy ||
-                                          work.localFolder(projectId: selected.id) == nil ||
-                                          taskNoteDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                                          taskNoteDraft.count > 4000)
+                                .disabled(work.busy)
+                                if work.savedNoteProjectId == selected.id &&
+                                    work.savedNoteTaskId == noteTask.id {
+                                    ForEach(work.savedNotes) { saved in
+                                        HStack {
+                                            Text(saved.filename)
+                                                .font(.caption.monospaced())
+                                                .textSelection(.enabled)
+                                            Spacer()
+                                            Button("내용 읽기") {
+                                                Task {
+                                                    await work.readSavedNote(
+                                                        projectId: selected.id,
+                                                        taskId: noteTask.id,
+                                                        filename: saved.filename)
+                                                }
+                                            }
+                                            .disabled(work.busy)
+                                        }
+                                    }
+                                    if !work.savedNoteText.isEmpty {
+                                        ScrollView {
+                                            Text(work.savedNoteText)
+                                                .font(.system(size: 12, design: .monospaced))
+                                                .textSelection(.enabled)
+                                                .frame(maxWidth: .infinity, alignment: .leading)
+                                        }
+                                        .frame(height: 220)
+                                    }
+                                }
+                                if !work.savedNoteMessage.isEmpty {
+                                    Text(work.savedNoteMessage)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                if noteTask.status == "doing" || noteTask.status == "todo" {
+                                    TextEditor(text: $taskNoteDraft)
+                                        .font(.system(size: 12, design: .monospaced))
+                                        .frame(height: 140)
+                                        .border(.gray.opacity(0.4))
+                                        .onChange(of: taskNoteDraft) { _, _ in
+                                            taskNoteProposal = nil
+                                        }
+                                    Button("Markdown 저장 내용 미리보기") {
+                                        taskNoteProposal = JarvisTaskNote.prepare(
+                                            project: selected, task: noteTask,
+                                            linkedFolder: work.localFolder(projectId: selected.id),
+                                            steps: taskNoteDraft)
+                                    }
+                                    .disabled(work.busy ||
+                                              work.localFolder(projectId: selected.id) == nil ||
+                                              taskNoteDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                                              taskNoteDraft.count > 4000)
+                                } else {
+                                    Text("완료·막힘으로 기록된 작업은 이전 메모 읽기만 지원합니다.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
                             } else {
                                 Text("위의 ‘다음 할 일 시작’에서 원하는 작업의 실행 메모를 눌러 주세요.")
                                     .font(.caption)
