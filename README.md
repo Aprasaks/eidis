@@ -6,7 +6,7 @@
 - `web/`: 입자 호출 → 은은한 작업 공간 전환, API 기반 현황, 4개 사전 제작 디자인 시안의 미리보기/적용/되돌리기
 - `jarvis/design.py`: 자연어에 맞춘 로컬 디자인 토큰 조합, 선택적으로 실행하는 외부 AI 구조화 설계 어댑터
 - `macos/`: SwiftUI 네이티브 창, 한국어 음성 출력, ScreenCaptureKit 1장 미리보기
-- `ios/JARVIS.xcodeproj`: **새 JARVIS iPhone 0.1** — 별도 앱 ID와 HUD·음성 인터페이스, 실물 설치는 서명 확인 필요. 자세히 ios/JARVIS/README.md
+- `ios/JARVIS.xcodeproj`: **새 JARVIS iPhone 0.2** — 별도 앱 ID와 HUD·음성 인터페이스, 실물 설치는 서명 확인 필요. 자세히 ios/JARVIS/README.md
 - `ios/`: **EIDIS iPhone 앱 0.1** — 실제 후면 카메라 HUD, 한국어 온디바이스 음성 인식 및 기본 음성 응답. 실행·제약: ios/README.md
 - `tests/`: 자동 검증
 - `.github/workflows/ci.yml`: Linux 코드 검증 + macOS Swift 컴파일

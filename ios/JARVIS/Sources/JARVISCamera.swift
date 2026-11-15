@@ -12,7 +12,7 @@ enum JARVISCameraState: Equatable {
 final class JARVISCamera: ObservableObject {
     @Published private(set) var state: JARVISCameraState = .idle
     let session = AVCaptureSession()
-    private let queue = DispatchQueue(label: "dev.dechive.eidis.camera")
+    private let queue = DispatchQueue(label: "dev.dechive.jarvis.camera")
     private var configured = false
 
     var isLive: Bool { state == .live }
