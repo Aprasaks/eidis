@@ -6,8 +6,13 @@
 - `web/`: 입자 호출 → 은은한 작업 공간 전환, API 기반 현황, 4개 사전 제작 디자인 시안의 미리보기/적용/되돌리기
 - `jarvis/design.py`: 자연어에 맞춘 로컬 디자인 토큰 조합, 선택적으로 실행하는 외부 AI 구조화 설계 어댑터
 - `macos/`: SwiftUI 네이티브 창, 한국어 음성 출력, ScreenCaptureKit 1장 미리보기
+- `ios/`: **EIDIS iPhone 앱 0.1** — 실제 후면 카메라 HUD, 한국어 온디바이스 음성 인식 및 기본 음성 응답. 실행·제약: ios/README.md
 - `tests/`: 자동 검증
 - `.github/workflows/ci.yml`: Linux 코드 검증 + macOS Swift 컴파일
+
+## 실행 (iPhone / EIDIS v0.1)
+
+Xcode에서 ios/EIDIS.xcodeproj 프로젝트를 열고 EIDIS 스킴으로 iPhone 시뮬레이터를 실행합니다. 실기기 사용에는 해당 iOS 버전을 지원하는 Xcode 및 개인 개발팀 서명이 필요합니다. 음성 인식과 카메라는 사용자가 직접 버튼을 눌러 권한을 허용해야 작동합니다. 현재 날씨·일정·물체 분석·Mac 기억 동기화·개인 AI 연결은 미구현이며 가짜 수치를 보여주지 않습니다. [시뮬레이터 실행 화면](ios/screenshots/EIDIS_iPhone17Pro_simulator.png), [설치 및 검증 안내](ios/README.md).
 
 ## 실행 (Mac)
 
