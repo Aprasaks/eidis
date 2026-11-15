@@ -16,12 +16,14 @@ struct JarvisTaskNoteProposal: Identifiable {
     let createdAt: Date
     let token: String
     let steps: String
+    let contentOverride: String?
 
     var filename: String { "task-\(taskId)-\(token).md" }
     var relativePath: String { ".jarvis/notes/\(filename)" }
 
     var preview: String {
-        """
+        if let contentOverride { return contentOverride }
+        return """
         # 작업 실행 메모
 
         프로젝트: \(projectName)
@@ -114,7 +116,26 @@ enum JarvisTaskNote {
             repository: project.repoFullName, taskId: task.id,
             taskTitle: task.title, taskStatus: task.status,
             linkedFolder: linkedFolder, createdAt: date,
-            token: token, steps: cleanSteps)
+            token: token, steps: cleanSteps, contentOverride: nil)
+    }
+
+    /// A revision creates a *new* Markdown file. The original note is never
+    /// overwritten, and all file writes still go through the v3.0 guarded
+    /// O_EXCL/O_NOFOLLOW writer.
+    static func prepareRevision(project: WorkProject, task: WorkTask,
+                                linkedFolder: String?, markdown: String,
+                                at date: Date = Date(), token: String) -> JarvisTaskNoteProposal? {
+        guard !markdown.isEmpty,
+              markdown.utf8.count <= 16_384,
+              let basic = prepare(project: project, task: task,
+                                  linkedFolder: linkedFolder, steps: "기존 메모 수정본",
+                                  at: date, token: token) else { return nil }
+        return JarvisTaskNoteProposal(
+            projectId: basic.projectId, projectName: basic.projectName,
+            repository: basic.repository, taskId: basic.taskId,
+            taskTitle: basic.taskTitle, taskStatus: basic.taskStatus,
+            linkedFolder: basic.linkedFolder, createdAt: basic.createdAt,
+            token: basic.token, steps: basic.steps, contentOverride: markdown)
     }
 
     /// All child paths have fixed names; the only generated filename contains
@@ -139,7 +160,8 @@ enum JarvisTaskNote {
         guard proposal.taskId > 0,
               proposal.token.range(of: #"^[0-9A-F]{8}$"#,
                                     options: .regularExpression) != nil,
-              (1...4000).contains(proposal.steps.count) else {
+              (1...4000).contains(proposal.steps.count),
+              (1...16_384).contains(proposal.preview.utf8.count) else {
             throw JarvisTaskNoteError.invalidProposal
         }
         let folder = URL(fileURLWithPath: proposal.linkedFolder, isDirectory: true)

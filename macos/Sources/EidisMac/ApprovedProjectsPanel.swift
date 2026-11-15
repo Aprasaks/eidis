@@ -133,7 +133,9 @@ final class ApprovedWorkModel: ObservableObject {
     @Published private(set) var taskNoteReceipt: JarvisTaskNoteReceipt?
     @Published private(set) var savedNotes: [JarvisSavedNote] = []
     @Published private(set) var savedNoteText = ""
+    @Published private(set) var savedNoteFilename = ""
     @Published private(set) var savedNoteMessage = ""
+    @Published private(set) var revisionReceipt: JarvisTaskNoteReceipt?
     @Published private(set) var savedNoteProjectId = 0
     @Published private(set) var savedNoteTaskId = 0
 
@@ -411,6 +413,7 @@ final class ApprovedWorkModel: ObservableObject {
         guard !busy else { return }
         savedNotes = []
         savedNoteText = ""
+        savedNoteFilename = ""
         savedNoteProjectId = 0
         savedNoteTaskId = 0
         guard projects.first(where: { $0.id == projectId })?
@@ -441,6 +444,33 @@ final class ApprovedWorkModel: ObservableObject {
         }
     }
 
+    func saveApprovedRevision(_ proposal: JarvisNoteRevisionProposal) async -> Bool {
+        guard !busy else { return false }
+        revisionReceipt = nil
+        busy = true
+        defer { busy = false }
+        do {
+            let latest: WorkProjectsReply = try await fetch("/api/projects")
+            let project = latest.items.first(where: {
+                $0.id == proposal.projectId &&
+                $0.name == proposal.projectName &&
+                $0.repoFullName == proposal.repository
+            })
+            let folder = localFolder(projectId: proposal.projectId)
+            let receipt = try await Task.detached(priority: .userInitiated) {
+                try JarvisNoteRevision.save(
+                    proposal, currentProject: project,
+                    currentLinkedFolder: folder)
+            }.value
+            revisionReceipt = receipt
+            status = "원본을 보존하고 수정본을 새 파일로 저장했습니다. \\(receipt.summary)"
+            return true
+        } catch {
+            status = "수정본 저장 실패 또는 미확인: \\(error.localizedDescription) 자동 재시도하지 않습니다."
+            return false
+        }
+    }
+
     func readSavedNote(projectId: Int, taskId: Int, filename: String) async {
         guard !busy, savedNoteProjectId == projectId,
               savedNoteTaskId == taskId,
@@ -449,6 +479,7 @@ final class ApprovedWorkModel: ObservableObject {
         busy = true
         defer { busy = false }
         savedNoteText = ""
+        savedNoteFilename = ""
         do {
             let content = try await Task.detached(priority: .userInitiated) {
                 try JarvisNoteLibrary.read(
@@ -460,6 +491,7 @@ final class ApprovedWorkModel: ObservableObject {
                 throw JarvisNoteLibraryError.invalidFolder
             }
             savedNoteText = content
+            savedNoteFilename = filename
             savedNoteMessage = "읽기 전용으로 \\(filename)을 열었습니다. 내용을 수정하지 않았습니다."
         } catch {
             savedNoteMessage = "메모 읽기 실패: \\(error.localizedDescription)"
@@ -469,6 +501,7 @@ final class ApprovedWorkModel: ObservableObject {
     func clearSavedNoteSelection() {
         savedNotes = []
         savedNoteText = ""
+        savedNoteFilename = ""
         savedNoteMessage = ""
         savedNoteProjectId = 0
         savedNoteTaskId = 0
@@ -548,6 +581,13 @@ struct ApprovedProjectsPanel: View {
     @State private var taskNoteDraft = ""
     @State private var taskNoteProposal: JarvisTaskNoteProposal?
     @State private var taskNoteConfirmationVisible = false
+    @State private var revisionSourceFilename = ""
+    @State private var revisionSourceText = ""
+    @State private var revisionSourceProjectId = 0
+    @State private var revisionSourceTaskId = 0
+    @State private var revisionDraft = ""
+    @State private var revisionProposal: JarvisNoteRevisionProposal?
+    @State private var revisionConfirmationVisible = false
 
     private var selected: WorkProject? {
         work.projects.first(where: { $0.id == selectedProjectId })
@@ -619,6 +659,10 @@ struct ApprovedProjectsPanel: View {
                         taskNoteTaskId = nil
                         taskNoteDraft = ""
                         taskNoteProposal = nil
+                        revisionSourceFilename = ""
+                        revisionSourceText = ""
+                        revisionDraft = ""
+                        revisionProposal = nil
                         work.clearSavedNoteSelection()
                         newTaskTitle = ""
                     }
@@ -725,12 +769,20 @@ struct ApprovedProjectsPanel: View {
                                         taskNoteTaskId = task.id
                                         taskNoteDraft = JarvisTaskNote.initialSteps()
                                         taskNoteProposal = nil
+                                        revisionSourceFilename = ""
+                                        revisionSourceText = ""
+                                        revisionDraft = ""
+                                        revisionProposal = nil
                                         work.clearSavedNoteSelection()
                                     }
                                     .disabled(work.busy || work.localFolder(projectId: selected.id) == nil)
                                     Button("저장된 메모") {
                                         taskNoteTaskId = task.id
                                         taskNoteProposal = nil
+                                        revisionSourceFilename = ""
+                                        revisionSourceText = ""
+                                        revisionDraft = ""
+                                        revisionProposal = nil
                                         Task {
                                             await work.loadSavedNotes(
                                                 projectId: selected.id, taskId: task.id)
@@ -797,6 +849,10 @@ struct ApprovedProjectsPanel: View {
                                         taskNoteTaskId = task.id
                                         taskNoteDraft = ""
                                         taskNoteProposal = nil
+                                        revisionSourceFilename = ""
+                                        revisionSourceText = ""
+                                        revisionDraft = ""
+                                        revisionProposal = nil
                                         Task {
                                             await work.loadSavedNotes(
                                                 projectId: selected.id, taskId: task.id)
@@ -918,6 +974,10 @@ struct ApprovedProjectsPanel: View {
                                                 .textSelection(.enabled)
                                             Spacer()
                                             Button("내용 읽기") {
+                                                revisionSourceFilename = ""
+                                                revisionSourceText = ""
+                                                revisionDraft = ""
+                                                revisionProposal = nil
                                                 Task {
                                                     await work.readSavedNote(
                                                         projectId: selected.id,
@@ -936,7 +996,68 @@ struct ApprovedProjectsPanel: View {
                                                 .frame(maxWidth: .infinity, alignment: .leading)
                                         }
                                         .frame(height: 220)
+                                        Button("이 메모 수정본 작성") {
+                                            revisionSourceFilename = work.savedNoteFilename
+                                            revisionSourceText = work.savedNoteText
+                                            revisionSourceProjectId = selected.id
+                                            revisionSourceTaskId = noteTask.id
+                                            revisionDraft = work.savedNoteText
+                                            revisionProposal = nil
+                                        }
+                                        .disabled(work.busy || work.savedNoteFilename.isEmpty ||
+                                                  (noteTask.status != "doing" && noteTask.status != "todo"))
                                     }
+                                }
+                                if revisionSourceProjectId == selected.id &&
+                                    revisionSourceTaskId == noteTask.id &&
+                                    !revisionSourceFilename.isEmpty {
+                                    Text("원본 보존 · 수정본 새 파일 저장")
+                                        .font(.subheadline.weight(.medium))
+                                    Text("원본: \\(revisionSourceFilename)")
+                                        .font(.caption.monospaced())
+                                        .textSelection(.enabled)
+                                    TextEditor(text: $revisionDraft)
+                                        .font(.system(size: 12, design: .monospaced))
+                                        .frame(height: 200)
+                                        .border(.gray.opacity(0.4))
+                                        .onChange(of: revisionDraft) { _, _ in
+                                            revisionProposal = nil
+                                        }
+                                    Button("수정본 전체 미리보기") {
+                                        revisionProposal = JarvisNoteRevision.prepare(
+                                            project: selected, task: noteTask,
+                                            linkedFolder: work.localFolder(projectId: selected.id),
+                                            originalFilename: revisionSourceFilename,
+                                            originalText: revisionSourceText,
+                                            revisedText: revisionDraft)
+                                    }
+                                    .disabled(work.busy ||
+                                              revisionDraft == revisionSourceText ||
+                                              revisionDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                                              revisionDraft.utf8.count > 16_000)
+                                    if let revisionProposal {
+                                        Text(revisionProposal.explanation)
+                                            .font(.caption)
+                                            .textSelection(.enabled)
+                                        ScrollView {
+                                            Text(revisionProposal.preview)
+                                                .font(.system(size: 12, design: .monospaced))
+                                                .textSelection(.enabled)
+                                                .frame(maxWidth: .infinity, alignment: .leading)
+                                        }
+                                        .frame(height: 220)
+                                        Button("새 수정본 저장 승인 화면") {
+                                            revisionConfirmationVisible = true
+                                        }
+                                        .disabled(work.busy)
+                                    }
+                                }
+                                if let receipt = work.revisionReceipt,
+                                   receipt.projectId == selected.id,
+                                   receipt.taskId == noteTask.id {
+                                    Text(receipt.summary)
+                                        .font(.caption)
+                                        .textSelection(.enabled)
                                 }
                                 if !work.savedNoteMessage.isEmpty {
                                     Text(work.savedNoteMessage)
@@ -1059,6 +1180,18 @@ struct ApprovedProjectsPanel: View {
             Button("취소", role: .cancel) { taskStartProposal = nil }
         } message: {
             Text(taskStartProposal?.explanation ?? "승인할 작업이 없습니다.")
+        }
+        .confirmationDialog("원본은 보존하고 수정본 새 파일을 저장할까요?",
+                            isPresented: $revisionConfirmationVisible,
+                            titleVisibility: .visible) {
+            Button("승인하고 수정본 새 파일 저장") {
+                guard let proposal = revisionProposal else { return }
+                revisionProposal = nil
+                Task { _ = await work.saveApprovedRevision(proposal) }
+            }
+            Button("취소", role: .cancel) { revisionProposal = nil }
+        } message: {
+            Text(revisionProposal?.explanation ?? "승인할 수정본이 없습니다.")
         }
         .confirmationDialog("선택한 Markdown 파일을 새로 만들까요?",
                             isPresented: $taskNoteConfirmationVisible,

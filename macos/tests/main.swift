@@ -501,3 +501,108 @@ do {
     preconditionFailure("Redirected notes directory was read")
 } catch JarvisNoteLibraryError.invalidFolder {}
 print("PASS previous Markdown notes read-only, scoped task ID, limits and symlink defense")
+
+// v3.2: edit a stored note as a new version, never overwrite the original.
+let originalRevisionText = try JarvisNoteLibrary.read(
+    filename: note.filename, taskId: noteTask.id, linkedFolder: noteTemp.path)
+let revisionText = originalRevisionText + "\n\n추가로 확인한 내용: 테스트 통과."
+let revisionTime = Date()
+let revisionProposal = JarvisNoteRevision.prepare(
+    project: continuity, task: noteTask, linkedFolder: noteTemp.path,
+    originalFilename: note.filename, originalText: originalRevisionText,
+    revisedText: revisionText, at: revisionTime, token: "C0FFEE01")
+precondition(revisionProposal != nil)
+let revision = revisionProposal!
+precondition(revision.filename == "task-3-C0FFEE01.md")
+precondition(revision.preview.contains("revision of task-3-AB12CD34.md"))
+precondition(!FileManager.default.fileExists(
+    atPath: noteTemp.appendingPathComponent(
+        ".jarvis/notes/\(revision.filename)").path))
+let savedRevision = try JarvisNoteRevision.save(
+    revision, currentProject: continuity,
+    currentLinkedFolder: noteTemp.path,
+    at: revisionTime.addingTimeInterval(1))
+precondition(savedRevision.savedPath.hasSuffix(revision.filename))
+let originalAfterRevision = try JarvisNoteLibrary.read(
+    filename: note.filename, taskId: noteTask.id, linkedFolder: noteTemp.path)
+precondition(originalAfterRevision == originalRevisionText)
+let revisedAfterSave = try JarvisNoteLibrary.read(
+    filename: revision.filename, taskId: noteTask.id,
+    linkedFolder: noteTemp.path)
+precondition(revisedAfterSave == revision.preview)
+let revisionVersions = try JarvisNoteLibrary.list(
+    taskId: noteTask.id, linkedFolder: noteTemp.path)
+precondition(revisionVersions.count == 2)
+print("PASS editable note saved to new version; original untouched and both readable")
+
+do {
+    _ = try JarvisNoteRevision.save(
+        revision, currentProject: continuity,
+        currentLinkedFolder: noteTemp.path,
+        at: revisionTime.addingTimeInterval(2))
+    preconditionFailure("Overwrote existing revision file")
+} catch JarvisTaskNoteError.alreadyExists {}
+do {
+    _ = try JarvisNoteRevision.save(
+        revision, currentProject: continuity,
+        currentLinkedFolder: noteTemp.path,
+        at: revisionTime.addingTimeInterval(121))
+    preconditionFailure("Expired proposal saved a revision")
+} catch JarvisNoteRevisionError.expired {}
+do {
+    _ = try JarvisNoteRevision.save(
+        revision, currentProject: workDecoded.items[0],
+        currentLinkedFolder: noteTemp.path,
+        at: revisionTime.addingTimeInterval(2))
+    preconditionFailure("Different project accepted revision")
+} catch JarvisNoteRevisionError.targetChanged {}
+do {
+    _ = try JarvisNoteRevision.save(
+        revision, currentProject: continuity,
+        currentLinkedFolder: "/tmp/wrong-folder",
+        at: revisionTime.addingTimeInterval(2))
+    preconditionFailure("Different folder accepted revision")
+} catch JarvisNoteRevisionError.targetChanged {}
+
+let conflictingProposal = JarvisNoteRevision.prepare(
+    project: continuity, task: noteTask, linkedFolder: noteTemp.path,
+    originalFilename: note.filename, originalText: originalRevisionText,
+    revisedText: revisionText + "\n충돌 방지", at: revisionTime,
+    token: "C0FFEE02")!
+let conflictedOriginal = originalRevisionText + "\n외부에서 변경된 원본"
+try conflictedOriginal.write(
+    to: URL(fileURLWithPath: written.savedPath),
+    atomically: true, encoding: .utf8)
+do {
+    _ = try JarvisNoteRevision.save(
+        conflictingProposal, currentProject: continuity,
+        currentLinkedFolder: noteTemp.path,
+        at: revisionTime.addingTimeInterval(2))
+    preconditionFailure("Stale original was accepted")
+} catch JarvisNoteRevisionError.originalChanged {}
+precondition(!FileManager.default.fileExists(
+    atPath: noteTemp.appendingPathComponent(
+        ".jarvis/notes/task-3-C0FFEE02.md").path))
+let originalAfterConflict = try JarvisNoteLibrary.read(
+    filename: note.filename, taskId: noteTask.id, linkedFolder: noteTemp.path)
+precondition(originalAfterConflict == conflictedOriginal)
+precondition(JarvisNoteRevision.prepare(
+    project: continuity, task: noteTask, linkedFolder: noteTemp.path,
+    originalFilename: note.filename, originalText: originalAfterConflict,
+    revisedText: originalAfterConflict, token: "C0FFEE03") == nil)
+precondition(JarvisNoteRevision.prepare(
+    project: continuity, task: noteTask, linkedFolder: noteTemp.path,
+    originalFilename: "../task-3-AB12CD34.md",
+    originalText: originalAfterConflict,
+    revisedText: revisionText, token: "C0FFEE03") == nil)
+precondition(JarvisNoteRevision.prepare(
+    project: continuity, task: noteTask, linkedFolder: noteTemp.path,
+    originalFilename: note.filename, originalText: originalAfterConflict,
+    revisedText: String(repeating: "Z", count: 16_100),
+    token: "C0FFEE03") == nil)
+precondition(JarvisNoteRevision.prepare(
+    project: continuity, task: continuity.tasks[1],
+    linkedFolder: noteTemp.path, originalFilename: note.filename,
+    originalText: originalAfterConflict, revisedText: revisionText,
+    token: "C0FFEE03") == nil)
+print("PASS stale source, expired approval, unrelated task and oversize revision rejected")
