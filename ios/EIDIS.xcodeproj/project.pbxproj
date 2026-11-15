@@ -171,7 +171,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 5U92596MFC;
+				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "EIDIS가 사용자가 요청한 경우에만 후면 카메라를 표시합니다. 영상은 서버로 전송하지 않습니다.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "사용자가 음성 버튼을 누르면 한국어 음성 명령을 듣기 위해 마이크를 사용합니다.";
@@ -196,7 +196,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 5U92596MFC;
+				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "EIDIS가 사용자가 요청한 경우에만 후면 카메라를 표시합니다. 영상은 서버로 전송하지 않습니다.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "사용자가 음성 버튼을 누르면 한국어 음성 명령을 듣기 위해 마이크를 사용합니다.";
