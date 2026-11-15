@@ -24,7 +24,7 @@ jobs:
       - name: Native project contract
         run: |
           plutil -lint ios/JARVIS.xcodeproj/project.pbxproj
-          python3 -m unittest discover -s tests -p 'test_jarvis_ios_contract.py' -q
+          python3 -m unittest discover -s tests -p 'test_jarvis*contract.py' -q
       - name: Grounded response test without microphone
         run: |
           swiftc -o /tmp/jarvis-ios-replies ios/JARVISTests/main.swift ios/JARVIS/Sources/JARVISResponse.swift

@@ -40,7 +40,7 @@ class JARVISiOSContractTests(unittest.TestCase):
         self.assertIn("voice.cancel()", HOME)
 
     def test_no_faked_data_or_remote_send(self):
-        for needle in ["연결 전", "HUD PREVIEW", "AI 분석·일정·날씨는 미연결"]:
+        for needle in ["연결 전", "HUD PREVIEW", "물체 분석 연결 전", "AI 연결 전"]:
             self.assertIn(needle, HOME)
         for needle in ["아직 iPhone과 동기화되지", "아직 연결되지",
                        "기본 음성 응답"]:
