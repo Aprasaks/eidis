@@ -33,7 +33,7 @@ final class JARVISCamera: ObservableObject {
                 return
             }
         default:
-            state = .unavailable("설정 → JARVIS → 카메라에서 권한을 허용해 주세요.")
+            state = .unavailable("설정 → EIDIS → 카메라에서 권한을 허용해 주세요.")
             return
         }
         let alreadyConfigured = configured
