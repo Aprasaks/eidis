@@ -7,6 +7,7 @@ on:
       - "ios/JARVIS.xcodeproj/**"
       - "ios/JARVISTests/**"
       - "tests/test_jarvis_ios_contract.py"
+      - "tests/test_jarvis_hud_v02_contract.py"
       - ".github/workflows/jarvis-ios.yml"
   workflow_dispatch:
 
@@ -27,7 +28,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_jarvis*contract.py' -q
       - name: Grounded response test without microphone
         run: |
-          swiftc -o /tmp/jarvis-ios-replies ios/JARVISTests/main.swift ios/JARVIS/Sources/JARVISResponse.swift
+          swiftc -o /tmp/jarvis-ios-replies ios/JARVISTests/main.swift ios/JARVIS/Sources/EIDISCommand.swift ios/JARVIS/Sources/JARVISResponse.swift
           /tmp/jarvis-ios-replies
       - name: iOS Simulator build without codesign
         run: |

@@ -6,14 +6,14 @@
 - `web/`: 입자 호출 → 은은한 작업 공간 전환, API 기반 현황, 4개 사전 제작 디자인 시안의 미리보기/적용/되돌리기
 - `jarvis/design.py`: 자연어에 맞춘 로컬 디자인 토큰 조합, 선택적으로 실행하는 외부 AI 구조화 설계 어댑터
 - `macos/`: SwiftUI 네이티브 창, 한국어 음성 출력, ScreenCaptureKit 1장 미리보기
-- `ios/JARVIS.xcodeproj`: **EIDIS iPhone 0.3** — 설치된 JARVIS의 앱 표시 이름을 EIDIS로 바꾸는 검은색 무광 UI. 기존 bundle ID를 유지하며 실제 iPhone 13에 삭제 없이 0.2→0.3 업데이트 및 앱 실행 확인. 새 화면의 카메라·음성 재검증은 별도. 자세히 ios/JARVIS/README.md
+- `ios/JARVIS.xcodeproj`: **EIDIS iPhone 0.4.1** — 설치된 JARVIS의 앱 표시 이름을 EIDIS로 바꾸는 검은색 무광 UI. 기존 bundle ID를 유지하며 실제 iPhone 13에 삭제 없이 0.3→0.4→0.4.1 무삭제 업데이트·실제 실행까지 확인. Apple 캘린더·미리 알림·Open-Meteo 날씨·애기야 로컬 명령·회전 코어 구현. iPhone에서 각 권한 승인과 실제 데이터 확인은 별도. 자세히 ios/JARVIS/README.md
 - `ios/EIDIS.xcodeproj`: **이전 EIDIS 0.1 프로토타입(참고용)** — 새 EIDIS 0.3과 별개. ios/README.md
 - `tests/`: 자동 검증
 - `.github/workflows/ci.yml`: Linux 코드 검증 + macOS Swift 컴파일
 
-## 실행 (iPhone / EIDIS v0.3)
+## 실행 (iPhone / EIDIS v0.4.1)
 
-Xcode에서 `ios/JARVIS.xcodeproj`를 열고 기존 `JARVIS` 스킴으로 빌드합니다. **iPhone 홈 화면에 표시되는 이름은 EIDIS**이며 내부 기존 앱 ID `dev.dechive.jarvis.ios`를 유지합니다. 실제 기기 업데이트는 개발팀 서명과 Mac 연결이 필요합니다. EIDIS 0.3은 연결된 iPhone 13에 업데이트 설치·실행되었으며 새 화면의 카메라·음성 버튼 실사용 검증은 남아 있습니다. 날씨·일정·물체 분석·Mac 기억·개인 AI 연결은 미구현이고 허위 데이터를 표시하지 않습니다. [작업 기록과 제한사항](ios/JARVIS/README.md).
+Xcode에서 `ios/JARVIS.xcodeproj`를 열고 기존 `JARVIS` 스킴으로 빌드합니다. **iPhone 홈 화면에 표시되는 이름은 EIDIS**이며 내부 기존 앱 ID `dev.dechive.jarvis.ios`를 유지합니다. 실제 기기 업데이트는 개발팀 서명과 Mac 연결이 필요합니다. EIDIS 0.4.1이 실제 iPhone 13에 업데이트 설치·실행됐습니다. Apple 캘린더/미리 알림 연결 및 날씨 API 코드는 구현되어 있으나, 개인 데이터 접근은 사용자가 iPhone에서 권한 승인한 뒤 실사용 검증이 필요합니다. 카메라 물체 분석·Mac 프로젝트 기억·범용 AI 모델은 여전히 미구현이며 가짜 결과를 표시하지 않습니다. [작업 기록과 제한사항](ios/JARVIS/README.md).
 
 ## 실행 (Mac)
 

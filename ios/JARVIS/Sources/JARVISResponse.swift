@@ -1,24 +1,27 @@
 import Foundation
 
+/// Offline fallback. Personal facts are only spoken from authorized services
+/// in EIDISHomeView and never fabricated by the fallback text.
 enum JARVISResponse {
     static func answer(to input: String) -> String {
-        let sentence = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !sentence.isEmpty else { return "음성으로 말씀해 주세요." }
-        let normalized = sentence.replacingOccurrences(of: " ", with: "")
-        if normalized.contains("안녕") || normalized.contains("좋은아침") {
-            return "안녕하세요. 이디스입니다. 카메라와 음성 인터페이스가 준비됐어요."
+        guard !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return "음성으로 말씀해 주세요."
         }
-        if normalized.contains("뭐할수") || normalized.contains("무엇을할수") {
-            return "지금은 카메라 화면과 한국어 음성 인식, 기본 음성 응답을 지원해요. 개인 AI와 프로젝트 기억은 아직 연결 전이에요."
+        switch EIDISCommand.intent(for: input) {
+        case .greeting:
+            return "네, 말씀하세요. 애기야라고 부르면 알아들을 수 있어요."
+        case .weather:
+            return "날씨 카드를 눌러 실제 현재 위치의 날씨를 연결해 주세요."
+        case .calendar:
+            return "일정 카드를 눌러 iPhone 캘린더를 연결해 주세요."
+        case .reminders:
+            return "오늘의 작업 카드를 눌러 iPhone 미리 알림을 연결해 주세요."
+        case .help:
+            return "애기야 날씨, 애기야 일정, 애기야 할 일이라고 말해 보세요. 마이크 버튼을 눌러야 듣습니다."
+        case .unsupported:
+            return "개인 AI, Mac 프로젝트 기억과 카메라 장면 분석은 아직 연결되지 않았어요."
+        case .unknown:
+            return "말씀은 인식했지만 아직 지원하지 않는 요청입니다. 개인 AI 연결은 다음 단계입니다."
         }
-        if normalized.contains("이디스") || normalized.contains("자비스") || normalized.contains("할일") || normalized.contains("프로젝트") {
-            return "Mac 프로젝트 기억은 아직 iPhone과 동기화되지 않았어요. 실제 기록인 것처럼 답하지 않겠습니다."
-        }
-        if normalized.contains("날씨") || normalized.contains("일정") ||
-            normalized.contains("길안내") || normalized.contains("어디") ||
-            normalized.contains("이거뭐") || normalized.contains("뭐야") {
-            return "해당 실시간 정보나 카메라 영상 분석은 아직 연결되지 않았어요. 확인되지 않은 내용을 만들지 않겠습니다."
-        }
-        return "말씀하신 문장은 인식했어요. 아직은 기본 음성 응답만 가능합니다. 개인 AI 연결을 준비하고 있어요."
     }
 }

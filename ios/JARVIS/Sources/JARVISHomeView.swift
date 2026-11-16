@@ -60,77 +60,13 @@ private struct EIDISBackdrop: View {
     }
 }
 
-private struct EIDISFocus: View {
-    let cameraLive: Bool
-
-    var body: some View {
-        GeometryReader { geometry in
-            let diameter = min(geometry.size.width * 0.53, geometry.size.height * 0.87)
-            ZStack {
-                if !cameraLive {
-                    Ellipse()
-                        .stroke(EIDISLook.accent.opacity(0.10), lineWidth: 1)
-                        .frame(width: geometry.size.width * 0.93, height: 66)
-                        .offset(y: geometry.size.height * 0.32)
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [
-                                    Color(red: 0.068, green: 0.13, blue: 0.19),
-                                    EIDISLook.black
-                                ],
-                                center: .center,
-                                startRadius: 0,
-                                endRadius: diameter * 0.55
-                            )
-                        )
-                        .frame(width: diameter, height: diameter)
-                }
-                Circle()
-                    .stroke(EIDISLook.accent.opacity(cameraLive ? 0.40 : 0.27),
-                            lineWidth: 0.9)
-                    .frame(width: diameter, height: diameter)
-                Circle()
-                    .trim(from: 0.06, to: 0.20)
-                    .stroke(EIDISLook.accent.opacity(0.66),
-                            style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
-                    .frame(width: diameter + 24, height: diameter + 24)
-                    .rotationEffect(.degrees(-92))
-                Circle()
-                    .trim(from: 0.55, to: 0.67)
-                    .stroke(EIDISLook.accent.opacity(0.48),
-                            style: StrokeStyle(lineWidth: 1.2, lineCap: .round))
-                    .frame(width: diameter + 24, height: diameter + 24)
-                    .rotationEffect(.degrees(-92))
-                VStack(spacing: 8) {
-                    Text(cameraLive ? "CAMERA LIVE" : "EIDIS")
-                        .font(.system(size: cameraLive ? 14 : 24,
-                                      weight: .light, design: .rounded))
-                        .tracking(cameraLive ? 3.1 : 5.5)
-                        .foregroundStyle(EIDISLook.white)
-                    Text(cameraLive
-                         ? "카메라 영상 · AI 분석 연결 전"
-                         : "PERSONAL INTERFACE")
-                        .font(.system(size: 9, weight: .medium, design: .monospaced))
-                        .tracking(cameraLive ? 0.4 : 2.0)
-                        .foregroundStyle(EIDISLook.muted)
-                }
-                .padding(12)
-                .background(cameraLive ? EIDISLook.black.opacity(0.65) : .clear,
-                            in: RoundedRectangle(cornerRadius: 12))
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .accessibilityLabel(cameraLive
-            ? "실제 후면 카메라가 켜져 있습니다. 사물 인식은 연결 전입니다."
-            : "검은색 EIDIS 대기 화면")
-    }
-}
-
 struct JARVISHomeView: View {
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var camera = JARVISCamera()
     @StateObject private var voice = JARVISVoice()
+    @StateObject private var weather = EIDISWeatherService()
+    @StateObject private var personal = EIDISPersonalData()
+    @State private var activeService: EIDISService?
     @State private var showComposer = false
     @State private var showFeatures = false
     @State private var showTranscript = false
@@ -174,8 +110,12 @@ struct JARVISHomeView: View {
                         greetingPanel
                         servicesRow
 
-                        EIDISFocus(cameraLive: camera.isLive)
-                            .frame(height: 186)
+                        EIDISCoreView(
+                            listening: voice.isListening,
+                            cameraLive: camera.isLive,
+                            active: scenePhase == .active
+                        )
+                            .frame(height: 205)
                             .padding(.vertical, 1)
 
                         connectionNotice
@@ -201,6 +141,18 @@ struct JARVISHomeView: View {
         }
         .foregroundStyle(EIDISLook.white)
         .preferredColorScheme(.dark)
+        .sheet(item: $activeService) { service in
+            EIDISServiceSheet(
+                service: service,
+                personal: personal,
+                weather: weather
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
+        .task {
+            await personal.refreshAuthorized()
+        }
         .sheet(isPresented: $showComposer) {
             composerSheet
                 .presentationDetents([.height(270)])
@@ -221,6 +173,8 @@ struct JARVISHomeView: View {
                 camera.stop()
                 voice.cancel()
                 voice.stopSpeaking()
+            } else {
+                Task { await personal.refreshAuthorized() }
             }
         }
         .onDisappear {
@@ -270,8 +224,8 @@ struct JARVISHomeView: View {
                 .font(.system(size: 29, weight: .semibold))
                 .tracking(-0.6)
                 .foregroundStyle(EIDISLook.white)
-            Text("무엇을 도와드릴까요?")
-                .font(.system(size: 15))
+            Text("마이크를 누르고 “애기야”라고 말해 보세요.")
+                .font(.system(size: 14))
                 .foregroundStyle(EIDISLook.muted)
             HStack(spacing: 8) {
                 Circle()
@@ -290,8 +244,16 @@ struct JARVISHomeView: View {
 
     private var servicesRow: some View {
         HStack(spacing: 10) {
-            serviceCard(icon: "cloud", title: "현재 날씨", value: "연결 전")
-            serviceCard(icon: "calendar", title: "다음 일정", value: "연결 전")
+            Button { activeService = .weather } label: {
+                serviceCard(icon: "cloud", title: "현재 날씨", value: weather.displayValue)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("실제 날씨 연결 및 상세 보기")
+            Button { activeService = .calendar } label: {
+                serviceCard(icon: "calendar", title: "다음 일정", value: personal.calendarStatus)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("iPhone 캘린더 연결 및 일정 보기")
         }
     }
 
@@ -374,23 +336,35 @@ struct JARVISHomeView: View {
     }
 
     private var memoryCard: some View {
-        EIDISCard {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Image(systemName: "checkmark.square")
-                        .foregroundStyle(EIDISLook.accent)
-                    Text("오늘의 작업")
-                        .font(.system(size: 14, weight: .semibold))
-                    Spacer()
-                    Text("연결 전")
-                        .font(.system(size: 10))
-                        .foregroundStyle(EIDISLook.muted)
+        Button { activeService = .reminders } label: {
+            EIDISCard {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: "checkmark.square")
+                            .foregroundStyle(EIDISLook.accent)
+                        Text("오늘의 작업 · 미리 알림")
+                            .font(.system(size: 14, weight: .semibold))
+                        Spacer()
+                        Text(personal.remindersStatus)
+                            .font(.system(size: 11))
+                            .foregroundStyle(EIDISLook.muted)
+                            .lineLimit(1)
+                    }
+                    if personal.remindersConnected, let next = personal.tasks.first {
+                        Text(next.title)
+                            .font(.system(size: 12))
+                            .foregroundStyle(EIDISLook.muted)
+                            .lineLimit(1)
+                    } else {
+                        Text("iPhone 미리 알림을 연결하세요. Mac 프로젝트 작업과는 별개입니다.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(EIDISLook.muted)
+                    }
                 }
-                Text("Mac 작업 기록은 아직 iPhone에 동기화되지 않았습니다.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(EIDISLook.muted)
             }
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel("iPhone 미리 알림 연결 및 작업 보기")
     }
 
     private var dock: some View {
@@ -405,7 +379,11 @@ struct JARVISHomeView: View {
 
                 Button {
                     if voice.isListening {
-                        Task { await voice.finish() }
+                        Task {
+                            if let command = await voice.finish() {
+                                await handleCommand(command)
+                            }
+                        }
                     } else {
                         Task { await voice.start() }
                     }
@@ -491,7 +469,7 @@ struct JARVISHomeView: View {
                 VStack(alignment: .leading, spacing: 15) {
                     Text("EIDIS에게 질문")
                         .font(.system(size: 19, weight: .semibold))
-                    TextField("예: 이디스, 안녕", text: $textCommand)
+                    TextField("예: 애기야, 날씨 알려줘", text: $textCommand)
                         .submitLabel(.send)
                         .padding(13)
                         .background(
@@ -525,12 +503,14 @@ struct JARVISHomeView: View {
                 EIDISLook.black.ignoresSafeArea()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
-                        Text("EIDIS · 연결 현황")
+                        Text("EIDIS 0.4.1 · 연결 현황")
                             .font(.title3.weight(.semibold))
                         feature("camera", "후면 카메라", "사용자가 켰을 때 실시간 영상")
                         feature("waveform", "한국어 음성", "기기 내 인식 및 음성 출력")
                         feature("brain", "개인 AI", "연결 전")
-                        feature("calendar", "일정 및 날씨", "연결 전")
+                        feature("cloud", "현재 날씨", weather.displayValue)
+                        feature("calendar", "캘린더", personal.calendarStatus)
+                        feature("checkmark.square", "미리 알림", personal.remindersStatus)
                         feature("map", "길 안내", "연결 전")
                         feature("eye", "카메라 사물 분석", "연결 전")
                         feature("desktopcomputer", "Mac 프로젝트 기억", "연결 전")
@@ -607,12 +587,30 @@ struct JARVISHomeView: View {
         .preferredColorScheme(.dark)
     }
 
+    @MainActor
+    private func handleCommand(_ command: String) async {
+        let answer: String
+        switch EIDISCommand.intent(for: command) {
+        case .weather:
+            answer = weather.readout()
+        case .calendar:
+            if personal.calendarConnected { await personal.reloadEvents() }
+            answer = personal.calendarReadout()
+        case .reminders:
+            if personal.remindersConnected { await personal.reloadReminders() }
+            answer = personal.remindersReadout()
+        case .greeting, .help, .unsupported, .unknown:
+            answer = JARVISResponse.answer(to: command)
+        }
+        voice.speak(answer, for: command)
+    }
+
     private func sendTyped() {
         let command = textCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !command.isEmpty else { return }
-        voice.respond(to: command)
         textCommand = ""
         showComposer = false
+        Task { await handleCommand(command) }
     }
 }
 
