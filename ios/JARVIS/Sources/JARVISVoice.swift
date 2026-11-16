@@ -64,6 +64,7 @@ final class JARVISVoice: NSObject, ObservableObject {
             let request = SFSpeechAudioBufferRecognitionRequest()
             request.requiresOnDeviceRecognition = true
             request.shouldReportPartialResults = true
+            request.contextualStrings = EIDISCommand.hints
             let input = audioEngine.inputNode
             let format = input.outputFormat(forBus: 0)
             guard format.sampleRate > 0 else {
@@ -111,8 +112,10 @@ final class JARVISVoice: NSObject, ObservableObject {
         }
     }
 
-    func finish() async {
-        guard isListening, !busy else { return }
+    /// Completes the explicit user recording. The UI dispatches the resulting
+    /// text to the correct real data service before speaking a reply.
+    func finish() async -> String? {
+        guard isListening, !busy else { return nil }
         let id = sessionID
         isListening = false
         isFinalizing = true
@@ -123,7 +126,7 @@ final class JARVISVoice: NSObject, ObservableObject {
             if isRecognitionFinal || recognitionError || sessionID != id { break }
             try? await Task.sleep(nanoseconds: 100_000_000)
         }
-        guard sessionID == id else { return }
+        guard sessionID == id else { return nil }
         let content = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         lastResultIsFinal = isRecognitionFinal
         let failed = recognitionError
@@ -133,10 +136,10 @@ final class JARVISVoice: NSObject, ObservableObject {
         isFinalizing = false
         guard !failed, !content.isEmpty else {
             status = failed ? "음성 인식 실패 · 전달하지 않음" : "인식한 문장이 없습니다."
-            return
+            return nil
         }
-        respond(to: content)
         status = lastResultIsFinal ? "최종 전사 완료 · 기기 내 처리" : "임시 전사 · 최종 확정되지 않음"
+        return content
     }
 
     func cancel() {
@@ -154,11 +157,15 @@ final class JARVISVoice: NSObject, ObservableObject {
     }
 
     func respond(to text: String) {
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        transcript = text
-        reply = JARVISResponse.answer(to: text)
+        speak(JARVISResponse.answer(to: text), for: text)
+    }
+
+    func speak(_ response: String, for recognized: String) {
+        guard !recognized.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        transcript = recognized
+        reply = response
         synthesizer.stopSpeaking(at: .immediate)
-        let utterance = AVSpeechUtterance(string: reply)
+        let utterance = AVSpeechUtterance(string: response)
         utterance.voice = AVSpeechSynthesisVoice(language: "ko-KR")
         utterance.rate = 0.48
         synthesizer.speak(utterance)
