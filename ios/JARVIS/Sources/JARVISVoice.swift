@@ -50,13 +50,13 @@ final class JARVISVoice: NSObject, ObservableObject {
         }
         guard id == sessionID else { return }
         guard speechAuth == .authorized else {
-            status = "설정에서 JARVIS의 음성 인식을 허용해 주세요."
+            status = "설정에서 EIDIS의 음성 인식을 허용해 주세요."
             return
         }
         let micAuth = await AVAudioApplication.requestRecordPermission()
         guard id == sessionID else { return }
         guard micAuth else {
-            status = "설정에서 JARVIS의 마이크를 허용해 주세요."
+            status = "설정에서 EIDIS의 마이크를 허용해 주세요."
             return
         }
 
