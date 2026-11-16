@@ -11,8 +11,16 @@
 
 ## 현재 검증 상태
 
-Mac 원격 장치가 오프라인이라 코드 변경은 GitHub 브랜치에서 진행했습니다. **실제 iPhone 설치 및 새 UI 구동은 아직 검증하지 않았습니다.** GitHub CI 결과도 별도 확인해야 합니다.
+2026-11-17, 인증된 Mac과 연결된 iPhone 13에서 다음 항목을 확인했습니다.
 
-Mac 연결이 돌아오면 `ios/JARVIS.xcodeproj`를 Xcode에서 열어 본인의 기존 Signing Team을 선택하고, 서명된 새 빌드로 같은 iPhone의 앱을 업데이트하십시오.
+- Python 전체 회귀 테스트 **128개 통과**
+- iPhone 13 시뮬레이터에서 EIDIS 0.3 **컴파일 → 설치 → 실행 → 실제 화면 캡처 성공**
+- 실제 iPhoneOS 용 서명 빌드 성공; 코드 서명 검증 통과
+- 기존 실물 iPhone 13의 `JARVIS 0.2 (build 2)`를 **삭제 없이** 같은 bundle ID로 업데이트: 설치 앱 목록에 `EIDIS 0.3 (build 3)` 표시
+- 실제 iPhone에서 EIDIS 프로세스 실행 및 유지 확인
+- 실물 기기에서 **새 0.3 화면의 카메라 버튼, 음성 인식 및 스피커 재검증은 아직 사용자가 직접 확인해야 함**. 기존 0.2의 실기기 입력·출력 성공이 새 버전의 검증을 대신하지 않음
+- Mac JARVIS 서버와 기존 원본 작업 트리의 로컬 Xcode 개발팀 설정은 건드리지 않음. `main` 미병합
+
+[실제 iPhone 13 시뮬레이터 화면](../screenshots/EIDIS_v03_iPhone13_simulator.png)
 
 검증: `python3 -m unittest discover -s tests -q` 및 iOS Simulator `xcodebuild`.
