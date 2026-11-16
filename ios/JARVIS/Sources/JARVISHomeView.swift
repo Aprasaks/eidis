@@ -14,7 +14,11 @@ private enum EIDISLook {
 }
 
 private struct EIDISCard<Content: View>: View {
-    @ViewBuilder var content: Content
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
 
     var body: some View {
         content
