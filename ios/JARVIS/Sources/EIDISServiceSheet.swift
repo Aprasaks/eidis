@@ -65,6 +65,7 @@ struct EIDISServiceSheet: View {
                 detailRow("체감 기온", "\(Int(reading.feelsLike.rounded()))°C")
                 detailRow("습도", "\(reading.humidity)%")
                 detailRow("풍속", "\(Int(reading.wind.rounded())) km/h")
+                detailRow("제공처", reading.provider)
                 detailRow("마지막 조회", reading.fetchedAt.formatted(
                     .dateTime.month().day().hour().minute()
                         .locale(Locale(identifier: "ko_KR"))))
@@ -90,10 +91,10 @@ struct EIDISServiceSheet: View {
             .disabled(weather.busy)
 
             if weather.busy { ProgressView("날씨를 불러오는 중") }
-            Text("선택한 순간에만 iPhone의 위치를 확인하고, 위치 좌표를 Open-Meteo에 보내 날씨를 조회합니다. 계정이나 대화 내용은 보내지 않습니다.")
+            Text("선택한 순간에만 iPhone의 위치를 확인하고, 위치 좌표를 Open-Meteo에 보내고, 연결이 실패하면 wttr.in에 보내 날씨를 조회합니다. 계정이나 대화 내용은 보내지 않습니다.")
                 .font(.caption)
                 .foregroundStyle(muted)
-            Text("출처: Open-Meteo · 개인 비상업적 이용 · CC BY 4.0")
+            Text("출처: Open-Meteo (CC BY 4.0) / 보조 wttr.in · 개인 용도")
                 .font(.system(size: 11))
                 .foregroundStyle(muted)
         }

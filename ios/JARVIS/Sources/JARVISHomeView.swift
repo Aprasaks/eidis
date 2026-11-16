@@ -503,7 +503,7 @@ struct JARVISHomeView: View {
                 EIDISLook.black.ignoresSafeArea()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
-                        Text("EIDIS 0.4 · 연결 현황")
+                        Text("EIDIS 0.4.1 · 연결 현황")
                             .font(.title3.weight(.semibold))
                         feature("camera", "후면 카메라", "사용자가 켰을 때 실시간 영상")
                         feature("waveform", "한국어 음성", "기기 내 인식 및 음성 출력")

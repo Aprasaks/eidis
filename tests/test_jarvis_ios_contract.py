@@ -53,7 +53,9 @@ class EIDISV04ContractTests(unittest.TestCase):
         for token in ("CLLocationManager", "requestWhenInUseAuthorization()",
                       "requestLocation()", "https://api.open-meteo.com/v1/forecast",
                       "temperature_2m", "weather_code",
-                      "URLSession.shared.data(for: request)"):
+                      "URLSession.shared.data(for: request)",
+                      "loadWttr(coordinate: coordinate)", "https://api.open-meteo.com/v1/forecast",
+                      "wttr.in", "current_condition", "conditionOverride"):
             self.assertIn(token, WEATHER)
         for token in ("activeService = .weather", "activeService = .calendar",
                       "activeService = .reminders", "EIDISServiceSheet(",
@@ -93,8 +95,8 @@ class EIDISV04ContractTests(unittest.TestCase):
             self.assertIn(name, PROJECT)
         self.assertIn("INFOPLIST_KEY_CFBundleDisplayName = EIDIS;", PROJECT)
         self.assertIn("PRODUCT_BUNDLE_IDENTIFIER = dev.dechive.jarvis.ios;", PROJECT)
-        self.assertIn("MARKETING_VERSION = 0.4;", PROJECT)
-        self.assertIn("CURRENT_PROJECT_VERSION = 4;", PROJECT)
+        self.assertIn("MARKETING_VERSION = 0.4.1;", PROJECT)
+        self.assertIn("CURRENT_PROJECT_VERSION = 5;", PROJECT)
         self.assertTrue((IOS / "EIDIS/Assets.xcassets/AppIcon.appiconset/AppIcon.png").is_file())
 
 

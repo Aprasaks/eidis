@@ -9,8 +9,11 @@ struct EIDISWeatherReading {
     let wind: Double
     let weatherCode: Int
     let fetchedAt: Date
+    let provider: String
+    let conditionOverride: String?
 
     var condition: String {
+        if let conditionOverride { return conditionOverride }
         switch weatherCode {
         case 0: return "맑음"
         case 1: return "대체로 맑음"
@@ -52,6 +55,43 @@ private struct OpenMeteoResult: Decodable {
         let wind_speed_10m: Double
         let weather_code: Int
     }
+}
+
+private struct WttrWeatherResult: Decodable {
+    let current_condition: [Observation]
+
+    struct Observation: Decodable {
+        let temp_C: String
+        let FeelsLikeC: String
+        let humidity: String
+        let windspeedKmph: String
+        let weatherCode: String
+        let weatherDesc: [Description]
+    }
+
+    struct Description: Decodable {
+        let value: String
+    }
+}
+
+private enum EIDISWeatherQueryError: Error {
+    case invalidResponse
+}
+
+/// Keeps fallback descriptions conservative rather than translating unknown
+/// English weather phrases into a more precise claim than the source makes.
+private func koreanCondition(_ raw: String) -> String {
+    let text = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    if text.contains("thunder") { return "뇌우" }
+    if text.contains("snow") || text.contains("blizzard") { return "눈" }
+    if text.contains("rain") || text.contains("drizzle") || text.contains("shower") {
+        return "비"
+    }
+    if text.contains("fog") || text.contains("mist") { return "안개" }
+    if text.contains("partly") { return "구름 조금" }
+    if text.contains("overcast") || text.contains("cloud") { return "흐림" }
+    if text.contains("sunny") || text.contains("clear") { return "맑음" }
+    return "기상 상태 상세 정보 없음"
 }
 
 /// Fetches weather ONLY after a user action. Precise position is shared with
@@ -135,7 +175,27 @@ final class EIDISWeatherService: NSObject, ObservableObject, @preconcurrency CLL
     }
 
     private func requestWeather(coordinate: CLLocationCoordinate2D) async {
-        status = "실제 날씨 조회 중"
+        status = "Open-Meteo 날씨 조회 중"
+        do {
+            let observed = try await loadOpenMeteo(coordinate: coordinate)
+            accept(observed)
+        } catch {
+            // This alternate endpoint was tested with live JSON on the Mac.
+            // The user is informed before granting location that either
+            // provider may receive the coordinate. Never send voice or events.
+            status = "보조 날씨 서비스 조회 중"
+            do {
+                let observed = try await loadWttr(coordinate: coordinate)
+                accept(observed)
+            } catch {
+                fail("날씨 서비스 2곳에 연결하지 못했습니다. 인터넷 연결 후 다시 시도해 주세요.")
+            }
+        }
+    }
+
+    private func loadOpenMeteo(
+        coordinate: CLLocationCoordinate2D
+    ) async throws -> EIDISWeatherReading {
         var url = URLComponents(string: "https://api.open-meteo.com/v1/forecast")!
         url.queryItems = [
             URLQueryItem(name: "latitude", value: String(coordinate.latitude)),
@@ -146,44 +206,81 @@ final class EIDISWeatherService: NSObject, ObservableObject, @preconcurrency CLL
             ),
             URLQueryItem(name: "timezone", value: "auto")
         ]
-
-        do {
-            guard let endpoint = url.url else {
-                fail("날씨 주소 생성 실패")
-                return
-            }
-            var request = URLRequest(url: endpoint)
-            request.timeoutInterval = 14
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let response = response as? HTTPURLResponse,
-                  response.statusCode == 200 else {
-                fail("날씨 서비스에서 정상 응답을 받지 못했습니다.")
-                return
-            }
-            let current = try JSONDecoder().decode(OpenMeteoResult.self, from: data).current
-            guard (-90...65).contains(current.temperature_2m),
-                  (-100...70).contains(current.apparent_temperature),
-                  (0...100).contains(current.relative_humidity_2m),
-                  current.wind_speed_10m >= 0 else {
-                fail("날씨 응답의 수치를 확인할 수 없습니다.")
-                return
-            }
-
-            reading = EIDISWeatherReading(
-                temperature: current.temperature_2m,
-                feelsLike: current.apparent_temperature,
-                humidity: current.relative_humidity_2m,
-                wind: current.wind_speed_10m,
-                weatherCode: current.weather_code,
-                fetchedAt: Date()
-            )
-            status = reading?.summary ?? "날씨 확인 실패"
-            errorMessage = nil
-            busy = false
-            explicitlyRequested = false
-        } catch {
-            fail("날씨 조회 실패: \(error.localizedDescription)")
+        guard let endpoint = url.url else { throw EIDISWeatherQueryError.invalidResponse }
+        var request = URLRequest(url: endpoint)
+        request.timeoutInterval = 7
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let response = response as? HTTPURLResponse, response.statusCode == 200 else {
+            throw EIDISWeatherQueryError.invalidResponse
         }
+        let current = try JSONDecoder().decode(OpenMeteoResult.self, from: data).current
+        guard (-90...65).contains(current.temperature_2m),
+              (-100...70).contains(current.apparent_temperature),
+              (0...100).contains(current.relative_humidity_2m),
+              current.wind_speed_10m >= 0 else {
+            throw EIDISWeatherQueryError.invalidResponse
+        }
+        return EIDISWeatherReading(
+            temperature: current.temperature_2m,
+            feelsLike: current.apparent_temperature,
+            humidity: current.relative_humidity_2m,
+            wind: current.wind_speed_10m,
+            weatherCode: current.weather_code,
+            fetchedAt: Date(),
+            provider: "Open-Meteo",
+            conditionOverride: nil
+        )
+    }
+
+    private func loadWttr(
+        coordinate: CLLocationCoordinate2D
+    ) async throws -> EIDISWeatherReading {
+        var url = URLComponents()
+        url.scheme = "https"
+        url.host = "wttr.in"
+        url.path = "/\\(coordinate.latitude),\\(coordinate.longitude)"
+        url.queryItems = [URLQueryItem(name: "format", value: "j1")]
+        guard let endpoint = url.url else { throw EIDISWeatherQueryError.invalidResponse }
+        var request = URLRequest(url: endpoint)
+        request.timeoutInterval = 12
+        request.setValue("EIDIS-personal-app/0.4 (noncommercial)", forHTTPHeaderField: "User-Agent")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let response = response as? HTTPURLResponse,
+              response.statusCode == 200 else {
+            throw EIDISWeatherQueryError.invalidResponse
+        }
+        let first = try JSONDecoder().decode(WttrWeatherResult.self, from: data)
+            .current_condition.first
+        guard let first,
+              let temp = Double(first.temp_C),
+              let feels = Double(first.FeelsLikeC),
+              let humidity = Int(first.humidity),
+              let wind = Double(first.windspeedKmph),
+              let code = Int(first.weatherCode),
+              (-90...65).contains(temp),
+              (-100...70).contains(feels),
+              (0...100).contains(humidity),
+              (0...350).contains(wind) else {
+            throw EIDISWeatherQueryError.invalidResponse
+        }
+        return EIDISWeatherReading(
+            temperature: temp,
+            feelsLike: feels,
+            humidity: humidity,
+            wind: wind,
+            weatherCode: code,
+            fetchedAt: Date(),
+            provider: "wttr.in",
+            conditionOverride: koreanCondition(first.weatherDesc.first?.value ?? "")
+        )
+    }
+
+    private func accept(_ observed: EIDISWeatherReading) {
+        reading = observed
+        status = observed.summary
+        errorMessage = nil
+        busy = false
+        explicitlyRequested = false
     }
 
     func readout() -> String {
