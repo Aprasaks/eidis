@@ -42,12 +42,17 @@ jobs:
         run: bash macos/scripts/package-app.sh
       - name: Test local screenshot-text question logic
         run: |
-          swiftc -o /tmp/jarvis-screen-insights-test macos/tests/main.swift macos/Sources/EidisMac/LocalScreenInsights.swift macos/Sources/EidisMac/JarvisSafePressPolicy.swift macos/Sources/EidisMac/ApprovedProjectsPanel.swift macos/Sources/EidisMac/LocalGitInspector.swift macos/Sources/EidisMac/JarvisHandoffReport.swift macos/Sources/EidisMac/JarvisWorkspaceResume.swift macos/Sources/EidisMac/WorkspaceResumePanel.swift macos/Sources/EidisMac/JarvisWorkspaceCommand.swift macos/Sources/EidisMac/JarvisTaskNote.swift macos/Sources/EidisMac/JarvisNoteLibrary.swift macos/Sources/EidisMac/JarvisNoteRevision.swift
+          swiftc -o /tmp/jarvis-screen-insights-test macos/tests/main.swift macos/Sources/EidisMac/LocalScreenInsights.swift macos/Sources/EidisMac/JarvisSafePressPolicy.swift macos/Sources/EidisMac/ApprovedProjectsPanel.swift macos/Sources/EidisMac/LocalGitInspector.swift macos/Sources/EidisMac/JarvisHandoffReport.swift macos/Sources/EidisMac/JarvisWorkspaceResume.swift macos/Sources/EidisMac/WorkspaceResumePanel.swift macos/Sources/EidisMac/JarvisWorkspaceCommand.swift macos/Sources/EidisMac/JarvisTaskNote.swift macos/Sources/EidisMac/JarvisNoteLibrary.swift macos/Sources/EidisMac/JarvisNoteRevision.swift macos/Sources/EidisMac/JarvisLocalPlanning.swift
           /tmp/jarvis-screen-insights-test
       - name: Check native local-command roundtrip verification guards (fixture only)
         run: |
           swiftc -o /tmp/jarvis-roundtrip-test macos/tests/roundtrip/main.swift macos/Sources/EidisMac/JarvisRoundTrip.swift
           /tmp/jarvis-roundtrip-test
+      - name: Test evidence-grounded local AI planning policy (no model calls)
+        run: |
+          SOURCE=macos/Sources/EidisMac
+          swiftc -o /tmp/jarvis-local-planner-test macos/tests/planner/main.swift macos/Sources/EidisMac/ApprovedProjectsPanel.swift macos/Sources/EidisMac/JarvisHandoffReport.swift macos/Sources/EidisMac/JarvisLocalPlanning.swift macos/Sources/EidisMac/LocalGitInspector.swift macos/Sources/EidisMac/JarvisWorkspaceResume.swift macos/Sources/EidisMac/WorkspaceResumePanel.swift macos/Sources/EidisMac/JarvisWorkspaceCommand.swift "$SOURCE"/JarvisTaskNote.swift "$SOURCE"/JarvisNoteLibrary.swift "$SOURCE"/JarvisNoteRevision.swift
+          /tmp/jarvis-local-planner-test
       - name: Test Korean speech finalization decision (no microphone access)
         run: |
           swiftc -o /tmp/jarvis-voice-decision macos/tests/voice/main.swift macos/Sources/EidisMac/LocalSpeechDecision.swift
@@ -58,7 +63,7 @@ jobs:
           /tmp/jarvis-local-git-test "$PWD"
       - name: Smoke test native Work UI offscreen (no TCC prompts)
         run: |
-          swiftc -o /tmp/jarvis-ui-smoke macos/tests/ui/main.swift macos/Sources/EidisMac/ApprovedProjectsPanel.swift macos/Sources/EidisMac/JarvisWorkspaceResume.swift macos/Sources/EidisMac/WorkspaceResumePanel.swift macos/Sources/EidisMac/JarvisHandoffReport.swift macos/Sources/EidisMac/LocalGitInspector.swift macos/Sources/EidisMac/JarvisWorkspaceCommand.swift macos/Sources/EidisMac/JarvisTaskNote.swift macos/Sources/EidisMac/JarvisNoteLibrary.swift macos/Sources/EidisMac/JarvisNoteRevision.swift
+          swiftc -o /tmp/jarvis-ui-smoke macos/tests/ui/main.swift macos/Sources/EidisMac/ApprovedProjectsPanel.swift macos/Sources/EidisMac/JarvisWorkspaceResume.swift macos/Sources/EidisMac/WorkspaceResumePanel.swift macos/Sources/EidisMac/JarvisHandoffReport.swift macos/Sources/EidisMac/LocalGitInspector.swift macos/Sources/EidisMac/JarvisWorkspaceCommand.swift macos/Sources/EidisMac/JarvisTaskNote.swift macos/Sources/EidisMac/JarvisNoteLibrary.swift macos/Sources/EidisMac/JarvisNoteRevision.swift macos/Sources/EidisMac/JarvisLocalPlanning.swift
           /tmp/jarvis-ui-smoke
       - name: Verify bundle structure, usage descriptions and signature
         run: |

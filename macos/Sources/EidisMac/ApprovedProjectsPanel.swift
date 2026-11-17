@@ -566,6 +566,9 @@ struct ApprovedProjectsPanel: View {
     @ObservedObject var work: ApprovedWorkModel
     let requestedWorkspace: JarvisWorkspaceCommand?
     @State private var selectedProjectId = 0
+    @State private var localPlanBusy = false
+    @State private var localPlan: JarvisLocalPlan?
+    @State private var localPlanMessage = "아직 제안하지 않았습니다."
 
     init(work: ApprovedWorkModel, requestedWorkspace: JarvisWorkspaceCommand? = nil) {
         self.work = work
@@ -591,6 +594,43 @@ struct ApprovedProjectsPanel: View {
 
     private var selected: WorkProject? {
         work.projects.first(where: { $0.id == selectedProjectId })
+    }
+
+    private func suggestLocalNextStep(for project: WorkProject) {
+        guard !localPlanBusy, !work.busy else { return }
+        localPlan = nil
+        localPlanMessage = "기기 내 AI가 기록을 읽고 있습니다. 외부 API는 호출하지 않습니다."
+        let context: JarvisPlanningSnapshot
+        do {
+            context = try JarvisLocalPlanning.snapshot(
+                project: project,
+                localFolderConnected: work.localFolder(projectId: project.id) != nil,
+                localEvidence: work.localEvidence[project.id],
+                openedNote: work.savedNoteText,
+                openedNoteProjectId: work.savedNoteProjectId,
+                openedNoteTaskId: work.savedNoteTaskId
+            )
+        } catch {
+            localPlanMessage = error.localizedDescription
+            return
+        }
+        localPlanBusy = true
+        Task {
+            defer { localPlanBusy = false }
+            do {
+                let generated = try await JarvisLocalPlanning.suggest(from: context)
+                guard selectedProjectId == context.projectId,
+                      let current = selected,
+                      context.stillMatches(current) else {
+                    localPlanMessage = "프로젝트/작업 정보가 변경돼 이전 AI 제안을 표시하지 않았습니다."
+                    return
+                }
+                localPlan = generated
+                localPlanMessage = "기기 내 Apple 모델의 제안입니다. 실제 코드나 배포 상태를 새로 검증하지 않았습니다."
+            } catch {
+                localPlanMessage = error.localizedDescription
+            }
+        }
     }
 
     private func chooseLocalFolder(projectId: Int) {
@@ -653,6 +693,8 @@ struct ApprovedProjectsPanel: View {
                     }
                     .frame(maxWidth: 470)
                     .onChange(of: selectedProjectId) { _, _ in
+                        localPlan = nil
+                        localPlanMessage = "프로젝트가 바뀌어 이전 제안을 지웠습니다."
                         proposal = nil
                         taskStartProposal = nil
                         taskWorkspaceRequest = nil
@@ -690,6 +732,62 @@ struct ApprovedProjectsPanel: View {
                                 .textSelection(.enabled)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             Text("조회 기록은 작성 당시의 스냅샷입니다. 이 요약을 열거나 복사해도 Git·GitHub·AWS 조회나 배포를 실행하지 않습니다.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    GroupBox("Mac 기기 내 AI · 다음 작업 한 가지 제안") {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(alignment: .center) {
+                                Text("저장된 작업·마지막 Git 조회를 바탕으로 다음 확인 행동을 설명합니다.")
+                                    .font(.caption)
+                                Spacer()
+                                Button("AI로 제안받기") {
+                                    suggestLocalNextStep(for: selected)
+                                }
+                                .disabled(localPlanBusy || work.busy || selected.nextTasks.isEmpty)
+                            }
+                            Text(JarvisLocalPlanning.availabilityDescription())
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            if localPlanBusy {
+                                ProgressView("Mac 로컬 모델이 생각하는 중")
+                                    .controlSize(.small)
+                            }
+                            if let localPlan,
+                               localPlan.snapshot.projectId == selected.id,
+                               localPlan.snapshot.stillMatches(selected) {
+                                Text("고정된 작업: #\(localPlan.snapshot.taskId) · \(localPlan.snapshot.taskTitle)")
+                                    .font(.subheadline.weight(.medium))
+                                Text("모델에 제공한 자료: 사용자 작업 기록, 이전 인수인계, 마지막 수동 Git 스냅샷" +
+                                     (localPlan.snapshot.sourceIncludesOpenedNote
+                                      ? ", 이 작업에서 직접 연 메모 일부" : ""))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text(localPlan.suggestion)
+                                    .font(.callout)
+                                    .textSelection(.enabled)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                HStack {
+                                    Spacer()
+                                    Button("AI 제안 복사") {
+                                        NSPasteboard.general.clearContents()
+                                        NSPasteboard.general.setString(
+                                            "프로젝트: \(localPlan.snapshot.projectName)\n" +
+                                            "대상 작업 #\(localPlan.snapshot.taskId): " +
+                                            localPlan.snapshot.taskTitle + "\n\n" +
+                                            localPlan.suggestion +
+                                            "\n\n기기 내 AI 제안. 코드·배포·완료 여부 미검증.",
+                                            forType: .string)
+                                    }
+                                    .help("선택한 작업명과 AI 제안을 클립보드에 복사합니다.")
+                                }
+                            }
+                            Text(localPlanMessage)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text("읽기 전용 · 사용자가 버튼을 누를 때만 생성 · 외부 AI API/파일 수정/명령 실행/자동 배포 없음. AI 문장은 제안이며 사실 확인이 아닙니다.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
