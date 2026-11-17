@@ -7,9 +7,12 @@ import WebKit
 /// Native macOS shell. It does not send screenshots to any AI model or server.
 @main
 struct EidisMacApp: App {
+    @NSApplicationDelegateAdaptor(JarvisAppLifecycle.self) private var lifecycle
+
     var body: some Scene {
         WindowGroup("JARVIS") {
             JarvisWindow()
+                .environmentObject(lifecycle.server)
         }
         .defaultSize(width: 1180, height: 770)
     }
@@ -114,6 +117,7 @@ private enum JarvisTab: Hashable {
 }
 
 struct JarvisWindow: View {
+    @EnvironmentObject private var localServer: JarvisBundledServer
     @StateObject private var voice = JarvisVoiceService()
     @StateObject private var elevenLabs = ElevenLabsVoiceService()
     @StateObject private var vision = ScreenObserver()
@@ -157,9 +161,18 @@ struct JarvisWindow: View {
                             .help("Mac 자체 한국어 음성 합성 테스트")
                         Button("새로고침") { reloadID = UUID() }
                     }
-                    Text("먼저 저장소 루트에서 python3 app.py를 실행하세요. 화면은 127.0.0.1:8765에만 연결됩니다.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    HStack {
+                        Text(localServer.message)
+                            .font(.caption)
+                            .foregroundStyle(localServer.ready ? .green : .secondary)
+                            .textSelection(.enabled)
+                        Spacer(minLength: 4)
+                        Button("연결 확인") {
+                            Task { await localServer.connectOnLaunch() }
+                        }
+                        .disabled(localServer.checking)
+                        .help("자비스 앱 또는 기존 로컬 서버의 실제 응답을 재검사합니다.")
+                    }
                     LocalDashboard(event: bridge.event)
                         .id(reloadID)
                         .clipShape(RoundedRectangle(cornerRadius: 13))
@@ -344,6 +357,12 @@ struct JarvisWindow: View {
         }
         .background(Color(red: 0.045, green: 0.064, blue: 0.10))
         .preferredColorScheme(.dark)
+        .onChange(of: localServer.ready) { _, didConnect in
+            if didConnect {
+                reloadID = UUID()
+                Task { await projectWork.refresh() }
+            }
+        }
     }
 }
 
