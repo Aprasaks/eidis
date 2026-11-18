@@ -17,6 +17,28 @@ test -x "$BIN" || { echo "빌드한 실행 파일을 찾지 못했습니다: $BI
 mkdir -p "$APP/Contents/MacOS"
 cp "$BIN" "$APP/Contents/MacOS/EidisMac"
 cp "$INFO" "$APP/Contents/Info.plist"
+
+# Package only the audited server and web entry points. Do not bundle the
+# developer's SQLite DB, Python caches, credentials, .env, Git or other files.
+RESOURCES="$APP/Contents/Resources"
+mkdir -p "$RESOURCES/jarvis" "$RESOURCES/web"
+cp "$ROOT/app.py" "$RESOURCES/app.py"
+for source in "$ROOT"/jarvis/*.py; do
+  cp "$source" "$RESOURCES/jarvis/"
+done
+for asset in index.html style.css terminal.js app.js; do
+  cp "$ROOT/web/$asset" "$RESOURCES/web/$asset"
+done
+# A developer may have tested the previous build and caused Python to write
+# __pycache__ under dist/. Those generated files break the code signature.
+# Clean ONLY generated Python bytecode inside the owned dist bundle.
+find "$RESOURCES" -type f -name '*.pyc' -delete
+find "$RESOURCES" -type d -name '__pycache__' -empty -delete
+test -f "$RESOURCES/jarvis/server.py"
+test -f "$RESOURCES/web/index.html"
+test ! -f "$RESOURCES/.env"
+test -z "$(find "$RESOURCES" -type f -name '*.pyc' -print -quit)"
+
 /usr/bin/codesign --force --sign - "$APP"
 /usr/bin/codesign --verify "$APP"
 echo "생성 완료: $APP"

@@ -19,6 +19,14 @@ final class MacReadinessDiagnostics: ObservableObject {
     @Published private(set) var findings: [DiagnosticFinding] = []
     @Published private(set) var checkedAt: Date?
     @Published private(set) var busy = false
+    @Published private(set) var commandProof: JarvisRoundTripFinding?
+
+    func verifyLocalTextCommand() async {
+        guard !busy else { return }
+        busy = true
+        defer { busy = false }
+        commandProof = await JarvisRoundTrip.check()
+    }
 
     func run() async {
         guard !busy else { return }
@@ -150,14 +158,20 @@ final class MacReadinessDiagnostics: ObservableObject {
     }
 
     var report: String {
-        let moment = checkedAt?.formatted(date: .abbreviated, time: .standard)
+        let moment = (checkedAt ?? commandProof?.testedAt)?.formatted(date: .abbreviated, time: .standard)
             ?? "미실행"
         let details = findings.map { item in
             "\(item.title) [\(item.kind)]: \(item.detail)"
         }.joined(separator: "\n")
+        let commandEvidence: String
+        if let proof = commandProof {
+            commandEvidence = "\n로컬 텍스트 명령 왕복 점검 [\(proof.passed ? "verified" : "attention")]: \(proof.detail)"
+        } else {
+            commandEvidence = "\n로컬 텍스트 명령 왕복 점검 [manual]: 아직 사용자가 실제 JARVIS.app에서 점검을 시작하지 않았습니다."
+        }
         return "JARVIS Mac 로컬 진단 · \(moment)\n"
             + "실제 실기기 확인에만 유효하며, 미검증 항목은 성공으로 표시하지 않습니다.\n"
-            + details
+            + details + commandEvidence
     }
 }
 
@@ -170,7 +184,7 @@ struct MacReadinessPanel: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Mac 실기기 점검")
                         .font(.title3.weight(.medium))
-                    Text("명령을 실행하지 않고 현재 권한·로컬 서버·저장소·도구 상태만 확인합니다.")
+                    Text("진단은 권한 상태만 읽습니다. 텍스트 왕복 점검 버튼은 로컬 서버에 읽기 전용 명령 1회를 보냅니다.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -179,15 +193,41 @@ struct MacReadinessPanel: View {
                     Task { await diagnostics.run() }
                 }
                 .disabled(diagnostics.busy)
+                Button("로컬 텍스트 명령 왕복 점검") {
+                    Task { await diagnostics.verifyLocalTextCommand() }
+                }
+                .disabled(diagnostics.busy)
+                .help("등록 프로젝트를 로컬에서 조회하고 한 번만 읽기 전용 텍스트 명령을 보냅니다. 마이크·GitHub·코드 실행 없음.")
                 Button("결과 복사") {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(diagnostics.report, forType: .string)
                 }
-                .disabled(diagnostics.findings.isEmpty || diagnostics.busy)
+                .disabled((diagnostics.findings.isEmpty && diagnostics.commandProof == nil) || diagnostics.busy)
             }
             if diagnostics.busy {
                 ProgressView("확인 중…")
                     .progressViewStyle(.linear)
+            }
+            if let proof = diagnostics.commandProof {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: proof.passed
+                          ? "checkmark.circle" : "exclamationmark.triangle")
+                        .foregroundStyle(proof.passed ? Color.green : Color.orange)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("실제 로컬 텍스트 명령 왕복 점검")
+                            .font(.subheadline.weight(.medium))
+                        Text(proof.detail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                        Text("검사 시각: \(proof.testedAt.formatted(date: .abbreviated, time: .standard))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 9))
             }
             if diagnostics.findings.isEmpty && !diagnostics.busy {
                 ContentUnavailableView("아직 실행한 진단이 없습니다.",

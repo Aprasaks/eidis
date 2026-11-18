@@ -26,52 +26,67 @@ final class JarvisBridge: ObservableObject {
 }
 
 /// Explicit push-to-talk only. No background listening or transcript archive.
+/// Ending audio is not the same as cancelling speech recognition. We allow
+/// a bounded finalization period before forwarding any recognized words.
 @MainActor
 final class LocalSpeechListener: ObservableObject {
     @Published private(set) var isListening = false
+    @Published private(set) var isStarting = false
+    @Published private(set) var isFinalizing = false
     @Published private(set) var transcript = ""
     @Published private(set) var status = "마이크가 꺼져 있습니다. 버튼을 누를 때만 듣습니다."
+    @Published private(set) var lastCaptureEvidence = ""
 
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "ko-KR"))
     private let engine = AVAudioEngine()
     private var audioRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
+    private var tapInstalled = false
+    private var finalReceived = false
+    private var recognitionFailed = false
+    private var sessionId = UUID()
+
+    var captureBusy: Bool { isStarting || isFinalizing }
 
     func start() async {
-        guard !isListening else { return }
+        guard !isListening, !isStarting, !isFinalizing else { return }
+        let session = UUID()
+        sessionId = session
+        isStarting = true
+        defer { if sessionId == session { isStarting = false } }
         transcript = ""
+        lastCaptureEvidence = ""
+        finalReceived = false
+        recognitionFailed = false
+        status = "한국어 음성 인식과 마이크 권한을 확인합니다."
 
-        // SwiftPM's unbundled executable has no usage descriptions. Prevent a privacy-related crash.
+        // SwiftPM's unbundled executable has no usage descriptions.
         guard Bundle.main.object(forInfoDictionaryKey: "NSMicrophoneUsageDescription") != nil,
               Bundle.main.object(forInfoDictionaryKey: "NSSpeechRecognitionUsageDescription") != nil else {
             status = "권한 설명이 포함된 JARVIS.app으로 실행해야 합니다."
             return
         }
-        guard let recognizer else {
-            status = "한국어 음성 인식을 사용할 수 없습니다."
+        guard let recognizer, recognizer.isAvailable else {
+            status = "한국어 음성 인식 서비스를 이용할 수 없습니다."
             return
         }
-        guard recognizer.isAvailable else {
-            status = "한국어 음성 인식 서비스가 현재 사용 불가능합니다."
-            return
-        }
-        // Never silently fall back to remote speech recognition.
         guard recognizer.supportsOnDeviceRecognition else {
-            status = "이 Mac에서는 한국어 온디바이스 인식을 지원하지 않습니다. 외부 전송은 하지 않았습니다."
+            status = "한국어 온디바이스 인식을 지원하지 않습니다. 외부 인식 서비스를 사용하지 않았습니다."
             return
         }
-
         let speechPermission = await withCheckedContinuation {
             (continuation: CheckedContinuation<SFSpeechRecognizerAuthorizationStatus, Never>) in
             SFSpeechRecognizer.requestAuthorization { permission in
                 continuation.resume(returning: permission)
             }
         }
+        guard session == sessionId else { return }
         guard speechPermission == .authorized else {
             status = "음성 인식 권한이 허용되지 않았습니다. 시스템 설정에서 확인해 주세요."
             return
         }
         let microphoneAllowed = await AVCaptureDevice.requestAccess(for: .audio)
+        guard session == sessionId else { return }
         guard microphoneAllowed else {
             status = "마이크 접근 권한이 허용되지 않았습니다. 시스템 설정에서 확인해 주세요."
             return
@@ -80,7 +95,6 @@ final class LocalSpeechListener: ObservableObject {
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.requiresOnDeviceRecognition = true
         request.shouldReportPartialResults = true
-
         do {
             let input = engine.inputNode
             let format = input.outputFormat(forBus: 0)
@@ -91,48 +105,110 @@ final class LocalSpeechListener: ObservableObject {
             input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
                 request.append(buffer)
             }
+            tapInstalled = true
             audioRequest = request
             engine.prepare()
             try engine.start()
             isListening = true
-            status = "듣는 중… 끝나면 ‘완료하고 전달’을 누르세요."
+            status = "듣는 중… '자비스, 다음 할 일 뭐야?'라고 말한 뒤 완료를 누르세요."
 
             recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
                 Task { @MainActor [weak self] in
-                    guard let self, self.isListening else { return }
+                    guard let self, self.sessionId == session,
+                          self.isListening || self.isFinalizing else { return }
                     if let result {
                         self.transcript = result.bestTranscription.formattedString
+                        if result.isFinal { self.finalReceived = true }
                     }
-                    if let error {
-                        self.status = "음성 인식 실패: \(error.localizedDescription)"
-                        _ = self.stop()
+                    if let error, !self.finalReceived {
+                        self.recognitionFailed = true
+                        self.status = "음성 인식 실패: \(error.localizedDescription). 명령은 보내지 않았습니다."
+                        self.stopAudio()
+                        // Do not leave the microphone UI claiming LISTENING after
+                        // the recognizer has already failed.
+                        if self.isListening {
+                            self.isListening = false
+                            self.audioRequest?.endAudio()
+                            self.recognitionTask?.cancel()
+                            self.recognitionTask = nil
+                            self.audioRequest = nil
+                        }
                     }
                 }
             }
         } catch {
-            if engine.isRunning { engine.stop() }
-            engine.inputNode.removeTap(onBus: 0)
+            stopAudio()
+            audioRequest?.endAudio()
+            recognitionTask?.cancel()
+            recognitionTask = nil
             audioRequest = nil
+            isListening = false
             status = "마이크 시작 실패: \(error.localizedDescription)"
         }
     }
 
-    @discardableResult
-    func stop() -> String {
-        let text = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-        if isListening {
-            engine.stop()
+    private func stopAudio() {
+        if engine.isRunning { engine.stop() }
+        if tapInstalled {
             engine.inputNode.removeTap(onBus: 0)
+            tapInstalled = false
         }
+    }
+
+    /// Finish only after on-device recognition has had a chance to emit its
+    /// final transcript. Never send an empty/failed/cancelled recognition.
+    func finish() async -> String {
+        guard isListening, !isFinalizing, !isStarting else { return "" }
+        let session = sessionId
+        isFinalizing = true
+        isListening = false
+        status = "녹음을 마쳤습니다. 인식 문장을 확정하고 있습니다."
+        stopAudio()
+        audioRequest?.endAudio()
+        // 1.5 seconds maximum for on-device final transcription.
+        for _ in 0..<15 {
+            if finalReceived || recognitionFailed || sessionId != session { break }
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+        guard sessionId == session else { return "" }
+        let recognized = LocalSpeechDecision.acceptedText(
+            transcript, failed: recognitionFailed)
+        let final = finalReceived
+        let failed = recognitionFailed
+        let failureDescription = status
+        recognitionTask?.cancel()
+        recognitionTask = nil
+        audioRequest = nil
+        isFinalizing = false
+        guard let recognized else {
+            status = failed
+                ? "\(failureDescription) 명령 전송 없음."
+                : "인식된 문장이 없습니다. 서버에 아무 명령도 보내지 않았습니다."
+            return ""
+        }
+        // A partial result is labelled as such; don't claim final validation.
+        let certainty = LocalSpeechDecision.recognitionLabel(isFinal: final)
+        lastCaptureEvidence = "\(certainty) · 한국어 온디바이스 인식 · \(Date().formatted(date: .omitted, time: .standard)) · 서버 전송은 별도 단계"
+        status = "\(certainty) 문장 확보: \(recognized). 명령 전달을 시도합니다."
+        return recognized
+    }
+
+    func cancel() {
+        // Invalidate any late recognition or permissions callbacks.
+        sessionId = UUID()
+        stopAudio()
         audioRequest?.endAudio()
         recognitionTask?.cancel()
         recognitionTask = nil
         audioRequest = nil
+        isStarting = false
         isListening = false
-        if !status.hasPrefix("음성 인식 실패") {
-            status = text.isEmpty ? "인식된 문장이 없습니다." : "음성 인식 종료. 확인된 문장만 전달합니다."
-        }
-        return text
+        isFinalizing = false
+        recognitionFailed = false
+        finalReceived = false
+        transcript = ""
+        lastCaptureEvidence = ""
+        status = "음성 입력을 취소했습니다. 아무 명령도 보내지 않았습니다."
     }
 }
 
@@ -189,10 +265,46 @@ struct NativeSpeechPanel: View {
     @ObservedObject var bridge: JarvisBridge
     @ObservedObject var voice: JarvisVoiceService
     @ObservedObject var elevenLabs: ElevenLabsVoiceService
+    @ObservedObject var projectWork: ApprovedWorkModel
+    let onWorkspaceRequest: (JarvisWorkspaceCommand) -> Void
     @State private var elevenAPIKeyDraft = ""
     @StateObject private var listener = LocalSpeechListener()
     @StateObject private var client = LocalCommandClient()
     @State private var typedCommand = ""
+    @State private var routingBusy = false
+    @State private var workspaceRoutingResult = ""
+
+    /// Recognized project-opening phrases stay local and produce only a
+    /// proposal. Ordinary questions retain the existing local chat behavior.
+    private func sendCommand(_ phrase: String) {
+        let trimmed = phrase.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !routingBusy, !client.busy else { return }
+        workspaceRoutingResult = ""
+        if JarvisWorkspaceCommandParser.isOpenRequest(trimmed) {
+            routingBusy = true
+            Task {
+                defer { routingBusy = false }
+                // Only the existing loopback project list is read here.
+                // The parser never guesses a project from incomplete names.
+                if projectWork.projects.isEmpty { await projectWork.refresh() }
+                switch JarvisWorkspaceCommandParser.parse(trimmed, projects: projectWork.projects) {
+                case .ordinary:
+                    await client.submit(trimmed, bridge: bridge, voice: voice, elevenLabs: elevenLabs)
+                case .matched(let request):
+                    workspaceRoutingResult = "\(request.projectName) 작업 공간 열기 제안을 만들었습니다. 작업 탭에서 대상을 확인하고 직접 승인해 주세요. 아직 열지 않았습니다."
+                    onWorkspaceRequest(request)
+                case .missingProject:
+                    workspaceRoutingResult = "입력한 문장과 정확히 일치하는 등록 프로젝트를 찾지 못했습니다. 프로젝트 전체 이름을 적어 주세요. 실행하지 않았습니다."
+                case .ambiguous:
+                    workspaceRoutingResult = "여러 프로젝트명이 일치합니다. 프로젝트 전체 이름을 정확히 입력해 주세요. 실행하지 않았습니다."
+                case .unsupported:
+                    workspaceRoutingResult = "열기와 함께 변경·삭제·배포를 요청하는 문장은 처리하지 않습니다. 작업 공간 열기만 별도로 요청해 주세요."
+                }
+            }
+        } else {
+            Task { await client.submit(trimmed, bridge: bridge, voice: voice, elevenLabs: elevenLabs) }
+        }
+    }
 
     var body: some View {
         ScrollView {
@@ -301,21 +413,26 @@ struct NativeSpeechPanel: View {
                 .padding(.vertical, 4)
             }
             HStack {
-                Button(listener.isListening ? "완료하고 명령 전달" : "마이크로 말하기") {
+                Button(listener.isFinalizing ? "인식 확정 중…" :
+                       listener.isStarting ? "마이크 권한 확인 중…" :
+                       listener.isListening ? "완료하고 명령 전달" : "마이크로 말하기") {
                     if listener.isListening {
-                        let phrase = listener.stop()
-                        Task { await client.submit(phrase, bridge: bridge, voice: voice, elevenLabs: elevenLabs) }
+                        Task {
+                            let phrase = await listener.finish()
+                            if !phrase.isEmpty { sendCommand(phrase) }
+                        }
                     } else {
                         Task { await listener.start() }
                     }
                 }
-                .disabled(client.busy)
+                .disabled(client.busy || routingBusy || listener.captureBusy)
                 Button("취소") {
-                    _ = listener.stop()
+                    listener.cancel()
                 }
-                .disabled(!listener.isListening)
+                .disabled(!(listener.isListening || listener.captureBusy))
                 Spacer()
-                Text(listener.isListening ? "● LISTENING" : "MIC OFF")
+                Text(listener.isListening ? "● LISTENING" :
+                     listener.captureBusy ? "PROCESSING" : "MIC OFF")
                     .font(.caption.monospaced())
                     .foregroundStyle(listener.isListening ? .cyan : .secondary)
             }
@@ -323,6 +440,18 @@ struct NativeSpeechPanel: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
+            if !listener.lastCaptureEvidence.isEmpty {
+                Text(listener.lastCaptureEvidence)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+            Text("마이크로 실제 명령 점검: '자비스, 다음 할 일 뭐야?'라고 말하세요. 음성 인식 문장과 아래 로컬 서버 응답을 각각 확인합니다. 음성이 실제로 들렸는지는 직접 확인해야 합니다.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text("프로젝트 이어하기 예: JARVIS eidis 작업 이어서 열어줘 · 아래 메뉴에서 다른 등록 프로젝트도 선택할 수 있어요.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
             GroupBox("인식한 문장") {
                 ScrollView {
                     Text(listener.transcript.isEmpty ? "예: 자비스, 대시보드 띄워" : listener.transcript)
@@ -333,29 +462,58 @@ struct NativeSpeechPanel: View {
                 .frame(minHeight: 95)
             }
             HStack {
+                Button("자비스 다음 할 일") {
+                    sendCommand("자비스, 다음 할 일 뭐야?")
+                }
+                .disabled(routingBusy || client.busy)
+                .help("JARVIS eidis의 저장된 작업을 로컬 서버에서 읽고 답합니다. GitHub 조회나 코드 실행은 하지 않습니다.")
+                Menu("등록 프로젝트 선택") {
+                    ForEach(projectWork.projects) { project in
+                        Button(project.name) {
+                            typedCommand = "\(project.name) 작업 이어서 열어줘"
+                        }
+                    }
+                }
+                .disabled(projectWork.projects.isEmpty || routingBusy || client.busy)
+                Button("목록 갱신") {
+                    Task { await projectWork.refresh() }
+                }
+                .disabled(projectWork.busy || routingBusy || client.busy)
+                Spacer()
+                Text("선택하면 입력만 됩니다. 실행과 열기 승인은 별개입니다.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            HStack {
                 TextField("마이크가 안 되면 여기서 명령을 입력하세요.", text: $typedCommand)
                     .textFieldStyle(.roundedBorder)
                     .onSubmit { sendTyped() }
                 Button("실행") { sendTyped() }
-                    .disabled(client.busy || typedCommand.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(client.busy || routingBusy ||
+                              typedCommand.trimmingCharacters(in: .whitespaces).isEmpty)
             }
             GroupBox("자비스 응답") {
-                Text(client.lastResponse)
+                Text(workspaceRoutingResult.isEmpty ? client.lastResponse : workspaceRoutingResult)
                     .frame(maxWidth: .infinity, minHeight: 62, alignment: .topLeading)
                     .textSelection(.enabled)
                     .padding(8)
             }
-            Text("완료 검증: 이 탭은 실제 로컬 HTTP 응답이 200일 때만 명령 결과를 표시합니다. 웹 대시보드 탭에도 같은 결과를 전달합니다.")
+            Text("일반 명령은 로컬 자비스 서버로 전달합니다. 정확한 프로젝트 이름과 '작업 이어서 열어줘'를 포함한 문장은 이 Mac의 작업 탭에 제안을 만들 뿐, 승인 없이 Finder·GitHub를 열지 않습니다.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }
             .padding(24)
+        }
+        .task {
+            if projectWork.projects.isEmpty {
+                await projectWork.refresh()
+            }
         }
     }
 
     private func sendTyped() {
         let phrase = typedCommand
         typedCommand = ""
-        Task { await client.submit(phrase, bridge: bridge, voice: voice, elevenLabs: elevenLabs) }
+        sendCommand(phrase)
     }
 }

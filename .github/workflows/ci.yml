@@ -40,6 +40,45 @@ jobs:
         run: swift --version
       - name: Build development JARVIS.app (no TCC prompts in CI)
         run: bash macos/scripts/package-app.sh
+      - name: Test local screenshot-text question logic
+        run: |
+          swiftc -o /tmp/jarvis-screen-insights-test macos/tests/main.swift macos/Sources/EidisMac/LocalScreenInsights.swift macos/Sources/EidisMac/JarvisSafePressPolicy.swift macos/Sources/EidisMac/ApprovedProjectsPanel.swift macos/Sources/EidisMac/LocalGitInspector.swift macos/Sources/EidisMac/JarvisHandoffReport.swift macos/Sources/EidisMac/JarvisWorkspaceResume.swift macos/Sources/EidisMac/WorkspaceResumePanel.swift macos/Sources/EidisMac/JarvisWorkspaceCommand.swift macos/Sources/EidisMac/JarvisTaskNote.swift macos/Sources/EidisMac/JarvisNoteLibrary.swift macos/Sources/EidisMac/JarvisNoteRevision.swift macos/Sources/EidisMac/JarvisLocalPlanning.swift
+          /tmp/jarvis-screen-insights-test
+      - name: Check native local-command roundtrip verification guards (fixture only)
+        run: |
+          swiftc -o /tmp/jarvis-roundtrip-test macos/tests/roundtrip/main.swift macos/Sources/EidisMac/JarvisRoundTrip.swift
+          /tmp/jarvis-roundtrip-test
+      - name: Test evidence-grounded local AI planning policy (no model calls)
+        run: |
+          SOURCE=macos/Sources/EidisMac
+          swiftc -o /tmp/jarvis-local-planner-test macos/tests/planner/main.swift macos/Sources/EidisMac/ApprovedProjectsPanel.swift macos/Sources/EidisMac/JarvisHandoffReport.swift macos/Sources/EidisMac/JarvisLocalPlanning.swift macos/Sources/EidisMac/LocalGitInspector.swift macos/Sources/EidisMac/JarvisWorkspaceResume.swift macos/Sources/EidisMac/WorkspaceResumePanel.swift macos/Sources/EidisMac/JarvisWorkspaceCommand.swift "$SOURCE"/JarvisTaskNote.swift "$SOURCE"/JarvisNoteLibrary.swift "$SOURCE"/JarvisNoteRevision.swift
+          /tmp/jarvis-local-planner-test
+      - name: Verify packed localhost server and native bootstrap without app launch
+        run: |
+          test -f dist/JARVIS.app/Contents/Resources/app.py
+          test -f dist/JARVIS.app/Contents/Resources/jarvis/server.py
+          test -f dist/JARVIS.app/Contents/Resources/web/index.html
+          test ! -f dist/JARVIS.app/Contents/Resources/.env
+          test ! -f dist/JARVIS.app/Contents/Resources/memory.sqlite3
+          swiftc -o /tmp/jarvis-bundled-server-guards macos/tests/server/main.swift macos/Sources/EidisMac/JarvisBundledServer.swift
+          /tmp/jarvis-bundled-server-guards "$PWD/dist/JARVIS.app/Contents/Resources"
+      - name: Verify cinematic native dashboard and state-driven launch
+        run: |
+          swiftc -o /tmp/jarvis-v37-dashboard-smoke macos/tests/dashboard/main.swift macos/Sources/EidisMac/JarvisSystemSnapshot.swift macos/Sources/EidisMac/JarvisCoreView.swift macos/Sources/EidisMac/JarvisStatusBadge.swift macos/Sources/EidisMac/JarvisIntroSplashView.swift macos/Sources/EidisMac/JarvisDashboardHomeView.swift macos/Sources/EidisMac/JarvisImmersiveHomeView.swift
+          /tmp/jarvis-v37-dashboard-smoke
+
+      - name: Test Korean speech finalization decision (no microphone access)
+        run: |
+          swiftc -o /tmp/jarvis-voice-decision macos/tests/voice/main.swift macos/Sources/EidisMac/LocalSpeechDecision.swift
+          /tmp/jarvis-voice-decision
+      - name: Test fixed-command local Git reader
+        run: |
+          swiftc -o /tmp/jarvis-local-git-test macos/tests/git/main.swift macos/Sources/EidisMac/LocalGitInspector.swift
+          /tmp/jarvis-local-git-test "$PWD"
+      - name: Smoke test native Work UI offscreen (no TCC prompts)
+        run: |
+          swiftc -o /tmp/jarvis-ui-smoke macos/tests/ui/main.swift macos/Sources/EidisMac/ApprovedProjectsPanel.swift macos/Sources/EidisMac/JarvisWorkspaceResume.swift macos/Sources/EidisMac/WorkspaceResumePanel.swift macos/Sources/EidisMac/JarvisHandoffReport.swift macos/Sources/EidisMac/LocalGitInspector.swift macos/Sources/EidisMac/JarvisWorkspaceCommand.swift macos/Sources/EidisMac/JarvisTaskNote.swift macos/Sources/EidisMac/JarvisNoteLibrary.swift macos/Sources/EidisMac/JarvisNoteRevision.swift macos/Sources/EidisMac/JarvisLocalPlanning.swift
+          /tmp/jarvis-ui-smoke
       - name: Verify bundle structure, usage descriptions and signature
         run: |
           test -x dist/JARVIS.app/Contents/MacOS/EidisMac

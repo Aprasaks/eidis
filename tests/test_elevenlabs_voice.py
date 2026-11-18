@@ -49,7 +49,7 @@ class ElevenLabsVoiceContract(unittest.TestCase):
         self.assertIn("Toggle(\"이후 자비스 답변을 ElevenLabs로 음성 생성",SPEECH)
         self.assertIn("synthesizer.speak",VOICE)
         self.assertIn("await elevenLabs.speak(answer.spoken, fallback: voice)",SPEECH)
-        self.assertIn("NativeSpeechPanel(bridge: bridge, voice: voice, elevenLabs: elevenLabs)",APP)
+        self.assertIn("bridge: bridge, voice: voice, elevenLabs: elevenLabs,",APP)
 
     def test_no_key_or_voice_content_in_web_storage(self):
         for path in (ROOT/"web").glob("*.js"):

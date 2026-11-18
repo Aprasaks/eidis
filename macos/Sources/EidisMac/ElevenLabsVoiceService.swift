@@ -10,8 +10,8 @@ import SwiftUI
 @MainActor
 final class ElevenLabsVoiceService: ObservableObject {
     static let suggestedVoiceID = "O2KReOFLpoR65nz6C9Se"
-    private static let service = "dev.dechive.eidis.elevenlabs"
-    private static let account = "text-to-speech-api"
+    nonisolated private static let service = "dev.dechive.eidis.elevenlabs"
+    nonisolated private static let account = "text-to-speech-api"
     private static let enabledKey = "jarvis.elevenlabs.enabled"
     private static let voiceKey = "jarvis.elevenlabs.voiceID"
     private static let modelKey = "jarvis.elevenlabs.modelID"
@@ -41,22 +41,45 @@ final class ElevenLabsVoiceService: ObservableObject {
     private let defaults: UserDefaults
     private let session: URLSession
     private var player: AVAudioPlayer?
+    private var keyStateRevision = 0
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         self.voiceID = defaults.string(forKey: Self.voiceKey) ?? Self.suggestedVoiceID
         self.modelID = defaults.string(forKey: Self.modelKey) ?? "eleven_flash_v2_5"
-        let hasSavedKey = Self.readKey() != nil
+        // Do NOT synchronously access the macOS Keychain on the SwiftUI
+        // main thread during app launch. It can wait for a locked keychain,
+        // preventing the entire JARVIS window and bundled server from opening.
+        let hasSavedKey = false
         self.keyPresent = hasSavedKey
         self.enabled = defaults.bool(forKey: Self.enabledKey) && hasSavedKey
-        self.status = "기본 OFF · 재생 전 API 키와 사용 설정이 필요합니다."
+        self.status = "ElevenLabs 키체인 상태 확인 중 · 음성 생성은 기본 OFF"
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = 20
         configuration.timeoutIntervalForResource = 25
         self.session = URLSession(configuration: configuration)
+        Task { [weak self] in
+            await self?.refreshSavedKeyAvailability()
+        }
     }
 
-    private static func keychainQuery() -> [String: Any] {
+    private func refreshSavedKeyAvailability() async {
+        let revision = keyStateRevision
+        // Keychain lookup may block until the Mac session is unlocked.
+        // Keep that wait entirely off SwiftUI's main actor.
+        let hasSavedKey = await Task.detached(priority: .utility) {
+            Self.readKey() != nil
+        }.value
+        guard revision == keyStateRevision else { return }
+        keyPresent = hasSavedKey
+        enabled = defaults.bool(forKey: Self.enabledKey) && hasSavedKey
+        status = hasSavedKey
+            ? (enabled ? "ElevenLabs 키 확인됨 · 사용 설정 ON"
+                       : "ElevenLabs 키 확인됨 · 음성 생성 OFF")
+            : "ElevenLabs API 키가 없거나 키체인이 잠겨 있습니다. 기본 Mac 음성을 사용합니다."
+    }
+
+    nonisolated private static func keychainQuery() -> [String: Any] {
         [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -64,7 +87,7 @@ final class ElevenLabsVoiceService: ObservableObject {
         ]
     }
 
-    private static func readKey() -> String? {
+    nonisolated private static func readKey() -> String? {
         var query = keychainQuery()
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
@@ -92,6 +115,7 @@ final class ElevenLabsVoiceService: ObservableObject {
         } else {
             final = result
         }
+        keyStateRevision += 1
         keyPresent = final == errSecSuccess
         status = keyPresent
             ? "API 키를 Mac 키체인에 저장했습니다. 음성 생성은 아직 OFF입니다."
@@ -103,6 +127,7 @@ final class ElevenLabsVoiceService: ObservableObject {
     func removeKey() {
         let code = SecItemDelete(Self.keychainQuery() as CFDictionary)
         if code == errSecSuccess || code == errSecItemNotFound {
+            keyStateRevision += 1
             enabled = false
             keyPresent = false
             player?.stop()
@@ -121,7 +146,12 @@ final class ElevenLabsVoiceService: ObservableObject {
             status = "Voice ID 형식 오류: 영문·숫자 20자리인지 확인해 주세요."
             return
         }
-        guard let key = Self.readKey() else {
+        isCheckingConnection = true
+        defer { isCheckingConnection = false }
+        let key = await Task.detached(priority: .userInitiated) {
+            Self.readKey()
+        }.value
+        guard let key else {
             keyPresent = false
             enabled = false
             status = "키체인에서 API 키를 읽을 수 없습니다. 앱에서 키를 다시 저장해 주세요."
@@ -131,8 +161,6 @@ final class ElevenLabsVoiceService: ObservableObject {
             status = "Voice ID 주소가 올바르지 않습니다."
             return
         }
-        isCheckingConnection = true
-        defer { isCheckingConnection = false }
         status = "ElevenLabs 음성 접근 확인 중… (음성 생성 없음)"
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -213,9 +241,16 @@ final class ElevenLabsVoiceService: ObservableObject {
             fallback.speak(phrase)
             return
         }
-        guard ["eleven_flash_v2_5", "eleven_multilingual_v2"].contains(modelID),
-              let key = Self.readKey() else {
+        guard ["eleven_flash_v2_5", "eleven_multilingual_v2"].contains(modelID) else {
             status = "ElevenLabs 모델 또는 API 키를 확인해 주세요."
+            fallback.speak(phrase)
+            return
+        }
+        let key = await Task.detached(priority: .userInitiated) {
+            Self.readKey()
+        }.value
+        guard let key else {
+            status = "ElevenLabs API 키를 읽지 못했습니다. Mac 기본 음성으로 전환합니다."
             fallback.speak(phrase)
             return
         }
