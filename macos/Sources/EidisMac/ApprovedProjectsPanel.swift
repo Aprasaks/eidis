@@ -126,6 +126,7 @@ final class ApprovedWorkModel: ObservableObject {
     @Published private(set) var projects: [WorkProject] = []
     @Published private(set) var busy = false
     @Published private(set) var status = "로컬 프로젝트를 불러오지 않았습니다."
+    @Published private(set) var lastRefreshSucceeded = false
     @Published private(set) var lastReceipt: WorkCheckReceipt?
     @Published private(set) var localEvidence: [Int: LocalGitEvidence] = [:]
     @Published private(set) var localMessages: [Int: String] = [:]
@@ -243,10 +244,12 @@ final class ApprovedWorkModel: ObservableObject {
     func refresh() async {
         guard !busy else { return }
         busy = true
+        lastRefreshSucceeded = false
         defer { busy = false }
         do {
             let result: WorkProjectsReply = try await fetch("/api/projects")
             projects = result.items
+            lastRefreshSucceeded = true
             status = "프로젝트 \(result.items.count)개를 로컬 DB에서 읽었습니다. GitHub는 조회하지 않았습니다."
         } catch {
             status = "로컬 프로젝트 확인 실패: \(error.localizedDescription)"

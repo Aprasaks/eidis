@@ -128,3 +128,5 @@ Mac 앱의 음성 탭에서 **설치된 한국어 목소리 선택, 속도/음�
 Mac 앱 음성 탭에서 제공받은 Voice ID를 기본 입력하고, macOS 키체인에 API 키를 직접 저장하면 ElevenLabs 미리 듣기와 유료 음성 출력을 선택적으로 활성화할 수 있습니다. API 키를 저장해도 자동 호출하지 않으며 5회/실행·600자/응답 제한과 Mac 기본 음성 대체 기능이 적용됩니다. 앱에서 실제 유료 요청을 아직 시험하지 않았습니다. 상세: docs/ELEVENLABS_V17.md.
 
 Mac JARVIS v3.6: 설치한 Mac 앱을 열면 로컬 Python 서버를 자동 확인/시작합니다. 별도 터미널 명령 없이 127.0.0.1:8765로 연결하며 기존 서버나 DB를 초기화하지 않습니다. [상세 기록](docs/BUNDLED_LOCAL_SERVER_V36.md).
+
+**Mac JARVIS v3.7.1:** New native launch intro and JARVIS dashboard with real loopback/task/voice/Apple local model states, a restrained rotating core and existing tools preserved. See [design and validation](docs/NATIVE_DASHBOARD_V37.md). Sample-data screenshots are in docs/screenshots/.

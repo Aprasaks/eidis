@@ -10,6 +10,7 @@ final class JarvisBundledServer: ObservableObject {
     @Published private(set) var ready = false
     @Published private(set) var owner = "미확인"
     @Published private(set) var checking = false
+    @Published private(set) var attemptedConnection = false
 
     private var ownedProcess: Process?
     private var runningCheck = false
@@ -89,9 +90,11 @@ final class JarvisBundledServer: ObservableObject {
         guard !runningCheck, !shuttingDown else { return }
         runningCheck = true
         checking = true
+        attemptedConnection = false
         defer {
             runningCheck = false
             checking = false
+            attemptedConnection = true
         }
         ready = false
         message = "로컬 서버 연결 확인 중"

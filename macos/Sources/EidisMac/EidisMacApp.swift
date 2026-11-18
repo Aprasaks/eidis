@@ -128,6 +128,60 @@ struct JarvisWindow: View {
     @State private var workspaceRequest: JarvisWorkspaceCommand?
     @State private var reloadID = UUID()
     @State private var screenQuestion = "이 화면에서 오류가 있는지 찾아줘"
+    @State private var showLaunchIntro = true
+    @State private var showLegacyConsole = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    // On-device numbers are read only from a confirmed /api/projects reply.
+    // The local model state is a capability check, not evidence of a completed task.
+    private var systemSnapshot: JarvisSystemSnapshot {
+        let loaded = localServer.ready && projectWork.lastRefreshSucceeded
+        let projects = loaded ? projectWork.projects : []
+        let counts = projects.reduce((todo: 0, doing: 0, done: 0, blocked: 0)) {
+            previous, project in
+            (
+                todo: previous.todo + project.taskCounts.todo,
+                doing: previous.doing + project.taskCounts.doing,
+                done: previous.done + project.taskCounts.done,
+                blocked: previous.blocked + project.taskCounts.blocked
+            )
+        }
+        let firstDoing = projects.lazy.compactMap { project -> (String, String)? in
+            guard let task = project.nextTasks.first(where: { $0.status == "doing" }) else {
+                return nil
+            }
+            return (project.name, task.title)
+        }.first
+        let firstToDo = projects.lazy.compactMap { project -> (String, String)? in
+            guard let task = project.nextTasks.first(where: { $0.status == "todo" }) else {
+                return nil
+            }
+            return (project.name, task.title)
+        }.first
+        let next = firstDoing ?? firstToDo
+        let server: JarvisSystemSnapshot.ServerState = localServer.ready
+            ? .online : ((!localServer.attemptedConnection || localServer.checking)
+                         ? .checking : .offline)
+        return JarvisSystemSnapshot(
+            server: server, recordsLoaded: loaded,
+            projectCount: projects.count,
+            taskCount: counts.todo + counts.doing + counts.done + counts.blocked,
+            doingCount: counts.doing, todoCount: counts.todo,
+            doneCount: counts.done, blockedCount: counts.blocked,
+            nextTaskTitle: next?.1, nextTaskProject: next?.0,
+            voiceOutputAvailable: !voice.voiceID.isEmpty &&
+                voice.availableVoices.contains(where: { $0.identifier == voice.voiceID }),
+            appleModelState: JarvisLocalPlanning.availabilityDescription()
+        )
+    }
+
+    private func refreshDashboard() {
+        Task {
+            if !localServer.ready { await localServer.connectOnLaunch() }
+            if localServer.ready { await projectWork.refresh() }
+            reloadID = UUID()
+        }
+    }
 
     private func answerScreenQuestion() {
         // Only the user's last explicit inspection may contribute UI context.
@@ -138,49 +192,73 @@ struct JarvisWindow: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Image(systemName: "circle.hexagongrid")
-                    .foregroundStyle(.cyan)
-                Text("개인 AI 작업 공간")
-                    .font(.system(size: 15, weight: .medium))
-                Spacer()
-            }
-            .padding(.horizontal, 22)
-            .padding(.vertical, 15)
-
-            Divider()
-
-            TabView(selection: $selectedTab) {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text("로컬 자비스 작업 공간")
-                            .font(.headline)
-                        Spacer()
-                        Button("Mac 목소리 미리 듣기") { voice.preview() }
-                            .help("Mac 자체 한국어 음성 합성 테스트")
-                        Button("새로고침") { reloadID = UUID() }
+        ZStack {
+            VStack(spacing: 0) {
+                HStack(spacing: 12) {
+                    Image(systemName: "circle.hexagongrid")
+                        .foregroundStyle(Color(red: 0.25, green: 0.82, blue: 0.90))
+                    Text("JARVIS")
+                        .font(.system(size: 13, weight: .medium))
+                        .tracking(2.5)
+                    Text("PERSONAL SYSTEM")
+                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .tracking(1.3)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    if localServer.ready {
+                        Circle().fill(.cyan).frame(width: 6, height: 6)
+                        Text("LOCAL ONLINE")
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.white.opacity(0.73))
+                    } else {
+                        Text(localServer.checking ? "CONNECTING" : "OFFLINE")
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.secondary)
                     }
-                    HStack {
-                        Text(localServer.message)
-                            .font(.caption)
-                            .foregroundStyle(localServer.ready ? .green : .secondary)
-                            .textSelection(.enabled)
-                        Spacer(minLength: 4)
-                        Button("연결 확인") {
-                            Task { await localServer.connectOnLaunch() }
-                        }
-                        .disabled(localServer.checking)
-                        .help("자비스 앱 또는 기존 로컬 서버의 실제 응답을 재검사합니다.")
-                    }
-                    LocalDashboard(event: bridge.event)
-                        .id(reloadID)
-                        .clipShape(RoundedRectangle(cornerRadius: 13))
-                        .overlay(RoundedRectangle(cornerRadius: 13).stroke(.white.opacity(0.10)))
                 }
-                .padding(18)
-                .tabItem { Label("자비스", systemImage: "sparkles") }
-                .tag(JarvisTab.assistant)
+                .padding(.horizontal, 22)
+                .padding(.vertical, 13)
+                .background(Color(red: 0.022, green: 0.035, blue: 0.052))
+
+                Divider().overlay(.white.opacity(0.06))
+
+                TabView(selection: $selectedTab) {
+                    VStack(spacing: 0) {
+                        JarvisDashboardHomeView(
+                            snapshot: systemSnapshot,
+                            onOpenWork: { selectedTab = .work },
+                            onOpenSpeech: { selectedTab = .speech },
+                            onOpenScreen: { selectedTab = .screen },
+                            onOpenDiagnostics: { selectedTab = .diagnostics },
+                            onOpenConsole: { showLegacyConsole.toggle() },
+                            onRefresh: { refreshDashboard() },
+                            onPreviewVoice: { voice.preview() }
+                        )
+                        if showLegacyConsole {
+                            VStack(spacing: 8) {
+                                HStack {
+                                    Text("기존 자비스 웹 콘솔 · 127.0.0.1")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Text(localServer.message)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                    Spacer()
+                                    Button("Mac 목소리 미리 듣기") { voice.preview() }
+                                    Button("콘솔 새로고침") { reloadID = UUID() }
+                                    Button("닫기") { showLegacyConsole = false }
+                                }
+                                LocalDashboard(event: bridge.event)
+                                    .id(reloadID)
+                                    .frame(minHeight: 260)
+                                    .clipShape(RoundedRectangle(cornerRadius: 13))
+                            }
+                            .padding(18)
+                        }
+                    }
+                    .tabItem { Label("자비스", systemImage: "circle.hexagongrid") }
+                    .tag(JarvisTab.assistant)
 
                 ApprovedProjectsPanel(work: projectWork, requestedWorkspace: workspaceRequest)
                     .tabItem { Label("작업", systemImage: "checklist") }
@@ -353,14 +431,40 @@ struct JarvisWindow: View {
                     .tabItem { Label("진단", systemImage: "stethoscope") }
                     .tag(JarvisTab.diagnostics)
             }
-            .padding(.horizontal, 8)
+                .padding(.horizontal, 8)
+            }
+            .background(Color(red: 0.012, green: 0.018, blue: 0.027))
+            .preferredColorScheme(.dark)
+
+            if showLaunchIntro {
+                JarvisIntroSplashView(snapshot: systemSnapshot)
+                    .transition(.opacity)
+                    .zIndex(10)
+            }
         }
-        .background(Color(red: 0.045, green: 0.064, blue: 0.10))
-        .preferredColorScheme(.dark)
+        .task {
+            // Intro is a short visual reveal, not a simulated system check.
+            // If the server is unavailable the offline dashboard remains usable.
+            try? await Task.sleep(for: .milliseconds(2300))
+            if !Task.isCancelled {
+                if reduceMotion {
+                    showLaunchIntro = false
+                } else {
+                    withAnimation(.easeInOut(duration: 0.45)) {
+                        showLaunchIntro = false
+                    }
+                }
+            }
+        }
         .onChange(of: localServer.ready) { _, didConnect in
             if didConnect {
                 reloadID = UUID()
                 Task { await projectWork.refresh() }
+            }
+        }
+        .task {
+            if localServer.ready && !projectWork.lastRefreshSucceeded {
+                await projectWork.refresh()
             }
         }
     }

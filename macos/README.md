@@ -110,3 +110,7 @@
 ## JARVIS v3.6 — Mac 앱만 실행해도 로컬 서버 연결
 
 JARVIS.app에 localhost Python 서버/웹 UI가 함께 패키징되어 앱 시작 시 정상 로컬 서버를 확인합니다. 이미 실행 중인 JARVIS 서버가 있으면 재사용하며 종료하지 않고, 없다면 앱이 소유할 새 로컬 서버를 시작합니다. 정상 종료 시 **앱이 시작한 서버만** 종료합니다. Python 3 설치는 필요하며, macOS 로그인 시 자동 시작은 활성화하지 않았습니다. 서버가 시작한 프로세스는 외부 AI 키/유료 모델 설정을 상속하지 않습니다. 자세한 검증과 제한: docs/BUNDLED_LOCAL_SERVER_V36.md.
+
+## JARVIS v3.7.1 — New native cinematic home
+
+JARVIS opens to a short, real-status-aware SwiftUI intro followed by a near-black native dashboard with a rotating optical core, verified localhost connection state, project/task counts and next recorded task. Original Work, Voice, Screen, UI and Diagnostics tabs remain intact. Old embedded web console is still available via "기존 자비스 콘솔 열기". Implementation: docs/NATIVE_DASHBOARD_V37.md.
