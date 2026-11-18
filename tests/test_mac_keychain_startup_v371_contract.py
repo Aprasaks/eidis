@@ -34,7 +34,7 @@ class MacKeychainStartupTests(unittest.TestCase):
         self.assertIn('showLaunchIntro', WINDOW)
         self.assertIn('localServer.connectOnLaunch()', WINDOW)
         self.assertRegex(PLIST, r'<string>3\.(?:7\.[1-9][0-9]*|8\.[0-9]+)</string>')
-        self.assertRegex(PLIST, r'<string>3[89]</string>')
+        self.assertRegex(PLIST, r'<string>(?:3[89]|40)</string>')
 
 if __name__ == '__main__':
     unittest.main()

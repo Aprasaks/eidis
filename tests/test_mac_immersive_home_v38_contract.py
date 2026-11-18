@@ -17,6 +17,8 @@ class JarvisImmersiveHomeContracts(unittest.TestCase):
         self.assertIn('if cinematicHome {', APP)
         self.assertIn('JarvisImmersiveHomeView(', APP)
         self.assertIn('onShowDashboard: { cinematicHome = false }', APP)
+        self.assertIn('onRefresh: { refreshDashboard() }', APP)
+        self.assertIn('Button(action: onRefresh)', IMMERSIVE)
         self.assertIn('cinematicHome = true', APP)
         self.assertIn('JarvisDashboardHomeView(', APP)
         self.assertIn('showLegacyConsole = false', APP)
@@ -54,8 +56,8 @@ class JarvisImmersiveHomeContracts(unittest.TestCase):
             self.assertNotIn(bad, IMMERSIVE)
 
     def test_release_version(self):
-        self.assertIn('<string>3.8.0</string>', PLIST)
-        self.assertIn('<string>39</string>', PLIST)
+        self.assertIn('<string>3.8.1</string>', PLIST)
+        self.assertIn('<string>40</string>', PLIST)
         self.assertIn('<string>dev.dechive.eidis</string>', PLIST)
 
 

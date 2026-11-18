@@ -5,6 +5,7 @@ import SwiftUI
 struct JarvisImmersiveHomeView: View {
     let snapshot: JarvisSystemSnapshot
     let onShowDashboard: () -> Void
+    let onRefresh: () -> Void
     let onOpenWork: () -> Void
     let onOpenSpeech: () -> Void
     let onOpenScreen: () -> Void
@@ -83,6 +84,14 @@ struct JarvisImmersiveHomeView: View {
                     .foregroundStyle(snapshot.server == .online ? cyan : gray)
             }
             .accessibilityLabel("서버 \(snapshot.server.label)")
+            Button(action: onRefresh) {
+                Label("상태 새로고침", systemImage: "arrow.clockwise")
+                    .font(.system(size: 12, weight: .medium))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("로컬 서버와 작업 기록 새로고침")
             Button(action: onShowDashboard) {
                 Label("대시보드", systemImage: "square.grid.2x2")
                     .font(.system(size: 12, weight: .semibold))
@@ -272,7 +281,7 @@ struct JarvisImmersiveHomeView: View {
 #Preview {
     JarvisImmersiveHomeView(
         snapshot: .initial,
-        onShowDashboard: {},
+        onShowDashboard: {}, onRefresh: {},
         onOpenWork: {}, onOpenSpeech: {},
         onOpenScreen: {}, onOpenDiagnostics: {}
     )

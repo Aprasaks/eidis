@@ -231,6 +231,7 @@ struct JarvisWindow: View {
                             JarvisImmersiveHomeView(
                                 snapshot: systemSnapshot,
                                 onShowDashboard: { cinematicHome = false },
+                                onRefresh: { refreshDashboard() },
                                 onOpenWork: { selectedTab = .work },
                                 onOpenSpeech: { selectedTab = .speech },
                                 onOpenScreen: { selectedTab = .screen },
