@@ -39,6 +39,9 @@ class JarvisImmersiveHomeContracts(unittest.TestCase):
         self.assertIn('JarvisHologramView(animated: !reduceMotion && phase == .active)', IMMERSIVE)
         self.assertIn('SCNView', HOLOGRAM)
         self.assertIn('SCNTorus', HOLOGRAM)
+        self.assertIn('SCNGeometrySource(vertices:', HOLOGRAM)
+        self.assertNotIn('wires.fillMode = .lines', HOLOGRAM)
+        self.assertNotIn('SCNSphere(radius: 1.22)', HOLOGRAM)
         self.assertIn('repeatForever', HOLOGRAM)
         self.assertIn('view.isPlaying = animated', HOLOGRAM)
         self.assertIn('accessibilityReduceMotion', CORE)
@@ -60,8 +63,8 @@ class JarvisImmersiveHomeContracts(unittest.TestCase):
             self.assertNotIn(bad, IMMERSIVE)
 
     def test_release_version(self):
-        self.assertIn('<string>3.8.2</string>', PLIST)
-        self.assertIn('<string>41</string>', PLIST)
+        self.assertIn('<string>3.8.4</string>', PLIST)
+        self.assertIn('<string>43</string>', PLIST)
         self.assertIn('<string>dev.dechive.eidis</string>', PLIST)
 
 
