@@ -7,6 +7,7 @@ SRC = ROOT / "macos/Sources/EidisMac"
 APP = (SRC / "EidisMacApp.swift").read_text()
 IMMERSIVE = (SRC / "JarvisImmersiveHomeView.swift").read_text()
 CORE = (SRC / "JarvisCoreView.swift").read_text()
+HOLOGRAM = (SRC / "JarvisHologramView.swift").read_text()
 MODEL = (SRC / "JarvisSystemSnapshot.swift").read_text()
 PLIST = (ROOT / "macos/Resources/Info.plist").read_text()
 
@@ -18,7 +19,8 @@ class JarvisImmersiveHomeContracts(unittest.TestCase):
         self.assertIn('JarvisImmersiveHomeView(', APP)
         self.assertIn('onShowDashboard: { cinematicHome = false }', APP)
         self.assertIn('onRefresh: { refreshDashboard() }', APP)
-        self.assertIn('Button(action: onRefresh)', IMMERSIVE)
+        self.assertIn('Button("상태 갱신", action: onRefresh)', IMMERSIVE)
+        self.assertIn('if selectedTab == .assistant && cinematicHome', APP)
         self.assertIn('cinematicHome = true', APP)
         self.assertIn('JarvisDashboardHomeView(', APP)
         self.assertIn('showLegacyConsole = false', APP)
@@ -34,7 +36,11 @@ class JarvisImmersiveHomeContracts(unittest.TestCase):
             self.assertIn(item, IMMERSIVE)
 
     def test_core_is_native_and_obeys_accessibility(self):
-        self.assertIn('JarvisCoreView(online: snapshot.server == .online', IMMERSIVE)
+        self.assertIn('JarvisHologramView(animated: !reduceMotion && phase == .active)', IMMERSIVE)
+        self.assertIn('SCNView', HOLOGRAM)
+        self.assertIn('SCNTorus', HOLOGRAM)
+        self.assertIn('repeatForever', HOLOGRAM)
+        self.assertIn('view.isPlaying = animated', HOLOGRAM)
         self.assertIn('accessibilityReduceMotion', CORE)
         self.assertIn('phase == .active', CORE)
         self.assertIn('repeatForever(autoreverses: false)', CORE)
@@ -43,12 +49,10 @@ class JarvisImmersiveHomeContracts(unittest.TestCase):
             self.assertNotIn(bad, IMMERSIVE)
 
     def test_no_unverified_live_status_claims(self):
-        self.assertIn('snapshot.recordsLoaded', IMMERSIVE)
-        self.assertIn('snapshot.projectCount', IMMERSIVE)
-        self.assertIn('snapshot.todoCount', IMMERSIVE)
-        self.assertIn('snapshot.nextTaskProject', IMMERSIVE)
-        self.assertIn('snapshot.voiceOutputAvailable', IMMERSIVE)
-        self.assertIn('실제 음성 인식은 아래', IMMERSIVE)
+        self.assertIn('snapshot.server == .online', IMMERSIVE)
+        self.assertIn('snapshot.summaryLabel', IMMERSIVE)
+        self.assertIn('음성 입력은 직접 시작', IMMERSIVE)
+        self.assertNotIn('항상 듣고 있어', IMMERSIVE)
         self.assertIn('서버 연결 필요', MODEL)
         self.assertIn('기록 확인 전', MODEL)
         for bad in ('실시간 카메라 분석 중', '음성 듣는 중',
@@ -56,8 +60,8 @@ class JarvisImmersiveHomeContracts(unittest.TestCase):
             self.assertNotIn(bad, IMMERSIVE)
 
     def test_release_version(self):
-        self.assertIn('<string>3.8.1</string>', PLIST)
-        self.assertIn('<string>40</string>', PLIST)
+        self.assertIn('<string>3.8.2</string>', PLIST)
+        self.assertIn('<string>41</string>', PLIST)
         self.assertIn('<string>dev.dechive.eidis</string>', PLIST)
 
 

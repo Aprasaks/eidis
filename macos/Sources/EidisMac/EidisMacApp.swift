@@ -197,6 +197,17 @@ struct JarvisWindow: View {
     var body: some View {
         ZStack {
             VStack(spacing: 0) {
+                if selectedTab == .assistant && cinematicHome {
+                    JarvisImmersiveHomeView(
+                        snapshot: systemSnapshot,
+                        onShowDashboard: { cinematicHome = false },
+                        onRefresh: { refreshDashboard() },
+                        onOpenWork: { selectedTab = .work },
+                        onOpenSpeech: { selectedTab = .speech },
+                        onOpenScreen: { selectedTab = .screen },
+                        onOpenDiagnostics: { selectedTab = .diagnostics }
+                    )
+                } else {
                 HStack(spacing: 12) {
                     Image(systemName: "circle.hexagongrid")
                         .foregroundStyle(Color(red: 0.25, green: 0.82, blue: 0.90))
@@ -464,6 +475,7 @@ struct JarvisWindow: View {
                     .tag(JarvisTab.diagnostics)
             }
                 .padding(.horizontal, 8)
+                }
             }
             .background(Color(red: 0.012, green: 0.018, blue: 0.027))
             .preferredColorScheme(.dark)
