@@ -64,7 +64,7 @@ jobs:
           /tmp/jarvis-bundled-server-guards "$PWD/dist/JARVIS.app/Contents/Resources"
       - name: Verify cinematic native dashboard and state-driven launch
         run: |
-          swiftc -o /tmp/jarvis-v37-dashboard-smoke macos/tests/dashboard/main.swift macos/Sources/EidisMac/JarvisSystemSnapshot.swift macos/Sources/EidisMac/JarvisCoreView.swift macos/Sources/EidisMac/JarvisStatusBadge.swift macos/Sources/EidisMac/JarvisIntroSplashView.swift macos/Sources/EidisMac/JarvisDashboardHomeView.swift
+          swiftc -o /tmp/jarvis-v37-dashboard-smoke macos/tests/dashboard/main.swift macos/Sources/EidisMac/JarvisSystemSnapshot.swift macos/Sources/EidisMac/JarvisCoreView.swift macos/Sources/EidisMac/JarvisStatusBadge.swift macos/Sources/EidisMac/JarvisIntroSplashView.swift macos/Sources/EidisMac/JarvisDashboardHomeView.swift macos/Sources/EidisMac/JarvisImmersiveHomeView.swift
           /tmp/jarvis-v37-dashboard-smoke
 
       - name: Test Korean speech finalization decision (no microphone access)

@@ -114,3 +114,7 @@ JARVIS.app에 localhost Python 서버/웹 UI가 함께 패키징되어 앱 시�
 ## JARVIS v3.7.1 — New native cinematic home
 
 JARVIS opens to a short, real-status-aware SwiftUI intro followed by a near-black native dashboard with a rotating optical core, verified localhost connection state, project/task counts and next recorded task. Original Work, Voice, Screen, UI and Diagnostics tabs remain intact. Old embedded web console is still available via "기존 자비스 콘솔 열기". Implementation: docs/NATIVE_DASHBOARD_V37.md.
+
+## JARVIS v3.8 시네마틱 홈
+
+앱 시작 시 인트로 다음 기본 홈으로 실제 움직이는 광학 코어가 중심인 시네마틱 화면을 보여 줍니다. 상단 대시보드 버튼으로 기존 상태·작업 상세 화면을 열고, 다시 시네마틱 홈으로 돌아올 수 있습니다. 현재 로컬 서버와 사용자가 기록한 작업 상태만 표시하고 자동 명령 실행이나 새 원격 API 연결은 하지 않습니다. 자세한 근거와 검증: docs/CINEMATIC_HOME_V38.md.

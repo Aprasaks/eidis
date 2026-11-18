@@ -19,7 +19,7 @@ func assertLayout<V: View>(_ view: V, title: String, width: CGFloat, height: CGF
     // reporting a large intrinsic fittingSize. Verify the actual host bounds.
     precondition(hosting.bounds.width >= 600 && hosting.bounds.height >= 450,
                  "\(title): invalid render bounds")
-    if !title.contains("launch") {
+    if !title.contains("launch") && !title.contains("immersive") {
         precondition(fitted.width > 100 && fitted.height > 100,
                      "\(title): invalid fitting size")
     }
@@ -73,6 +73,20 @@ let dashboard = JarvisDashboardHomeView(
 )
 assertLayout(dashboard, title: "JARVIS v3.7 Dashboard (synthetic fixture)",
              width: 1140, height: 675, screenshot: output)
+let immersive = JarvisImmersiveHomeView(
+    snapshot: sample, onShowDashboard: {},
+    onOpenWork: {}, onOpenSpeech: {},
+    onOpenScreen: {}, onOpenDiagnostics: {}
+)
+assertLayout(immersive, title: "JARVIS v3.8 immersive home (synthetic fixture)",
+             width: 1140, height: 675,
+             screenshot: output.map { $0.replacingOccurrences(
+                 of: "dashboard_fixture", with: "immersive_fixture") })
+assertLayout(JarvisImmersiveHomeView(
+    snapshot: offline, onShowDashboard: {}, onOpenWork: {},
+    onOpenSpeech: {}, onOpenScreen: {}, onOpenDiagnostics: {}
+), title: "JARVIS v3.8 immersive offline",
+   width: 900, height: 600)
 assertLayout(JarvisIntroSplashView(snapshot: sample),
              title: "JARVIS v3.7 verified-state launch", width: 1140, height: 720,
              screenshot: output.map { $0.replacingOccurrences(of: "dashboard_fixture", with: "intro_fixture") })

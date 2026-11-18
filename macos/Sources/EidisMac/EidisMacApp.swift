@@ -130,6 +130,9 @@ struct JarvisWindow: View {
     @State private var screenQuestion = "이 화면에서 오류가 있는지 찾아줘"
     @State private var showLaunchIntro = true
     @State private var showLegacyConsole = false
+    // The immersive first screen can be switched back to the detailed
+    // dashboard; persisted locally without modifying project memory.
+    @AppStorage("JARVIS_CinematicHome_Enabled") private var cinematicHome = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // On-device numbers are read only from a confirmed /api/projects reply.
@@ -224,16 +227,44 @@ struct JarvisWindow: View {
 
                 TabView(selection: $selectedTab) {
                     VStack(spacing: 0) {
-                        JarvisDashboardHomeView(
-                            snapshot: systemSnapshot,
-                            onOpenWork: { selectedTab = .work },
-                            onOpenSpeech: { selectedTab = .speech },
-                            onOpenScreen: { selectedTab = .screen },
-                            onOpenDiagnostics: { selectedTab = .diagnostics },
-                            onOpenConsole: { showLegacyConsole.toggle() },
-                            onRefresh: { refreshDashboard() },
-                            onPreviewVoice: { voice.preview() }
-                        )
+                        if cinematicHome {
+                            JarvisImmersiveHomeView(
+                                snapshot: systemSnapshot,
+                                onShowDashboard: { cinematicHome = false },
+                                onOpenWork: { selectedTab = .work },
+                                onOpenSpeech: { selectedTab = .speech },
+                                onOpenScreen: { selectedTab = .screen },
+                                onOpenDiagnostics: { selectedTab = .diagnostics }
+                            )
+                        } else {
+                            VStack(spacing: 0) {
+                                HStack {
+                                    Spacer()
+                                    Button {
+                                        cinematicHome = true
+                                        showLegacyConsole = false
+                                    } label: {
+                                        Label("시네마틱 홈으로 돌아가기",
+                                              systemImage: "circle.hexagongrid")
+                                    }
+                                    .buttonStyle(.plain)
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundStyle(.cyan)
+                                }
+                                .padding(.horizontal, 22)
+                                .padding(.top, 8)
+                                JarvisDashboardHomeView(
+                                    snapshot: systemSnapshot,
+                                    onOpenWork: { selectedTab = .work },
+                                    onOpenSpeech: { selectedTab = .speech },
+                                    onOpenScreen: { selectedTab = .screen },
+                                    onOpenDiagnostics: { selectedTab = .diagnostics },
+                                    onOpenConsole: { showLegacyConsole.toggle() },
+                                    onRefresh: { refreshDashboard() },
+                                    onPreviewVoice: { voice.preview() }
+                                )
+                            }
+                        }
                         if showLegacyConsole {
                             VStack(spacing: 8) {
                                 HStack {

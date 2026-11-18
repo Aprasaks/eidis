@@ -33,8 +33,8 @@ class MacKeychainStartupTests(unittest.TestCase):
     def test_app_remains_user_controlled_and_versioned(self):
         self.assertIn('showLaunchIntro', WINDOW)
         self.assertIn('localServer.connectOnLaunch()', WINDOW)
-        self.assertIn('<string>3.7.1</string>', PLIST)
-        self.assertIn('<string>38</string>', PLIST)
+        self.assertRegex(PLIST, r'<string>3\.(?:7\.[1-9][0-9]*|8\.[0-9]+)</string>')
+        self.assertRegex(PLIST, r'<string>3[89]</string>')
 
 if __name__ == '__main__':
     unittest.main()

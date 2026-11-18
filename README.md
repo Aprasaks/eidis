@@ -130,3 +130,5 @@ Mac 앱 음성 탭에서 제공받은 Voice ID를 기본 입력하고, macOS 키
 Mac JARVIS v3.6: 설치한 Mac 앱을 열면 로컬 Python 서버를 자동 확인/시작합니다. 별도 터미널 명령 없이 127.0.0.1:8765로 연결하며 기존 서버나 DB를 초기화하지 않습니다. [상세 기록](docs/BUNDLED_LOCAL_SERVER_V36.md).
 
 **Mac JARVIS v3.7.1:** New native launch intro and JARVIS dashboard with real loopback/task/voice/Apple local model states, a restrained rotating core and existing tools preserved. See [design and validation](docs/NATIVE_DASHBOARD_V37.md). Sample-data screenshots are in docs/screenshots/.
+
+Mac JARVIS v3.8: 실제 SwiftUI 시네마틱 홈이 앱 시작 시 기본으로 열리고, 기존 상세 대시보드로 전환 가능합니다. [기능 및 검증 기록](docs/CINEMATIC_HOME_V38.md).
