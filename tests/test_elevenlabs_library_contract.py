@@ -18,6 +18,8 @@ class ElevenLabsLibraryContract(unittest.TestCase):
         self.assertNotIn('enabled = true', SERVICE[SERVICE.index('func selectLibraryVoice'):SERVICE.index('func preview(fallback:')])
         self.assertIn('https://api.elevenlabs.io/v1/voices', SERVICE)
         self.assertIn('if [400, 404, 422].contains(http.statusCode)', SERVICE)
+        self.assertIn('safeAPIErrorCode(from:', SERVICE)
+        self.assertIn('firstAttempt', SERVICE)
         self.assertIn('Voice ID 저장', LIB)
         self.assertIn('checkVoiceConnection()', LIB)
         self.assertIn('목록 조회가 안 된다면 · Voice ID 직접 연결', LIB)

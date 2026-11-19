@@ -221,6 +221,22 @@ final class ElevenLabsVoiceService: ObservableObject {
         }
     }
 
+    /// Show only structured error categories, never body text, API key, or account details.
+    private static func safeAPIErrorCode(from payload: Data, httpStatus: Int) -> String {
+        guard let body = (try? JSONSerialization.jsonObject(with: payload)) as? [String: Any] else {
+            return "HTTP \(httpStatus) · 응답 형식 확인 불가"
+        }
+        let detail = body["detail"] as? [String: Any] ?? body
+        let fields = ["type", "code", "status", "param"]
+        let safeValues = fields.compactMap { name -> String? in
+            guard let value = detail[name] as? String,
+                  value.range(of: "^[A-Za-z0-9_.-]{1,60}$", options: .regularExpression) != nil
+            else { return nil }
+            return "\(name):\(value)"
+        }
+        return "HTTP \(httpStatus)" + (safeValues.isEmpty ? " · 세부 오류 코드 없음" : " · " + safeValues.joined(separator: " · "))
+    }
+
     /// List voice metadata only (GET). No speech generation or credits.
     func fetchVoiceLibrary() async {
         guard !isLoadingLibrary && !isBusy else { return }
@@ -252,6 +268,7 @@ final class ElevenLabsVoiceService: ObservableObject {
                 request.timeoutInterval = 18
                 var (payload, response) = try await session.data(for: request)
                 guard var http = response as? HTTPURLResponse else { throw ElevenLabsVoiceError.invalidResponse }
+                let firstAttempt = http.statusCode == 200 ? "" : "v2 " + Self.safeAPIErrorCode(from: payload, httpStatus: http.statusCode)
                 // Some account/API combinations reject v2 filters (HTTP 400).
                 // Legacy v1 voices is a documented read-only fallback, no TTS charges.
                 if [400, 404, 422].contains(http.statusCode) && cursor == nil {
@@ -266,7 +283,9 @@ final class ElevenLabsVoiceService: ObservableObject {
                     http = fallbackHTTP
                 }
                 guard http.statusCode == 200 else {
-                    libraryStatus = "목소리 목록 조회 실패 · HTTP \(http.statusCode). ElevenLabs API 키의 음성 조회 권한 또는 요청 호환성을 확인해 주세요."
+                    let lastAttempt = Self.safeAPIErrorCode(from: payload, httpStatus: http.statusCode)
+                    libraryStatus = "목소리 목록 실패 · " + (firstAttempt.isEmpty ? "" : firstAttempt + " / ") +
+                        "최종 " + lastAttempt + " · API 설정과 권한을 확인해 주세요."
                     return
                 }
                 let root = try JSONSerialization.jsonObject(with: payload) as? [String: Any]
