@@ -35,3 +35,11 @@ The overlay is an `NSPanel` across the active display, with the user's actual de
 - Pressing the hotkey while a full-screen game is active may be subject to macOS window/space behaviors and is untested.
 
 The user's fixed design reference should remain the only target for subsequent visual refinement; do not generate substitute artwork.
+
+## Final preview packaging and focus reliability
+
+- Installed separate copy at `~/Applications/JARVIS Fullscreen Preview.app`, bundle ID `dev.dechive.jarvis.fullscreen-preview`; confirmed from installed copy that the panel appears across the entire active display.
+- AppKit `NSPanel.hidesOnDeactivate = false` is required; otherwise the full-screen panel disappears when another app becomes active. Tested with Chrome in front and panel still onscreen.
+- To prevent window ordering failures, `window.alphaValue` remains 1 and SwiftUI contents fade in using 0.36s animation; Reduce Motion disables the transition.
+- Reverified a manually sent Command+Option+J after dismissal creates the full-screen panel from the **installed** app. Escape and hotkey closing tested earlier in the same preview implementation.
+- **Wake-word/microphone wake-up is not part of this preview.**

@@ -15,8 +15,8 @@ class FullscreenOverlayContract(unittest.TestCase):
             self.assertIn(marker, OVERLAY)
 
     def test_actual_desktop_overlay_and_real_looping_video(self):
-        for marker in ('window.level = .screenSaver', '.canJoinAllSpaces',
-                       'Color.black.opacity(0.91)', 'AVPlayerLooper',
+        for marker in ('window.level = .screenSaver', 'window.hidesOnDeactivate = false', '.canJoinAllSpaces',
+                       'Color.black.opacity(appeared ? 0.91 : 0)', 'AVPlayerLooper',
                        'JARVIS_Activation_Alpha_HEVC', 'videoGravity = .resizeAspect',
                        'window.animator().alphaValue'):
             self.assertIn(marker, OVERLAY)

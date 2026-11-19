@@ -87,14 +87,17 @@ private struct JarvisLoopingCore: NSViewRepresentable {
 private struct JarvisSummonedView: View {
     let videoURL: URL
     let dismiss: () -> Void
+    @State private var appeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         GeometryReader { area in
             ZStack {
                 // Keep the user's actual desktop visible, but strongly dimmed.
-                Color.black.opacity(0.91)
+                Color.black.opacity(appeared ? 0.91 : 0)
                     .ignoresSafeArea()
                 JarvisLoopingCore(videoURL: videoURL)
                     .frame(width: area.size.width, height: area.size.height)
+                    .opacity(appeared ? 1 : 0)
                     .allowsHitTesting(false)
                 VStack {
                     HStack {
@@ -116,6 +119,10 @@ private struct JarvisSummonedView: View {
             }
             .frame(width: area.size.width, height: area.size.height)
         }
+        .onAppear {
+            if reduceMotion { appeared = true }
+            else { withAnimation(.easeInOut(duration: 0.36)) { appeared = true } }
+        }
     }
 }
 
@@ -128,6 +135,7 @@ final class JarvisFullscreenOverlay {
     private var hiddenAppWindows: [NSWindow] = []
 
     func start() {
+        NSLog("JARVIS: overlay start, args=%@", ProcessInfo.processInfo.arguments.joined(separator: ","))
         let key = JarvisOverlayHotkey()
         key.onPress = { [weak self] in self?.toggle() }
         if key.install() {
@@ -138,7 +146,10 @@ final class JarvisFullscreenOverlay {
         }
         // Manual invocation used only for test builds; production launch remains quiet.
         if ProcessInfo.processInfo.arguments.contains("--overlay-preview") {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { [weak self] in self?.show() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { [self] in
+                NSLog("JARVIS: demo timer fired")
+                self.show()
+            }
         }
     }
 
@@ -149,6 +160,7 @@ final class JarvisFullscreenOverlay {
     }
 
     func show() {
+        NSLog("JARVIS: show requested")
         guard panel == nil,
               let screen = NSScreen.main ?? NSScreen.screens.first,
               let url = Bundle.main.url(forResource: "JARVIS_Activation_Alpha_HEVC", withExtension: "mov")
@@ -162,6 +174,9 @@ final class JarvisFullscreenOverlay {
         window.backgroundColor = .clear
         window.isOpaque = false
         window.hasShadow = false
+        // NSPanel hides on app deactivation by default; this overlay must
+        // remain onscreen even when Chrome/Finder is the frontmost application.
+        window.hidesOnDeactivate = false
         window.level = .screenSaver
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.isMovable = false
@@ -173,16 +188,25 @@ final class JarvisFullscreenOverlay {
         hiddenAppWindows = NSApp.windows.filter { $0 !== window && $0.isVisible }
         for oldWindow in hiddenAppWindows { oldWindow.orderOut(nil) }
         panel = window
+        NSLog("JARVIS: panel created, frame=%@", NSStringFromRect(window.frame))
         escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
             if event.keyCode == 53 { self?.dismiss(); return nil } // Escape
             return event
         }
-        window.alphaValue = 0
+        // A restored hidden SwiftUI scene can prevent ordinary orderFront from
+        // raising a new panel. Explicitly unhide the app and raise the panel.
+        NSApp.unhide(nil)
         NSApp.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
-        NSAnimationContext.runAnimationGroup { animation in
-            animation.duration = 0.32
-            window.animator().alphaValue = 1
+        // Keep window opacity at 1; animate SwiftUI contents instead. Fading the
+        // window itself can leave a background NSPanel offscreen on macOS.
+        window.alphaValue = 1
+        window.orderFrontRegardless()
+        window.makeKey()
+        NSLog("JARVIS: overlay ordered front, isVisible=%@ alpha=%.2f appHidden=%@",
+              window.isVisible.description, window.alphaValue, NSApp.isHidden.description)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            NSLog("JARVIS: overlay stable, isVisible=%@ alpha=%.2f appHidden=%@",
+                  window.isVisible.description, window.alphaValue, NSApp.isHidden.description)
         }
     }
 
