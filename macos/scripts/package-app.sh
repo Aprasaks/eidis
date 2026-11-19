@@ -22,8 +22,12 @@ cp "$INFO" "$APP/Contents/Info.plist"
 # developer's SQLite DB, Python caches, credentials, .env, Git or other files.
 RESOURCES="$APP/Contents/Resources"
 mkdir -p "$RESOURCES/jarvis" "$RESOURCES/web"
-# Transparent looping activation core. Contains no user recordings or credentials.
-cp "$PACKAGE/Resources/Art/JARVIS_Activation_Alpha_HEVC.mov" "$RESOURCES/JARVIS_Activation_Alpha_HEVC.mov"
+# Use the user's original 1920x1080 clip verbatim. The old 720p alpha
+# conversion introduced visible edge noise on external ultrawide displays.
+cp "$PACKAGE/Resources/Art/JARVIS_FullHD_Loop.mp4" "$RESOURCES/JARVIS_FullHD_Loop.mp4"
+# Remove only the obsolete generated alpha movie from the owned dist bundle.
+# Keep the original alpha source in macos/Resources/Art for rollback.
+rm -f "$RESOURCES/JARVIS_Activation_Alpha_HEVC.mov"
 cp "$ROOT/app.py" "$RESOURCES/app.py"
 for source in "$ROOT"/jarvis/*.py; do
   cp "$source" "$RESOURCES/jarvis/"
