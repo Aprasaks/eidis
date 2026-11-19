@@ -85,7 +85,7 @@ class JarvisNativeDashboardV37ContractTests(unittest.TestCase):
         ):
             self.assertIn(marker, WINDOW)
         self.assertRegex(PLIST, r'<string>3\.(?:7\.[1-9][0-9]*|8\.[0-9]+|9\.[0-9]+|10\.[0-9]+)</string>')
-        self.assertRegex(PLIST, r'<string>(?:3[89]|4[0-9]|5[0-8])</string>')
+        self.assertRegex(PLIST, r'<string>(?:3[89]|4[0-9]|5[0-9]|60)</string>')
 
 
 if __name__ == '__main__':

@@ -20,6 +20,7 @@ final class JarvisOverlayConversation: ObservableObject {
     private let listener = LocalSpeechListener()
     private let macVoice = JarvisVoiceService()
     let dashboard = JarvisOverlayDashboard()
+    let browser = JarvisOverlayBrowser()
     private let elevenLabs = ElevenLabsVoiceService.shared
     private let session: URLSession
     private var conversation: [[String: String]] = []
@@ -112,14 +113,29 @@ final class JarvisOverlayConversation: ObservableObject {
         question = prompt
         answer = ""
         isThinking = true
-        let action = JarvisDashboardIntent.parse(prompt)
-        status = action == nil ? "Qwen3.5가 맥에서 답변 중…" : "로컬 작업 기록 확인 중…"
+        let webAction = JarvisWebIntent.parse(prompt)
+        let dashboardAction = webAction == nil ? JarvisDashboardIntent.parse(prompt) : nil
+        status = webAction != nil ? "자비스 웹 브라우저 여는 중…" :
+                 dashboardAction != nil ? "로컬 작업 기록 확인 중…" : "Qwen3.5가 맥에서 답변 중…"
         do {
             let response: String
-            switch action {
-            case .show: response = await dashboard.show()
-            case .hide: response = dashboard.hide()
-            case nil: response = try await askQwen(prompt)
+            if let webAction {
+                switch webAction {
+                case .search(let query, let engine):
+                    _ = dashboard.hide()
+                    response = browser.search(query, engine: engine)
+                case .hide:
+                    response = browser.hide()
+                }
+            } else if let dashboardAction {
+                switch dashboardAction {
+                case .show:
+                    _ = browser.hide()
+                    response = await dashboard.show()
+                case .hide: response = dashboard.hide()
+                }
+            } else {
+                response = try await askQwen(prompt)
             }
             guard !response.isEmpty else { return }
             guard token == generation && !Task.isCancelled else { return }
@@ -151,7 +167,7 @@ final class JarvisOverlayConversation: ObservableObject {
         당신은 개인 Mac AI 비서 자비스입니다. 자연스럽고 짧은 한국어 존댓말로만 답합니다.
         중국어·영어 사고 과정은 출력하지 않습니다. 답변은 보통 1~3문장, 180자 이내로 합니다.
         모르는 사실은 모른다고 말합니다. 실제로 접근하지 않은 화면·일정·파일을 본 척하지 않습니다.
-        작업 실행, 삭제, 일정 등록, 검색이 가능한 척하지 마세요. 현재는 대화만 가능합니다.
+        실제로 사용하지 않은 기능을 실행했다고 주장하지 마세요. 검색은 자비스의 별도 브라우저 명령으로 처리합니다.
         음성으로 읽히므로 별표·마크다운·이모지·복잡한 기호 없이 자연스럽게 대답합니다.
         """
         var messages = [["role": "system", "content": system]]
@@ -201,6 +217,7 @@ final class JarvisOverlayConversation: ObservableObject {
         answer = ""
         conversation.removeAll()
         dashboard.cancel()
+        browser.cancel()
         status = "자비스 대화 종료"
         session.invalidateAndCancel()
     }

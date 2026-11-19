@@ -25,10 +25,11 @@ class OnDemandDashboard(unittest.TestCase):
         self.assertNotIn('project_task_added', DASH)
     def test_dashboard_triggered_instead_of_qwen_only_when_explicit(self):
         for marker in ('let dashboard = JarvisOverlayDashboard()',
-                       'let action = JarvisDashboardIntent.parse(prompt)',
-                       'case .show: response = await dashboard.show()',
+                       'let dashboardAction = webAction == nil ? JarvisDashboardIntent.parse(prompt) : nil',
+                       'case .show:',
+                       'response = await dashboard.show()',
                        'case .hide: response = dashboard.hide()',
-                       'case nil: response = try await askQwen(prompt)',
+                       'response = try await askQwen(prompt)',
                        'dashboard.cancel()'):
             self.assertIn(marker, CHAT)
         for marker in ('if dashboard.isVisible', 'PROJECT STATUS',

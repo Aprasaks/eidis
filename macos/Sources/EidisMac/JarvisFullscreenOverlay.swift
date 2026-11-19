@@ -123,6 +123,7 @@ private struct JarvisSummonedView: View {
     let moveToAdjacentScreen: (Int) -> Void
     @ObservedObject var dialogue: JarvisOverlayConversation
     @ObservedObject var dashboard: JarvisOverlayDashboard
+    @ObservedObject var browser: JarvisOverlayBrowser
     @State private var typedText = ""
     @FocusState private var isInputFocused: Bool
     @State private var appeared = false
@@ -222,7 +223,17 @@ private struct JarvisSummonedView: View {
 
                 // Dashboard is summoned on an explicit command only; the gold
                 // core artwork/video remains unchanged and visible beneath it.
-                if dashboard.isVisible {
+                if browser.isVisible, let url = browser.currentURL {
+                    HStack {
+                        Spacer(minLength: 0)
+                        embeddedBrowserPanel(url: url)
+                            .frame(width: min(790, max(510, area.size.width * 0.29)),
+                                   height: min(900, max(540, area.size.height - 95)))
+                            .padding(.trailing, 23)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    .transition(.opacity.combined(with: .move(edge: .trailing)))
+                } else if dashboard.isVisible {
                     HStack {
                         Spacer(minLength: 0)
                         dashboardPanel
@@ -240,6 +251,9 @@ private struct JarvisSummonedView: View {
             .simultaneousGesture(
                 DragGesture(minimumDistance: 80)
                     .onEnded { value in
+                        // Browsing gestures inside the right-side panel must
+                        // navigate that page, not move JARVIS to another monitor.
+                        if browser.isVisible && value.startLocation.x > area.size.width * 0.54 { return }
                         if abs(value.translation.width) > 100 &&
                            abs(value.translation.width) > abs(value.translation.height) * 1.25 {
                             moveToAdjacentScreen(value.translation.width < 0 ? 1 : -1)
@@ -251,6 +265,60 @@ private struct JarvisSummonedView: View {
             if reduceMotion { appeared = true }
             else { withAnimation(.easeInOut(duration: 0.36)) { appeared = true } }
         }
+    }
+
+    private func embeddedBrowserPanel(url: URL) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 9) {
+                Image(systemName: "globe")
+                    .foregroundStyle(Color.orange)
+                Text(browser.title.uppercased())
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .tracking(1)
+                    .foregroundStyle(.white)
+                Spacer()
+                Button { browser.back() } label: { Image(systemName: "chevron.left") }
+                    .disabled(!browser.canGoBack)
+                    .accessibilityIdentifier("jarvis-browser-back")
+                Button { browser.forward() } label: { Image(systemName: "chevron.right") }
+                    .disabled(!browser.canGoForward)
+                Button { browser.reload() } label: { Image(systemName: "arrow.clockwise") }
+                    .accessibilityIdentifier("jarvis-browser-reload")
+                Button { _ = browser.hide() } label: { Image(systemName: "xmark") }
+                    .accessibilityIdentifier("jarvis-browser-close")
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(.white.opacity(0.88))
+            .padding(.horizontal, 15)
+            .frame(height: 46)
+            HStack {
+                Text(browser.pageTitle.isEmpty ? browser.query : browser.pageTitle)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                if browser.isLoading { ProgressView().controlSize(.small) }
+            }
+            .font(.system(size: 11))
+            .foregroundStyle(.white.opacity(0.7))
+            .padding(.horizontal, 14)
+            .frame(height: 30)
+            Rectangle().fill(.orange.opacity(0.3)).frame(height: 1)
+            if let error = browser.errorText {
+                Text(error)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white)
+                    .padding(12)
+            }
+            JarvisEmbeddedBrowser(browser: browser, url: url)
+                .background(Color.white)
+                .accessibilityIdentifier("jarvis-embedded-web-view")
+        }
+        .background(Color(red: 0.035, green: 0.035, blue: 0.035),
+                    in: RoundedRectangle(cornerRadius: 17))
+        .clipShape(RoundedRectangle(cornerRadius: 17))
+        .overlay(RoundedRectangle(cornerRadius: 17)
+            .stroke(Color.orange.opacity(0.34), lineWidth: 1))
+        .shadow(color: .black.opacity(0.55), radius: 25)
+        .accessibilityIdentifier("jarvis-internal-web-browser")
     }
 
     private var dashboardPanel: some View {
@@ -447,7 +515,8 @@ final class JarvisFullscreenOverlay {
             dismiss: { [weak self] in self?.dismiss() },
             moveToAdjacentScreen: { [weak self] direction in self?.moveToAdjacentScreen(direction) },
             dialogue: dialogue,
-            dashboard: dialogue.dashboard))
+            dashboard: dialogue.dashboard,
+            browser: dialogue.browser))
         // Do not show the old JARVIS dashboard behind the cinematic veil.
         // orderOut keeps its state and project data intact; the Dock can reopen it.
         hiddenAppWindows = NSApp.windows.filter { $0 !== window && $0.isVisible }
@@ -467,12 +536,14 @@ final class JarvisFullscreenOverlay {
                 }
                 // Space is the manual start/finish microphone control.
                 // Do not intercept spaces typed into the text input.
-                if event.keyCode == 49 && self.dialogue?.textInputFocused != true {
+                if event.keyCode == 49 && self.dialogue?.textInputFocused != true &&
+                   self.dialogue?.browser.isVisible != true {
                     self.dialogue?.toggleMicrophone()
                     return nil
                 }
                 // Reliable fallback when trackpad gestures are unavailable.
-                if event.keyCode == 123 || event.keyCode == 124 {
+                if (event.keyCode == 123 || event.keyCode == 124) &&
+                   self.dialogue?.browser.isVisible != true {
                     self.moveToAdjacentScreen(event.keyCode == 123 ? -1 : 1)
                     return nil
                 }
