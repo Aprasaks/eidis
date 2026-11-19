@@ -10,11 +10,33 @@ struct EidisMacApp: App {
     @NSApplicationDelegateAdaptor(JarvisAppLifecycle.self) private var lifecycle
 
     var body: some Scene {
-        WindowGroup("JARVIS") {
-            JarvisWindow()
-                .environmentObject(lifecycle.server)
+        // A summoned assistant should not spawn its legacy dashboard on startup.
+        // macOS 15+ supports native suppression before a window is ever shown.
+        WindowGroup("JARVIS", id: "jarvis-tools") {
+            JarvisWindow().environmentObject(lifecycle.server)
         }
         .defaultSize(width: 1180, height: 770)
+        .defaultLaunchBehavior(.suppressed)
+
+        // Work/voice/diagnostics are secondary; available only when requested.
+        MenuBarExtra("JARVIS", systemImage: "circle.hexagongrid") {
+            JarvisMenuCommands(lifecycle: lifecycle)
+        }
+    }
+}
+
+private struct JarvisMenuCommands: View {
+    @Environment(\.openWindow) private var openWindow
+    let lifecycle: JarvisAppLifecycle
+
+    var body: some View {
+        Button("자비스 소환 / 닫기  ⌘⌥J") { lifecycle.fullscreen.toggle() }
+        Button("작업 및 설정 열기") {
+            openWindow(id: "jarvis-tools")
+            NSApp.activate(ignoringOtherApps: true)
+        }
+        Divider()
+        Button("자비스 종료") { NSApp.terminate(nil) }
     }
 }
 

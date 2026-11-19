@@ -186,10 +186,9 @@ final class JarvisAppLifecycle: NSObject, NSApplicationDelegate {
 
     func applicationShouldHandleReopen(_ sender: NSApplication,
                                        hasVisibleWindows flag: Bool) -> Bool {
-        if !flag {
-            NSApp.windows.first(where: { $0.title.contains("JARVIS") })?.makeKeyAndOrderFront(nil)
-        }
-        return true
+        // Clicking the Dock icon summons the core, not the old dashboard.
+        if !flag { fullscreen.show() }
+        return false
     }
 
     func applicationWillTerminate(_ notification: Notification) {
