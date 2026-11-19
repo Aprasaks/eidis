@@ -149,6 +149,8 @@ final class JarvisFullscreenOverlay {
     private var lastMove = Date.distantPast
     private var lastToggle = Date.distantPast
     private var hiddenAppWindows: [NSWindow] = []
+    private let greetingFallback = JarvisVoiceService()
+    private var greetingTask: Task<Void, Never>?
 
     func start() {
         NSLog("JARVIS: overlay start, args=%@", ProcessInfo.processInfo.arguments.joined(separator: ","))
@@ -236,6 +238,13 @@ final class JarvisFullscreenOverlay {
         window.makeKey()
         NSLog("JARVIS: overlay ordered front, isVisible=%@ alpha=%.2f appHidden=%@",
               window.isVisible.description, window.alphaValue, NSApp.isHidden.description)
+        // Speak only after the core is onscreen. This reuses the already
+        // consented ElevenLabs service; no wake-word/microphone runs here.
+        greetingTask?.cancel()
+        greetingTask = Task { [weak self] in
+            guard let self, self.panel != nil else { return }
+            await ElevenLabsVoiceService.shared.speakSummonGreeting(fallback: self.greetingFallback)
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
             NSLog("JARVIS: overlay stable, isVisible=%@ alpha=%.2f appHidden=%@",
                   window.isVisible.description, window.alphaValue, NSApp.isHidden.description)
@@ -282,6 +291,11 @@ final class JarvisFullscreenOverlay {
     /// Immediate dismissal: do not wait for a fade when the user presses Esc.
     func dismiss() {
         guard let window = panel else { return }
+        // Highest priority: stop audio and cancel outstanding greeting requests.
+        greetingTask?.cancel()
+        greetingTask = nil
+        ElevenLabsVoiceService.shared.stopSpeakingNow()
+        greetingFallback.stop()
         panel = nil
         hiddenAppWindows.removeAll()
         if let interactionMonitor { NSEvent.removeMonitor(interactionMonitor) }
@@ -292,6 +306,10 @@ final class JarvisFullscreenOverlay {
     }
 
     func stop() {
+        greetingTask?.cancel()
+        greetingTask = nil
+        ElevenLabsVoiceService.shared.stopSpeakingNow()
+        greetingFallback.stop()
         hotkey?.uninstall()
         hotkey = nil
         if let interactionMonitor { NSEvent.removeMonitor(interactionMonitor) }

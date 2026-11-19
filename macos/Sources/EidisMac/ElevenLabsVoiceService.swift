@@ -50,6 +50,11 @@ final class ElevenLabsVoiceService: ObservableObject {
     @Published private(set) var libraryStatus = "ElevenLabs 계정에 저장된 목소리를 가져올 수 있습니다."
     @Published private(set) var isLoadingLibrary = false
     private var samplePlayer: AVPlayer?
+    private static let summonGreeting = "네, 자비스입니다."
+    // Cache only the fixed greeting for the lifetime of this app process.
+    // Dynamic answers still use the existing per-request synthesis path.
+    private var greetingCache: (voiceID: String, modelID: String, audio: Data)?
+    private var speechGeneration = 0
 
     var remaining: Int { max(0, Self.maxRequests - attempts) }
 
@@ -346,6 +351,41 @@ final class ElevenLabsVoiceService: ObservableObject {
         libraryStatus = "ElevenLabs 제공 샘플 재생 중 · 음성 생성 요청 없음. 샘플 언어는 한국어가 아닐 수 있습니다."
     }
 
+    /// The fullscreen summon is explicitly initiated by the user. A saved opt-in
+    /// is required; do not claim listening or start the microphone.
+    func speakSummonGreeting(fallback: JarvisVoiceService) async {
+        if !keyPresent { await refreshSavedKeyAvailability() }
+        guard !Task.isCancelled else { return }
+        if enabled, let cached = greetingCache,
+           cached.voiceID == voiceID, cached.modelID == modelID {
+            do {
+                let audio = try AVAudioPlayer(data: cached.audio)
+                fallback.stop()
+                player?.stop()
+                guard audio.prepareToPlay(), !Task.isCancelled, audio.play() else { return }
+                player = audio
+                status = "소환 인사 재생 중 · 저장된 오디오 재사용 (추가 크레딧 없음)"
+                NSLog("JARVIS: fullscreen greeting played from in-memory cache")
+                return
+            } catch {
+                greetingCache = nil
+            }
+        }
+        await synthesize(Self.summonGreeting, fallback: fallback,
+                         explicitlyPreviewed: false, isSummonGreeting: true)
+    }
+
+    /// Esc cancels in-flight greeting playback/response and prevents late audio.
+    /// Normal voice panel can be opened separately after dismissal.
+    func stopSpeakingNow() {
+        speechGeneration += 1
+        NSLog("JARVIS: voice playback canceled on overlay dismissal")
+        player?.stop()
+        player = nil
+        samplePlayer?.pause()
+        status = "자비스 소환 음성 중단 · Esc"
+    }
+
     func preview(fallback: JarvisVoiceService) async {
         await synthesize("네, 듣고 있습니다. 요청하신 내용을 확인하겠습니다.",
                          fallback: fallback, explicitlyPreviewed: true)
@@ -356,7 +396,10 @@ final class ElevenLabsVoiceService: ObservableObject {
     }
 
     private func synthesize(_ text: String, fallback: JarvisVoiceService,
-                            explicitlyPreviewed: Bool) async {
+                            explicitlyPreviewed: Bool,
+                            isSummonGreeting: Bool = false) async {
+        let generation = speechGeneration
+        guard !Task.isCancelled else { return }
         let phrase = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !phrase.isEmpty else { return }
         guard (enabled || explicitlyPreviewed) && keyPresent else {
@@ -395,6 +438,7 @@ final class ElevenLabsVoiceService: ObservableObject {
         let key = await Task.detached(priority: .userInitiated) {
             Self.readKey()
         }.value
+        guard !Task.isCancelled, generation == speechGeneration else { return }
         guard let key else {
             status = "ElevenLabs API 키를 읽지 못했습니다. Mac 기본 음성으로 전환합니다."
             fallback.speak(phrase)
@@ -424,6 +468,8 @@ final class ElevenLabsVoiceService: ObservableObject {
         ])
         do {
             let (data, response) = try await session.data(for: request)
+            // Dismissal wins even when a paid request finishes after Esc.
+            guard !Task.isCancelled, generation == speechGeneration else { return }
             guard let response = response as? HTTPURLResponse else {
                 throw ElevenLabsVoiceError.invalidResponse
             }
@@ -439,12 +485,18 @@ final class ElevenLabsVoiceService: ObservableObject {
                 throw ElevenLabsVoiceError.invalidResponse
             }
             let audio = try AVAudioPlayer(data: data)
-            guard audio.prepareToPlay(), audio.play() else {
+            guard audio.prepareToPlay(), !Task.isCancelled,
+                  generation == speechGeneration, audio.play() else {
                 throw ElevenLabsVoiceError.playbackUnavailable
             }
             player = audio
+            if isSummonGreeting {
+                greetingCache = (voiceID: id, modelID: modelID, audio: data)
+                NSLog("JARVIS: fullscreen greeting ElevenLabs playback started; cached in memory")
+            }
             status = "ElevenLabs 음성 재생 중 · 요청 \(attempts)/5회 (크레딧 소모 가능)"
         } catch {
+            guard !Task.isCancelled, generation == speechGeneration else { return }
             // Error content, API key and raw provider response are never logged.
             status = "ElevenLabs 음성 생성 실패: \((error as? ElevenLabsVoiceError)?.description ?? "네트워크 또는 재생 오류"). Mac 기본 음성으로 전환했습니다."
             fallback.speak(phrase)
