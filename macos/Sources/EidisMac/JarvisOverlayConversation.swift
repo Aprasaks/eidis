@@ -113,30 +113,9 @@ final class JarvisOverlayConversation: ObservableObject {
         question = prompt
         answer = ""
         isThinking = true
-        let webAction = JarvisWebIntent.parse(prompt)
-        let dashboardAction = webAction == nil ? JarvisDashboardIntent.parse(prompt) : nil
-        status = webAction != nil ? "자비스 웹 브라우저 여는 중…" :
-                 dashboardAction != nil ? "로컬 작업 기록 확인 중…" : "Qwen3.5가 맥에서 답변 중…"
+        status = "Qwen3.5가 요청을 이해하고 기능을 선택하는 중…"
         do {
-            let response: String
-            if let webAction {
-                switch webAction {
-                case .search(let query, let engine):
-                    _ = dashboard.hide()
-                    response = browser.search(query, engine: engine)
-                case .hide:
-                    response = browser.hide()
-                }
-            } else if let dashboardAction {
-                switch dashboardAction {
-                case .show:
-                    _ = browser.hide()
-                    response = await dashboard.show()
-                case .hide: response = dashboard.hide()
-                }
-            } else {
-                response = try await askQwen(prompt)
-            }
+            let response = try await planAndRespond(prompt, token: token)
             guard !response.isEmpty else { return }
             guard token == generation && !Task.isCancelled else { return }
             isThinking = false
@@ -158,45 +137,173 @@ final class JarvisOverlayConversation: ObservableObject {
         }
     }
 
-    private func askQwen(_ prompt: String) async throws -> String {
+    /// Qwen selects tools through the local Ollama API. This client only runs
+    /// audited, read-only actions from JarvisCommand, never generated code.
+    private func planAndRespond(_ prompt: String, token: UUID) async throws -> String {
+        // Unsupported integrations never get misrepresented as completed work.
+        // Explicit public web searches about those topics remain supported.
+        if let unsupported = Self.notYetConnectedResponse(for: prompt),
+           !prompt.contains("검색") && !prompt.contains("찾아") {
+            return unsupported
+        }
+        // A verified panel reference does not need a model guess. Resolving
+        // "그거 닫아" from the actual visible UI prevents wrong-panel actions.
+        if let contextual = contextualPanelFallback(for: prompt) {
+            let outcome = await execute(contextual, token: token)
+            guard !Task.isCancelled && token == generation else { return "" }
+            conversation.append(["role": "user", "content": prompt])
+            conversation.append(["role": "assistant", "content": outcome])
+            if conversation.count > 8 { conversation.removeFirst(conversation.count - 8) }
+            return outcome
+        }
         let url = URL(string: "http://127.0.0.1:11434/api/chat")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let system = """
-        당신은 개인 Mac AI 비서 자비스입니다. 자연스럽고 짧은 한국어 존댓말로만 답합니다.
-        중국어·영어 사고 과정은 출력하지 않습니다. 답변은 보통 1~3문장, 180자 이내로 합니다.
-        모르는 사실은 모른다고 말합니다. 실제로 접근하지 않은 화면·일정·파일을 본 척하지 않습니다.
-        실제로 사용하지 않은 기능을 실행했다고 주장하지 마세요. 검색은 자비스의 별도 브라우저 명령으로 처리합니다.
-        음성으로 읽히므로 별표·마크다운·이모지·복잡한 기호 없이 자연스럽게 대답합니다.
-        """
-        var messages = [["role": "system", "content": system]]
+        let panelContext = "현재 자비스 화면: 웹 브라우저=\(browser.isVisible ? "열림" : "닫힘"), " +
+            "작업 대시보드=\(dashboard.isVisible ? "열림" : "닫힘"). " +
+            "사용자가 '그거'나 '이 창'을 닫으라고 하면 현재 열린 패널을 close_panel로 닫으세요. " +
+            "브라우저가 열렸을 때 검색어는 '한 번에 한 패널' 원칙으로 처리하세요."
+        var messages = [["role": "system", "content": JarvisCommand.systemInstructions + "\n" + panelContext]]
         messages.append(contentsOf: conversation.suffix(8))
         messages.append(["role": "user", "content": prompt])
         let body: [String: Any] = [
             "model": "qwen3.5:9b-q4_K_M",
             "messages": messages,
+            "tools": JarvisCommand.tools,
             "think": false,
             "stream": false,
             "keep_alive": "10m",
-            "options": ["num_ctx": 3072, "num_predict": 150, "temperature": 0.4]
+            "options": ["num_ctx": 4096, "num_predict": 260, "temperature": 0.1]
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        let (data, response) = try await session.data(for: request)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            guard !Task.isCancelled && token == generation else { return "" }
+            if let localAction = JarvisCommand.directFallback(for: prompt) ?? contextualPanelFallback(for: prompt) {
+                let outcome = await execute(localAction, token: token)
+                guard !Task.isCancelled && token == generation else { return "" }
+                conversation.append(["role": "user", "content": prompt])
+                conversation.append(["role": "assistant", "content": outcome])
+                if conversation.count > 8 { conversation.removeFirst(conversation.count - 8) }
+                return outcome
+            }
+            throw error
+        }
+        guard !Task.isCancelled, token == generation else { return "" }
         guard (response as? HTTPURLResponse)?.statusCode == 200,
               data.count < 300_000,
               let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let message = root["message"] as? [String: Any],
-              let content = message["content"] as? String else {
+              let message = root["message"] as? [String: Any] else {
             throw URLError(.badServerResponse)
         }
-        let answer = String(content.trimmingCharacters(in: .whitespacesAndNewlines).prefix(450))
-        guard !answer.isEmpty else { throw URLError(.cannotParseResponse) }
-        // Conversation is never written to disk or sent to cloud brain APIs.
+        let output: String
+        if let actions = JarvisCommand.actions(from: message, utterance: prompt) {
+            if actions.isEmpty {
+                output = "해당 명령을 안전하게 실행할 수 없습니다. 지원하는 기능을 확인해 주세요."
+            } else {
+                output = await execute(actions, token: token)
+            }
+        } else if let obviousAction = JarvisCommand.directFallback(for: prompt) {
+            // Qwen 9B may reply "I'll open it" without requesting a tool.
+            // Only handle an unambiguous, allowlisted command in that case.
+            output = await execute(obviousAction, token: token)
+        } else if let contextualAction = contextualPanelFallback(for: prompt) {
+            // A vague reference is safe only when there is exactly one live panel.
+            output = await execute(contextualAction, token: token)
+        } else if let unsupported = Self.notYetConnectedResponse(for: prompt) {
+            output = unsupported
+        } else {
+            let content = (message["content"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if Self.isUnexecutedActionRequest(prompt) {
+                output = "말씀하신 작업을 이해했지만 아직 실행할 수 있는 기능이 연결되지 않았습니다."
+            } else {
+                output = String(content.isEmpty
+                    ? "말씀을 정확히 이해하지 못했습니다. 조금 다르게 말씀해 주시겠어요?"
+                    : content.prefix(450))
+            }
+        }
+        guard !Task.isCancelled, token == generation else { return "" }
+        // Append only verified tool outcomes or ordinary chat, never Qwen's
+        // unverified claim that an external action has been performed.
         conversation.append(["role": "user", "content": prompt])
-        conversation.append(["role": "assistant", "content": answer])
+        conversation.append(["role": "assistant", "content": output])
         if conversation.count > 8 { conversation.removeFirst(conversation.count - 8) }
-        return answer
+        return output
+    }
+
+    private func execute(_ actions: [JarvisCommand], token: UUID) async -> String {
+        var outcomes: [String] = []
+        for action in actions.prefix(3) {
+            guard !Task.isCancelled, token == generation else { return "" }
+            let result: String
+            switch action {
+            case .openBrowser(let engine):
+                _ = dashboard.hide()
+                result = browser.openHome(engine: engine)
+            case .searchWeb(let query, let engine):
+                guard JarvisCommand.isSafePublicSearch(question, query: query) else {
+                    outcomes.append("비공개 자료를 외부 검색어로 보내지 않았습니다.")
+                    continue
+                }
+                _ = dashboard.hide()
+                result = browser.search(query, engine: engine)
+            case .showDashboard:
+                _ = browser.hide()
+                result = await dashboard.show()
+            case .closePanel(let panel):
+                switch panel {
+                case .browser: result = browser.hide()
+                case .dashboard: result = dashboard.hide()
+                }
+            }
+            guard !Task.isCancelled, token == generation else { return "" }
+            if !result.isEmpty { outcomes.append(result) }
+        }
+        return String(outcomes.joined(separator: " ").prefix(450))
+    }
+
+    /// Follow-up like “그거 닫아” must close the visible panel, rather than
+    /// allowing Qwen to claim it is closed without an actual tool call.
+    private func contextualPanelFallback(for phrase: String) -> [JarvisCommand]? {
+        let s = phrase.lowercased().replacingOccurrences(of: " ", with: "")
+        let referent = ["그거", "이거", "그창", "이창", "화면", "패널"].contains { s.contains($0) }
+        let closing = ["닫아", "닫아줘", "치워", "숨겨", "꺼줘", "없애", "종료"].contains { s.contains($0) }
+        guard referent && closing else { return nil }
+        if browser.isVisible && !dashboard.isVisible { return [.closePanel(.browser)] }
+        if dashboard.isVisible && !browser.isVisible { return [.closePanel(.dashboard)] }
+        return nil
+    }
+
+    private static func isUnexecutedActionRequest(_ phrase: String) -> Bool {
+        let compact = phrase.lowercased().replacingOccurrences(of: " ", with: "")
+        let verbs = ["열어줘", "띄워", "실행해", "저장해", "보내줘", "정리해줘", "분석해줘",
+                     "수정해줘", "삭제해줘", "연결해줘", "등록해줘", "찾아줘", "검색해줘"]
+        return verbs.contains { compact.contains($0) }
+    }
+
+    private static func notYetConnectedResponse(for phrase: String) -> String? {
+        let s = phrase.lowercased().replacingOccurrences(of: " ", with: "")
+        let actions = ["분석", "요약", "정리", "편집", "저장", "수정", "작성", "올려", "업로드",
+                       "동기화", "가져와", "보여줘", "읽어줘", "접속", "연결"]
+        guard actions.contains(where: { s.contains($0) }) else { return nil }
+        if s.contains("유튜브") || s.contains("youtube") {
+            return "유튜브 영상 분석 기능은 아직 연결되지 않았습니다. 링크와 자막을 가져오는 기능부터 추가해야 합니다."
+        }
+        if s.contains("깃허브") || s.contains("github") {
+            return "GitHub 저장소 읽기 기능은 아직 연결되지 않았습니다. 인증 후 저장소 조회 도구를 추가할 수 있습니다."
+        }
+        if s.contains("노션") || s.contains("notion") || s.contains("옵시디언") || s.contains("obsidian") {
+            return "Notion과 Obsidian 데이터 정리 기능은 아직 연결되지 않았습니다. 접근 범위를 설정한 뒤 연결해야 합니다."
+        }
+        if s.contains("사진") && (s.contains("정리") || s.contains("분류") || s.contains("이동")) {
+            return "사진 분류와 정리는 아직 연결되지 않았습니다. 파일을 보존하는 미리보기부터 구현해야 합니다."
+        }
+        return nil
     }
 
     func cancel() {

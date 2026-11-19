@@ -17,6 +17,21 @@ final class JarvisOverlayBrowser: ObservableObject {
     @Published private(set) var errorText: String?
     private weak var webView: WKWebView?
 
+    /// Opening a browser is a separate action from searching the web.
+    func openHome(engine: JarvisWebIntent.SearchEngine) -> String {
+        let url = engine == .google
+            ? URL(string: "https://www.google.com/")!
+            : URL(string: "https://m.naver.com/")!
+        title = engine == .google ? "Google" : "네이버"
+        query = engine == .google ? "구글 홈" : "네이버 홈"
+        errorText = nil
+        pageTitle = ""
+        currentURL = url
+        isLoading = true
+        isVisible = true
+        return "\(title) 브라우저를 자비스 화면 안에 열었습니다."
+    }
+
     func search(_ query: String, engine: JarvisWebIntent.SearchEngine) -> String {
         guard let url = engine.url(for: query) else { return "검색어를 확인해 주세요." }
         title = "\(engine.title) 검색"

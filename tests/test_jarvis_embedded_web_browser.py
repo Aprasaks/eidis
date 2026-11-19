@@ -5,6 +5,7 @@ ROOT=Path(__file__).resolve().parents[1]
 INTENT=(ROOT/'macos/Sources/EidisMac/JarvisWebIntent.swift').read_text()
 WEB=(ROOT/'macos/Sources/EidisMac/JarvisOverlayBrowser.swift').read_text()
 CHAT=(ROOT/'macos/Sources/EidisMac/JarvisOverlayConversation.swift').read_text()
+ENGINE=(ROOT/'macos/Sources/EidisMac/JarvisCommandEngine.swift').read_text()
 OVERLAY=(ROOT/'macos/Sources/EidisMac/JarvisFullscreenOverlay.swift').read_text()
 APP=(ROOT/'macos/Resources/Info.plist').read_text()
 
@@ -15,11 +16,12 @@ class JarvisEmbeddedBrowserContract(unittest.TestCase):
                       'URLQueryItem(name: "q", value: query)', '"내파일"', '"내프로젝트"',
                       '"찾아줘"', '"검색해줘"', 'case hide', 'String(query.prefix(180))']:
             self.assertIn(token,INTENT)
-        self.assertIn('let webAction = JarvisWebIntent.parse(prompt)',CHAT)
-        self.assertIn('case .search(let query, let engine)', CHAT)
-        self.assertIn('response = browser.search(query, engine: engine)', CHAT)
-        self.assertIn('response = browser.hide()',CHAT)
-        self.assertIn('response = try await askQwen(prompt)',CHAT)
+        self.assertIn('JarvisWebIntent.parse(phrase)',ENGINE)
+        self.assertIn('case .searchWeb(let query, let engine)', CHAT)
+        self.assertIn('result = browser.search(query, engine: engine)', CHAT)
+        self.assertIn('case .browser: result = browser.hide()',CHAT)
+        self.assertIn('planAndRespond(prompt, token: token)',CHAT)
+        self.assertIn('browser.openHome(engine: engine)',CHAT)
         self.assertIn('browser.cancel()',CHAT)
     def test_real_webview_with_no_page_to_command_bridge(self):
         for token in ['WKWebView', 'WKNavigationDelegate', 'WKUIDelegate',
@@ -40,6 +42,6 @@ class JarvisEmbeddedBrowserContract(unittest.TestCase):
                       'browser: dialogue.browser', 'hotkey?.uninstallEscape()',
                       'self.dialogue?.browser.isVisible != true', 'JARVIS_FullHD_Loop']:
             self.assertIn(token,OVERLAY)
-        self.assertIn('<string>3.10.6</string>',APP)
+        self.assertIn('<string>3.10.8</string>',APP)
 
 if __name__ == '__main__': unittest.main()

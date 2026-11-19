@@ -1,0 +1,136 @@
+import Foundation
+
+/// Explicit, type-checked local action registry. Tool names returned by Qwen
+/// never become arbitrary URLs, Swift selectors, shell commands, or file paths.
+/// Additional services (GitHub, Notion, Obsidian, Photos) must register their
+/// own reviewed executor and permissions before being advertised to the model.
+enum JarvisCommand: Equatable {
+    case openBrowser(JarvisWebIntent.SearchEngine)
+    case searchWeb(String, JarvisWebIntent.SearchEngine)
+    case showDashboard
+    case closePanel(Panel)
+
+    enum Panel: String { case browser, dashboard }
+
+    static let tools: [[String: Any]] = [
+        ["type": "function", "function": [
+            "name": "open_browser",
+            "description": "사용자가 인터넷 창, 웹 브라우저, 네이버/구글 페이지를 열라고 할 때. 검색어가 없어도 호출. 실제로 여는 행위는 JARVIS가 처리한다.",
+            "parameters": ["type": "object", "properties": [
+                "engine": ["type": "string", "enum": ["naver", "google"]]
+            ]]
+        ]],
+        ["type": "function", "function": [
+            "name": "search_web",
+            "description": "공개된 웹 정보를 찾아보거나 검색하라는 명령. 개인 파일, 메일, 비공개 메모 내용은 보내면 안 된다. 결과는 JARVIS 내부 브라우저에 표시한다.",
+            "parameters": ["type": "object", "properties": [
+                "query": ["type": "string", "description": "실제 검색어, 180자 이내"],
+                "engine": ["type": "string", "enum": ["naver", "google"]]
+            ], "required": ["query"]]
+        ]],
+        ["type": "function", "function": [
+            "name": "show_work_dashboard",
+            "description": "JARVIS 내부에 기록된 프로젝트, 할 일, 작업 상태를 보여 달라는 요청. 로컬 DB 읽기 전용.",
+            "parameters": ["type": "object", "properties": [:] as [String: Any]]
+        ]],
+        ["type": "function", "function": [
+            "name": "close_panel",
+            "description": "현재 열린 브라우저/웹 검색창 또는 작업 대시보드를 숨기라는 요청.",
+            "parameters": ["type": "object", "properties": [
+                "panel": ["type": "string", "enum": ["browser", "dashboard"]]
+            ], "required": ["panel"]]
+        ]]
+    ]
+
+    static let toolNames: Set<String> = ["open_browser", "search_web", "show_work_dashboard", "close_panel"]
+
+    static let systemInstructions = """
+    당신은 JARVIS Mac에서 작동하는 한국어 개인 비서의 명령 판단기입니다.
+    사용자가 기능 실행을 요청하면 적절한 함수를 반드시 호출하세요. 함수 호출 없이 실행했다고 말하지 마세요.
+    '인터넷 좀 켜줘', '네이버 들어가 보자', '구글 열어줘'는 open_browser를 사용하세요.
+    '뭐 좀 찾아봐', '웹에서 조사해봐'처럼 검색 요청이면 검색어가 있을 때 search_web을 사용하세요.
+    '내 할 일 어디까지 됐어', '프로젝트 상태 보여줘'는 show_work_dashboard를 사용하세요.
+    대시보드/검색창을 치워달라고 하면 close_panel을 사용하세요.
+    복합 요청은 최대 세 개의 허용된 함수를 필요한 순서대로 호출하세요.
+    그냥 대화나 설명을 요청하면 함수를 호출하지 않고 한국어로 간결히 답하세요.
+    아직 유튜브 영상 분석, GitHub 저장소 읽기, Notion/Obsidian 편집, 사진 정리, 임의 앱 제어는 연결되지 않았습니다.
+    연결되지 않은 기능을 완료했다고 주장하거나 사용자의 허락 없이 개인정보를 검색어로 보내면 안 됩니다.
+    실제로 접근하지 않은 데이터나 화면을 봤다고 말하지 마세요.
+    화법은 한국어로 자연스럽게, 답변은 보통 두세 문장 이내로 해주세요.
+    """
+
+    static func actions(from message: [String: Any], utterance: String) -> [Self]? {
+        guard let calls = message["tool_calls"] as? [[String: Any]], !calls.isEmpty else { return nil }
+        // Reject the whole plan if any part is unknown or malformed.
+        guard calls.count <= 3 else { return [] }
+        var actions: [Self] = []
+        for call in calls {
+            guard let function = call["function"] as? [String: Any],
+                  let name = function["name"] as? String, toolNames.contains(name) else { return [] }
+            var args = function["arguments"] as? [String: Any] ?? [:]
+            if let raw = function["arguments"] as? String,
+               let data = raw.data(using: .utf8),
+               let parsed = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                args = parsed
+            }
+            let requestedEngine: JarvisWebIntent.SearchEngine =
+                utterance.localizedCaseInsensitiveContains("구글") ||
+                utterance.localizedCaseInsensitiveContains("google") ? .google : .naver
+            switch name {
+            case "open_browser":
+                actions.append(.openBrowser(requestedEngine))
+            case "search_web":
+                guard let query = args["query"] as? String else { return [] }
+                let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty && trimmed.count <= 180 &&
+                      isSafePublicSearch(utterance, query: trimmed) else { return [] }
+                actions.append(.searchWeb(trimmed, requestedEngine))
+            case "show_work_dashboard":
+                actions.append(.showDashboard)
+            case "close_panel":
+                guard let panelName = args["panel"] as? String,
+                      let panel = Panel(rawValue: panelName) else { return [] }
+                actions.append(.closePanel(panel))
+            default: return []
+            }
+        }
+        return actions
+    }
+
+    /// Public search must not silently leak private local context to a provider.
+    static func isSafePublicSearch(_ utterance: String, query: String) -> Bool {
+        let input = (utterance + " " + query).lowercased().replacingOccurrences(of: " ", with: "")
+        let prohibited = ["내파일", "맥파일", "내문서", "로컬파일", "파일찾아", "내프로젝트",
+                          "내작업", "작업기록", "내메일", "이메일에서", "메일에서",
+                          "다운로드폴더", "내사진", "사진폴더", "내노션", "내옵시디언",
+                          "/users/", "~/", "apikey", "api키", "비밀번호", "패스워드"]
+        if prohibited.contains(where: { input.contains($0) }) { return false }
+        if query.contains("@") || query.contains("\n") || query.contains("\r") { return false }
+        return true
+    }
+
+    /// No-model safety net for very clear high-frequency commands when the
+    /// locally run model responds in text rather than selecting a tool.
+    static func directFallback(for phrase: String) -> [Self]? {
+        let s = phrase.lowercased().replacingOccurrences(of: " ", with: "")
+        if ["인터넷", "브라우저", "네이버", "구글", "google"].contains(where: { s.contains($0) }) &&
+           ["열어", "켜", "들어가", "띄워", "접속"].contains(where: { s.contains($0) }) &&
+           !["파일", "문서", "메일", "프로젝트", "검색", "찾아"].contains(where: { s.contains($0) }) {
+            return [.openBrowser(s.contains("구글") || s.contains("google") ? .google : .naver)]
+        }
+        if let web = JarvisWebIntent.parse(phrase) {
+            switch web {
+            case .hide: return [.closePanel(.browser)]
+            case .search(let query, let engine):
+                if isSafePublicSearch(phrase, query: query) { return [.searchWeb(query, engine)] }
+            }
+        }
+        if let dashboard = JarvisDashboardIntent.parse(phrase) {
+            switch dashboard {
+            case .show: return [.showDashboard]
+            case .hide: return [.closePanel(.dashboard)]
+            }
+        }
+        return nil
+    }
+}
