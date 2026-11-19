@@ -393,8 +393,8 @@ struct NativeSpeechPanel: View {
                         Button("ElevenLabs 미리 듣기 · 크레딧 사용") {
                             Task { await elevenLabs.preview(fallback: voice) }
                         }
-                        .disabled(!elevenLabs.keyPresent || elevenLabs.isBusy || elevenLabs.isCheckingConnection || elevenLabs.remaining == 0)
-                        Text("이번 앱 실행: 남은 요청 \(elevenLabs.remaining)/5회")
+                        .disabled(!elevenLabs.keyPresent || elevenLabs.isBusy || elevenLabs.isCheckingConnection)
+                        Text("이번 앱 실행: \(elevenLabs.attempts)회 요청 · 한도는 ElevenLabs 계정 설정에 따름")
                             .font(.caption.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }

@@ -26,7 +26,7 @@ class AriaFullscreenGreetingContract(unittest.TestCase):
         self.assertIn('if enabled, let cached = greetingCache', ELEVEN)
         self.assertIn('greetingCache = (voiceID: id, modelID: modelID, audio: data)', ELEVEN)
         self.assertIn('enabled || explicitlyPreviewed', ELEVEN)
-        self.assertIn('private static let maxRequests = 5', ELEVEN)
+        self.assertNotIn('private static let maxRequests = 5', ELEVEN)
         self.assertIn('status = "소환 인사 재생 중 · 저장된 오디오 재사용 (추가 크레딧 없음)"', ELEVEN)
         self.assertIn('fallback.speak(phrase)', ELEVEN)
 

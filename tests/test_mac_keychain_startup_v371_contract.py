@@ -21,7 +21,7 @@ class MacKeychainStartupTests(unittest.TestCase):
 
     def test_user_api_calls_still_require_explicit_opt_in(self):
         self.assertIn('guard (enabled || explicitlyPreviewed) && keyPresent', VOICE)
-        self.assertIn('private static let maxRequests = 5', VOICE)
+        self.assertNotIn('private static let maxRequests = 5', VOICE)
         self.assertIn('private static let maxCharacters = 600', VOICE)
         self.assertIn('kSecAttrAccessibleWhenUnlockedThisDeviceOnly', VOICE)
         self.assertIn('let key = await Task.detached(priority: .userInitiated)', VOICE)
@@ -34,7 +34,7 @@ class MacKeychainStartupTests(unittest.TestCase):
         self.assertIn('showLaunchIntro', WINDOW)
         self.assertIn('localServer.connectOnLaunch()', WINDOW)
         self.assertRegex(PLIST, r'<string>3\.(?:7\.[1-9][0-9]*|8\.[0-9]+|9\.[0-9]+|10\.[0-9]+)</string>')
-        self.assertRegex(PLIST, r'<string>(?:3[89]|4[0-9]|5[0-6])</string>')
+        self.assertRegex(PLIST, r'<string>(?:3[89]|4[0-9]|5[0-8])</string>')
 
 if __name__ == '__main__':
     unittest.main()

@@ -19,6 +19,7 @@ final class JarvisOverlayConversation: ObservableObject {
 
     private let listener = LocalSpeechListener()
     private let macVoice = JarvisVoiceService()
+    let dashboard = JarvisOverlayDashboard()
     private let elevenLabs = ElevenLabsVoiceService.shared
     private let session: URLSession
     private var conversation: [[String: String]] = []
@@ -111,9 +112,16 @@ final class JarvisOverlayConversation: ObservableObject {
         question = prompt
         answer = ""
         isThinking = true
-        status = "Qwen3.5가 맥에서 답변 중…"
+        let action = JarvisDashboardIntent.parse(prompt)
+        status = action == nil ? "Qwen3.5가 맥에서 답변 중…" : "로컬 작업 기록 확인 중…"
         do {
-            let response = try await askQwen(prompt)
+            let response: String
+            switch action {
+            case .show: response = await dashboard.show()
+            case .hide: response = dashboard.hide()
+            case nil: response = try await askQwen(prompt)
+            }
+            guard !response.isEmpty else { return }
             guard token == generation && !Task.isCancelled else { return }
             isThinking = false
             answer = response
@@ -192,6 +200,7 @@ final class JarvisOverlayConversation: ObservableObject {
         question = ""
         answer = ""
         conversation.removeAll()
+        dashboard.cancel()
         status = "자비스 대화 종료"
         session.invalidateAndCancel()
     }

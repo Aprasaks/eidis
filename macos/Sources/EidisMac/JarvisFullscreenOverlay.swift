@@ -122,6 +122,7 @@ private struct JarvisSummonedView: View {
     let dismiss: () -> Void
     let moveToAdjacentScreen: (Int) -> Void
     @ObservedObject var dialogue: JarvisOverlayConversation
+    @ObservedObject var dashboard: JarvisOverlayDashboard
     @State private var typedText = ""
     @FocusState private var isInputFocused: Bool
     @State private var appeared = false
@@ -153,21 +154,6 @@ private struct JarvisSummonedView: View {
                     // The original film and its core remain untouched. Dialogue
                     // controls are compact and confined to the bottom edge.
                     VStack(spacing: 8) {
-                        if !dialogue.answer.isEmpty {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(dialogue.question)
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundStyle(.orange.opacity(0.85))
-                                Text(dialogue.answer)
-                                    .font(.system(size: 15, weight: .regular))
-                                    .foregroundStyle(.white)
-                                    .lineLimit(5)
-                                    .textSelection(.enabled)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(12)
-                            .background(.black.opacity(0.78), in: RoundedRectangle(cornerRadius: 12))
-                        }
                         Text(dialogue.status)
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(dialogue.isListening ? Color(red: 1, green: 0.72, blue: 0.28) : .white.opacity(0.8))
@@ -206,6 +192,47 @@ private struct JarvisSummonedView: View {
                     .padding(.bottom, 15)
                 }
                 .padding(.horizontal, 30)
+
+                // Keep the original JARVIS title unobstructed even for long
+                // answers: subtitles sit on the left, not atop the gold core.
+                if !dialogue.answer.isEmpty {
+                    HStack(alignment: .bottom) {
+                        VStack(alignment: .leading, spacing: 7) {
+                            Text(dialogue.question)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(Color.orange.opacity(0.85))
+                            Text(dialogue.answer)
+                                .font(.system(size: 14))
+                                .foregroundStyle(.white.opacity(0.93))
+                                .fixedSize(horizontal: false, vertical: true)
+                                .lineLimit(6)
+                        }
+                        .frame(width: min(440, area.size.width * 0.34), alignment: .leading)
+                        .padding(13)
+                        .background(.black.opacity(0.82), in: RoundedRectangle(cornerRadius: 13))
+                        .overlay(RoundedRectangle(cornerRadius: 13)
+                            .stroke(.white.opacity(0.12), lineWidth: 1))
+                        Spacer(minLength: 0)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                    .padding(.leading, 30)
+                    .padding(.bottom, 89)
+                    .allowsHitTesting(false)
+                }
+
+                // Dashboard is summoned on an explicit command only; the gold
+                // core artwork/video remains unchanged and visible beneath it.
+                if dashboard.isVisible {
+                    HStack {
+                        Spacer(minLength: 0)
+                        dashboardPanel
+                            .frame(width: min(405, max(295, area.size.width * 0.29)),
+                                   height: min(800, max(350, area.size.height - 130)))
+                            .padding(.trailing, 27)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    .transition(.opacity.combined(with: .move(edge: .trailing)))
+                }
             }
             .frame(width: area.size.width, height: area.size.height)
             // Drag the hologram left/right to move it between physical screens.
@@ -224,6 +251,123 @@ private struct JarvisSummonedView: View {
             if reduceMotion { appeared = true }
             else { withAnimation(.easeInOut(duration: 0.36)) { appeared = true } }
         }
+    }
+
+    private var dashboardPanel: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 9) {
+                Image(systemName: "square.grid.2x2")
+                    .foregroundStyle(Color(red: 1, green: 0.66, blue: 0.23))
+                Text("PROJECT STATUS")
+                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                    .tracking(2)
+                    .foregroundStyle(.white)
+                Spacer()
+                Button {
+                    _ = dashboard.hide()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white.opacity(0.6))
+                        .padding(8)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("jarvis-dashboard-close")
+            }
+            .padding(.horizontal, 17)
+            .padding(.top, 13)
+            .padding(.bottom, 13)
+
+            Rectangle().fill(Color.orange.opacity(0.35)).frame(height: 1)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    if dashboard.isLoading {
+                        ProgressView("기록 불러오는 중…")
+                            .tint(.orange)
+                            .foregroundStyle(.white)
+                            .padding(.vertical, 20)
+                    } else if let error = dashboard.errorText {
+                        Text(error)
+                            .font(.system(size: 13))
+                            .foregroundStyle(.white.opacity(0.8))
+                            .padding(.vertical, 20)
+                    } else {
+                        Text("로컬 JARVIS에 저장된 작업 · 조회 결과")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.white.opacity(0.52))
+                        HStack(spacing: 0) {
+                            dashboardNumber("예정", dashboard.totalTodo)
+                            dashboardNumber("진행", dashboard.totalDoing)
+                            dashboardNumber("막힘", dashboard.totalBlocked)
+                            dashboardNumber("완료", dashboard.totalDone)
+                        }
+                        .padding(.vertical, 10)
+                        .background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
+                        if dashboard.projects.isEmpty {
+                            Text("등록된 프로젝트가 없습니다.")
+                                .foregroundStyle(.white.opacity(0.72))
+                        }
+                        ForEach(dashboard.projects) { project in
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text(project.name)
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                Text("진행 \(project.taskCounts.doing) · 예정 \(project.taskCounts.todo) · 막힘 \(project.taskCounts.blocked) · 완료 \(project.taskCounts.done)")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.white.opacity(0.63))
+                                if project.nextTasks.isEmpty {
+                                    Text("현재 등록된 진행·예정 작업 없음")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(.white.opacity(0.55))
+                                } else {
+                                    ForEach(project.nextTasks.prefix(4)) { task in
+                                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                            Circle()
+                                                .fill(task.status == "doing" ? Color.orange : Color.gray)
+                                                .frame(width: 6, height: 6)
+                                            Text(task.title)
+                                                .font(.system(size: 12))
+                                                .foregroundStyle(.white.opacity(0.88))
+                                                .fixedSize(horizontal: false, vertical: true)
+                                            Spacer(minLength: 0)
+                                        }
+                                    }
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(12)
+                            .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12))
+                        }
+                        if let date = dashboard.refreshedAt {
+                            Text("로컬 기록 읽은 시각: \(date.formatted(date: .omitted, time: .shortened))")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.white.opacity(0.43))
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(15)
+            }
+            .scrollIndicators(.hidden)
+        }
+        .background(Color(red: 0.032, green: 0.035, blue: 0.037).opacity(0.95),
+                    in: RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.orange.opacity(0.28), lineWidth: 1))
+        .shadow(color: .black.opacity(0.55), radius: 25)
+        .accessibilityIdentifier("jarvis-on-demand-dashboard")
+    }
+
+    private func dashboardNumber(_ label: String, _ count: Int) -> some View {
+        VStack(spacing: 6) {
+            Text(String(count))
+                .font(.system(size: 22, weight: .light, design: .rounded))
+                .foregroundStyle(.white)
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundStyle(.white.opacity(0.54))
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private func sendTyped() {
@@ -302,7 +446,8 @@ final class JarvisFullscreenOverlay {
             videoURL: url,
             dismiss: { [weak self] in self?.dismiss() },
             moveToAdjacentScreen: { [weak self] direction in self?.moveToAdjacentScreen(direction) },
-            dialogue: dialogue))
+            dialogue: dialogue,
+            dashboard: dialogue.dashboard))
         // Do not show the old JARVIS dashboard behind the cinematic veil.
         // orderOut keeps its state and project data intact; the Dock can reopen it.
         hiddenAppWindows = NSApp.windows.filter { $0 !== window && $0.isVisible }

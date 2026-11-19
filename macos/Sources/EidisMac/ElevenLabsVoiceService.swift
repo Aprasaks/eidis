@@ -26,7 +26,6 @@ final class ElevenLabsVoiceService: ObservableObject {
     private static let enabledKey = "jarvis.elevenlabs.enabled"
     private static let voiceKey = "jarvis.elevenlabs.voiceID"
     private static let modelKey = "jarvis.elevenlabs.modelID"
-    private static let maxRequests = 5
     private static let maxCharacters = 600
 
     @Published var voiceID: String {
@@ -56,7 +55,6 @@ final class ElevenLabsVoiceService: ObservableObject {
     private var greetingCache: (voiceID: String, modelID: String, audio: Data)?
     private var speechGeneration = 0
 
-    var remaining: Int { max(0, Self.maxRequests - attempts) }
 
     private let defaults: UserDefaults
     private let session: URLSession
@@ -423,12 +421,6 @@ final class ElevenLabsVoiceService: ObservableObject {
             status = "음성 생성 중입니다. 중복 호출을 막았습니다."
             return
         }
-        guard remaining > 0 else {
-            enabled = false
-            status = "이번 앱 실행에서 ElevenLabs 요청 5회를 사용했습니다. Mac 기본 음성으로 전환합니다."
-            fallback.speak(phrase)
-            return
-        }
         guard phrase.count <= Self.maxCharacters else {
             status = "600자를 넘는 응답은 비용·정보 노출을 줄이기 위해 Mac에서만 읽습니다."
             fallback.speak(phrase)
@@ -462,7 +454,7 @@ final class ElevenLabsVoiceService: ObservableObject {
         attempts += 1
         isBusy = true
         defer { isBusy = false }
-        status = "ElevenLabs 음성 생성 중 · 이번 실행 \(attempts)/5회 요청"
+        status = "ElevenLabs 음성 생성 중 · 이번 실행 \(attempts)회 요청 · 크레딧 사용 가능"
         player?.stop()
         player = nil
         fallback.stop()
@@ -504,7 +496,7 @@ final class ElevenLabsVoiceService: ObservableObject {
                 greetingCache = (voiceID: id, modelID: modelID, audio: data)
                 NSLog("JARVIS: fullscreen greeting ElevenLabs playback started; cached in memory")
             }
-            status = "ElevenLabs 음성 재생 중 · 요청 \(attempts)/5회 (크레딧 소모 가능)"
+            status = "ElevenLabs 음성 재생 중 · 이번 실행 \(attempts)회 요청 (크레딧 소모 가능)"
         } catch {
             guard !Task.isCancelled, generation == speechGeneration else { return }
             // Error content, API key and raw provider response are never logged.

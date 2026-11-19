@@ -23,8 +23,8 @@ class SummonOnlyLaunchTests(unittest.TestCase):
         self.assertIn('cmdKey | optionKey', OVERLAY)
         self.assertIn('event.keyCode == 53', OVERLAY)
         self.assertNotIn('SFSpeechRecognizer', OVERLAY)
-        self.assertIn('<string>3.10.2</string>', PLIST)
-        self.assertIn('<string>56</string>', PLIST)
+        self.assertIn('<string>3.10.4</string>', PLIST)
+        self.assertIn('<string>58</string>', PLIST)
         self.assertIn('<string>15.0</string>', PLIST)
 
 if __name__ == '__main__':
