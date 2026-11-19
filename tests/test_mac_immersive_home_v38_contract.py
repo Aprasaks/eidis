@@ -63,8 +63,8 @@ class JarvisImmersiveHomeContracts(unittest.TestCase):
             self.assertNotIn(bad, IMMERSIVE)
 
     def test_release_version(self):
-        self.assertIn('<string>3.8.4</string>', PLIST)
-        self.assertIn('<string>43</string>', PLIST)
+        self.assertIn('<string>3.9.0</string>', PLIST)
+        self.assertIn('<string>44</string>', PLIST)
         self.assertIn('<string>dev.dechive.eidis</string>', PLIST)
 
 
