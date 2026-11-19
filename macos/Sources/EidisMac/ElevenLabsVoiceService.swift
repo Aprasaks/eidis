@@ -386,6 +386,16 @@ final class ElevenLabsVoiceService: ObservableObject {
         status = "자비스 소환 음성 중단 · Esc"
     }
 
+    /// Wait for either ElevenLabs or the offline Mac fallback to finish speaking.
+    /// Each 150ms pause is cancellable; Esc stops playback and the next question.
+    func waitForOutputToFinish(fallback: JarvisVoiceService) async {
+        for _ in 0..<400 {
+            if Task.isCancelled { return }
+            if !isBusy && player?.isPlaying != true && !fallback.isSpeaking { return }
+            try? await Task.sleep(for: .milliseconds(150))
+        }
+    }
+
     func preview(fallback: JarvisVoiceService) async {
         await synthesize("네, 듣고 있습니다. 요청하신 내용을 확인하겠습니다.",
                          fallback: fallback, explicitlyPreviewed: true)

@@ -61,6 +61,8 @@ final class JarvisVoiceService: ObservableObject {
         synthesizer.speak(utterance)
     }
 
+    var isSpeaking: Bool { synthesizer.isSpeaking }
+
     func stop() {
         synthesizer.stopSpeaking(at: .immediate)
     }

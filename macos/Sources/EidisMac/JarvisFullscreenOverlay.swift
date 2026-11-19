@@ -7,16 +7,33 @@ import SwiftUI
 // or claim the '자비스' wake word works.
 private final class JarvisOverlayHotkey {
     private var hotkey: EventHotKeyRef?
+    private var escapeHotkey: EventHotKeyRef?
     private var handler: EventHandlerRef?
     var onPress: (() -> Void)?
+    var onEscape: (() -> Void)?
 
     func install() -> Bool {
         var event = EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
                                   eventKind: UInt32(kEventHotKeyPressed))
-        let result = InstallEventHandler(GetApplicationEventTarget(), { _, _, userData in
-            guard let userData else { return OSStatus(eventNotHandledErr) }
+        let result = InstallEventHandler(GetApplicationEventTarget(), { _, event, userData in
+            guard let userData, let event else { return OSStatus(eventNotHandledErr) }
             let key = Unmanaged<JarvisOverlayHotkey>.fromOpaque(userData).takeUnretainedValue()
-            DispatchQueue.main.async { key.onPress?() }
+            var pressed = EventHotKeyID()
+            let outcome = GetEventParameter(event,
+                EventParamName(kEventParamDirectObject),
+                EventParamType(typeEventHotKeyID), nil,
+                MemoryLayout<EventHotKeyID>.size, nil, &pressed)
+            guard outcome == noErr, pressed.signature == 0x4A415256 else {
+                return OSStatus(eventNotHandledErr)
+            }
+            let hotkeyID = pressed.id
+            DispatchQueue.main.async {
+                switch hotkeyID {
+                case 51: key.onPress?()
+                case 52: key.onEscape?()
+                default: break
+                }
+            }
             return noErr
         }, 1, &event, Unmanaged.passUnretained(self).toOpaque(), &handler)
         guard result == noErr else { return false }
@@ -27,7 +44,23 @@ private final class JarvisOverlayHotkey {
         return true
     }
 
+    /// Register Escape only while fullscreen JARVIS is visible. Unlike a local
+    /// key monitor, Carbon receives Escape even if microphone permission UI
+    /// or another app temporarily takes keyboard focus.
+    func installEscape() -> Bool {
+        guard escapeHotkey == nil else { return true }
+        let identifier = EventHotKeyID(signature: 0x4A415256, id: 52)
+        return RegisterEventHotKey(UInt32(kVK_Escape), 0, identifier,
+            GetApplicationEventTarget(), 0, &escapeHotkey) == noErr
+    }
+
+    func uninstallEscape() {
+        if let escapeHotkey { UnregisterEventHotKey(escapeHotkey) }
+        escapeHotkey = nil
+    }
+
     func uninstall() {
+        uninstallEscape()
         if let hotkey { UnregisterEventHotKey(hotkey) }
         if let handler { RemoveEventHandler(handler) }
         hotkey = nil
@@ -88,6 +121,9 @@ private struct JarvisSummonedView: View {
     let videoURL: URL
     let dismiss: () -> Void
     let moveToAdjacentScreen: (Int) -> Void
+    @ObservedObject var dialogue: JarvisOverlayConversation
+    @State private var typedText = ""
+    @FocusState private var isInputFocused: Bool
     @State private var appeared = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
@@ -114,8 +150,60 @@ private struct JarvisSummonedView: View {
                         .accessibilityLabel("자비스 화면 닫기")
                     }
                     Spacer()
-                    // The supplied activation film already contains the core artwork.
-                    // No duplicate HUD text or visible menu is added on top of it.
+                    // The original film and its core remain untouched. Dialogue
+                    // controls are compact and confined to the bottom edge.
+                    VStack(spacing: 8) {
+                        if !dialogue.answer.isEmpty {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(dialogue.question)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(.orange.opacity(0.85))
+                                Text(dialogue.answer)
+                                    .font(.system(size: 15, weight: .regular))
+                                    .foregroundStyle(.white)
+                                    .lineLimit(5)
+                                    .textSelection(.enabled)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(12)
+                            .background(.black.opacity(0.78), in: RoundedRectangle(cornerRadius: 12))
+                        }
+                        Text(dialogue.status)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(dialogue.isListening ? Color(red: 1, green: 0.72, blue: 0.28) : .white.opacity(0.8))
+                            .lineLimit(2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        HStack(spacing: 9) {
+                            Button {
+                                dialogue.toggleMicrophone()
+                            } label: {
+                                Label(dialogue.isListening ? "질문 마치기" : "대화 시작", systemImage: dialogue.isListening ? "stop.circle.fill" : "mic.fill")
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(Color(red: 0.68, green: 0.37, blue: 0.06))
+                            .disabled(dialogue.isThinking || dialogue.isSpeaking)
+                            .accessibilityIdentifier("jarvis-overlay-microphone")
+                            TextField("텍스트로도 질문할 수 있어요", text: $typedText)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(size: 12))
+                                .focused($isInputFocused)
+                                .onChange(of: isInputFocused) { _, focused in
+                                    dialogue.textInputFocused = focused
+                                }
+                                .onSubmit { sendTyped() }
+                                .disabled(dialogue.isThinking || dialogue.isSpeaking || dialogue.isListening)
+                                .accessibilityIdentifier("jarvis-overlay-text-input")
+                            Button("보내기") { sendTyped() }
+                                .buttonStyle(.bordered)
+                                .disabled(typedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                                          dialogue.isThinking || dialogue.isSpeaking || dialogue.isListening)
+                                .accessibilityIdentifier("jarvis-overlay-send")
+                        }
+                    }
+                    .frame(maxWidth: 620)
+                    .padding(12)
+                    .background(.black.opacity(0.68), in: RoundedRectangle(cornerRadius: 16))
+                    .padding(.bottom, 15)
                 }
                 .padding(.horizontal, 30)
             }
@@ -137,6 +225,13 @@ private struct JarvisSummonedView: View {
             else { withAnimation(.easeInOut(duration: 0.36)) { appeared = true } }
         }
     }
+
+    private func sendTyped() {
+        let text = typedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        typedText = ""
+        dialogue.submitTyped(text)
+    }
 }
 
 @MainActor
@@ -151,11 +246,13 @@ final class JarvisFullscreenOverlay {
     private var hiddenAppWindows: [NSWindow] = []
     private let greetingFallback = JarvisVoiceService()
     private var greetingTask: Task<Void, Never>?
+    private var dialogue: JarvisOverlayConversation?
 
     func start() {
         NSLog("JARVIS: overlay start, args=%@", ProcessInfo.processInfo.arguments.joined(separator: ","))
         let key = JarvisOverlayHotkey()
         key.onPress = { [weak self] in self?.toggle() }
+        key.onEscape = { [weak self] in self?.dismiss() }
         if key.install() {
             hotkey = key
             NSLog("JARVIS: Command-Option-J fullscreen shortcut registered")
@@ -199,15 +296,21 @@ final class JarvisFullscreenOverlay {
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.isMovable = false
         window.setFrame(screen.frame, display: true)
+        let dialogue = JarvisOverlayConversation()
+        self.dialogue = dialogue
         window.contentView = NSHostingView(rootView: JarvisSummonedView(
             videoURL: url,
             dismiss: { [weak self] in self?.dismiss() },
-            moveToAdjacentScreen: { [weak self] direction in self?.moveToAdjacentScreen(direction) }))
+            moveToAdjacentScreen: { [weak self] direction in self?.moveToAdjacentScreen(direction) },
+            dialogue: dialogue))
         // Do not show the old JARVIS dashboard behind the cinematic veil.
         // orderOut keeps its state and project data intact; the Dock can reopen it.
         hiddenAppWindows = NSApp.windows.filter { $0 !== window && $0.isVisible }
         for oldWindow in hiddenAppWindows { oldWindow.orderOut(nil) }
         panel = window
+        if hotkey?.installEscape() != true {
+            NSLog("JARVIS: global Esc hotkey unavailable; local Esc remains enabled")
+        }
         NSLog("JARVIS: panel created, frame=%@", NSStringFromRect(window.frame))
         interactionMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .scrollWheel]) { [weak self] event in
             guard let self, self.panel != nil else { return event }
@@ -215,6 +318,12 @@ final class JarvisFullscreenOverlay {
                 // Escape must win over animation, dialogue and other overlay states.
                 if event.keyCode == 53 {
                     self.dismiss()
+                    return nil
+                }
+                // Space is the manual start/finish microphone control.
+                // Do not intercept spaces typed into the text input.
+                if event.keyCode == 49 && self.dialogue?.textInputFocused != true {
+                    self.dialogue?.toggleMicrophone()
                     return nil
                 }
                 // Reliable fallback when trackpad gestures are unavailable.
@@ -244,6 +353,9 @@ final class JarvisFullscreenOverlay {
         greetingTask = Task { [weak self] in
             guard let self, self.panel != nil else { return }
             await ElevenLabsVoiceService.shared.speakSummonGreeting(fallback: self.greetingFallback)
+            await ElevenLabsVoiceService.shared.waitForOutputToFinish(fallback: self.greetingFallback)
+            guard !Task.isCancelled, self.panel != nil, self.dialogue === dialogue else { return }
+            await dialogue.afterGreeting()
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
             NSLog("JARVIS: overlay stable, isVisible=%@ alpha=%.2f appHidden=%@",
@@ -291,9 +403,12 @@ final class JarvisFullscreenOverlay {
     /// Immediate dismissal: do not wait for a fade when the user presses Esc.
     func dismiss() {
         guard let window = panel else { return }
+        hotkey?.uninstallEscape()
         // Highest priority: stop audio and cancel outstanding greeting requests.
         greetingTask?.cancel()
         greetingTask = nil
+        dialogue?.cancel()
+        dialogue = nil
         ElevenLabsVoiceService.shared.stopSpeakingNow()
         greetingFallback.stop()
         panel = nil
@@ -306,8 +421,11 @@ final class JarvisFullscreenOverlay {
     }
 
     func stop() {
+        hotkey?.uninstallEscape()
         greetingTask?.cancel()
         greetingTask = nil
+        dialogue?.cancel()
+        dialogue = nil
         ElevenLabsVoiceService.shared.stopSpeakingNow()
         greetingFallback.stop()
         hotkey?.uninstall()
