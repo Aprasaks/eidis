@@ -45,7 +45,31 @@ test -f "$RESOURCES/web/index.html"
 test ! -f "$RESOURCES/.env"
 test -z "$(find "$RESOURCES" -type f -name '*.pyc' -print -quit)"
 
-/usr/bin/codesign --force --sign - "$APP"
-/usr/bin/codesign --verify "$APP"
+# Stable macOS Keychain authorization requires a stable designated
+# requirement. Ad-hoc signing (--sign -) changes cdhash with every build,
+# so "Always Allow" on dev.dechive.eidis.elevenlabs cannot persist.
+# Sign with a real, valid Apple Development certificate from this Mac.
+# Never silently fall back to ad-hoc signing (would reintroduce the prompt).
+SIGNING_IDENTITY="${JARVIS_SIGNING_IDENTITY:-}"
+if [[ -z "$SIGNING_IDENTITY" ]]; then
+  MATCHES="$(/usr/bin/security find-identity -v -p codesigning | /usr/bin/awk '/"Apple Development: / { print $2 }')"
+  MATCH_COUNT="$(printf '%s\n' "$MATCHES" | /usr/bin/awk 'NF {n++} END {print n+0}')"
+  if [[ "$MATCH_COUNT" -ne 1 ]]; then
+    echo "오류: 서명용 Apple Development 인증서가 정확히 1개 필요합니다 (현재 $MATCH_COUNT개)." >&2
+    echo "다른 인증서가 여러 개면 JARVIS_SIGNING_IDENTITY를 기존 인증서 SHA-1로 지정하세요." >&2
+    exit 2
+  fi
+  SIGNING_IDENTITY="$MATCHES"
+fi
+/usr/bin/codesign --force --sign "$SIGNING_IDENTITY" "$APP"
+/usr/bin/codesign --verify --deep --strict "$APP"
+# A CDHash-only designated requirement means the Keychain will prompt again
+# whenever any Swift/resource file changes. Reject such a release here.
+DESIGNATED_REQUIREMENT="$(/usr/bin/codesign -dr - "$APP" 2>&1)"
+if [[ "$DESIGNATED_REQUIREMENT" != *'anchor apple generic'* ]]; then
+  echo "오류: JARVIS가 안정적인 Apple 서명으로 빌드되지 않았습니다." >&2
+  exit 2
+fi
+echo "서명 확인: Apple Development / 안정적인 키체인 앱 식별자"
 echo "생성 완료: $APP"
 echo "실제 Mac에서 마이크/화면 권한을 직접 승인해야 합니다."
