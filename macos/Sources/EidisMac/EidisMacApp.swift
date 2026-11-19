@@ -22,6 +22,12 @@ struct EidisMacApp: App {
         MenuBarExtra("JARVIS", systemImage: "circle.hexagongrid") {
             JarvisMenuCommands(lifecycle: lifecycle)
         }
+
+        Window("내 목소리 설정", id: "jarvis-voice-setup") {
+            JarvisVoiceSetupView()
+        }
+        .defaultSize(width: 690, height: 530)
+        .defaultLaunchBehavior(.suppressed)
     }
 }
 
@@ -33,6 +39,10 @@ private struct JarvisMenuCommands: View {
         Button("자비스 소환 / 닫기  ⌘⌥J") { lifecycle.fullscreen.toggle() }
         Button("작업 및 설정 열기") {
             openWindow(id: "jarvis-tools")
+            NSApp.activate(ignoringOtherApps: true)
+        }
+        Button("내 목소리 설정") {
+            openWindow(id: "jarvis-voice-setup")
             NSApp.activate(ignoringOtherApps: true)
         }
         Divider()
