@@ -7,8 +7,19 @@ import SwiftUI
 /// ElevenLabs synthesis is strictly opt-in. The Voice ID is not a secret.
 /// API keys are read only from the user's macOS Keychain and never from HTML,
 /// source code, UserDefaults, GitHub, project memories or activity logs.
+struct ElevenLabsLibraryVoice: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let category: String
+    let gender: String
+    let accent: String
+    let korean: Bool
+    let sampleURL: URL?
+}
+
 @MainActor
 final class ElevenLabsVoiceService: ObservableObject {
+    static let shared = ElevenLabsVoiceService()
     static let suggestedVoiceID = "O2KReOFLpoR65nz6C9Se"
     nonisolated private static let service = "dev.dechive.eidis.elevenlabs"
     nonisolated private static let account = "text-to-speech-api"
@@ -35,6 +46,10 @@ final class ElevenLabsVoiceService: ObservableObject {
     @Published private(set) var attempts = 0
     @Published private(set) var isBusy = false
     @Published private(set) var isCheckingConnection = false
+    @Published private(set) var libraryVoices: [ElevenLabsLibraryVoice] = []
+    @Published private(set) var libraryStatus = "ElevenLabs 계정에 저장된 목소리를 가져올 수 있습니다."
+    @Published private(set) var isLoadingLibrary = false
+    private var samplePlayer: AVPlayer?
 
     var remaining: Int { max(0, Self.maxRequests - attempts) }
 
@@ -204,6 +219,112 @@ final class ElevenLabsVoiceService: ObservableObject {
         } catch {
             status = "ElevenLabs 네트워크 연결 확인 실패 · 인터넷 연결이나 서비스 상태를 확인해 주세요."
         }
+    }
+
+    /// List voice metadata only (GET). No speech generation or credits.
+    func fetchVoiceLibrary() async {
+        guard !isLoadingLibrary && !isBusy else { return }
+        isLoadingLibrary = true
+        defer { isLoadingLibrary = false }
+        libraryStatus = "ElevenLabs 키체인 접근 및 음성 목록 확인 중…"
+        let key = await Task.detached(priority: .userInitiated) {
+            Self.readKey()
+        }.value
+        guard let key else {
+            libraryStatus = "Mac 키체인에 저장된 ElevenLabs API 키를 읽지 못했습니다. 키체인 접근을 허용하거나 음성 탭에서 키를 등록해 주세요."
+            return
+        }
+        keyPresent = true
+        var all: [ElevenLabsLibraryVoice] = []
+        var cursor: String?
+        var seen = Set<String>()
+        do {
+            for _ in 0..<3 {
+                var parts = URLComponents(string: "https://api.elevenlabs.io/v2/voices")!
+                var query = [URLQueryItem(name: "page_size", value: "100")]
+                if let cursor { query.append(URLQueryItem(name: "next_page_token", value: cursor)) }
+                parts.queryItems = query
+                guard let url = parts.url else { break }
+                var request = URLRequest(url: url)
+                request.httpMethod = "GET"
+                request.setValue(key, forHTTPHeaderField: "xi-api-key")
+                request.setValue("application/json", forHTTPHeaderField: "Accept")
+                request.timeoutInterval = 18
+                var (payload, response) = try await session.data(for: request)
+                guard var http = response as? HTTPURLResponse else { throw ElevenLabsVoiceError.invalidResponse }
+                // Some account/API combinations reject v2 filters (HTTP 400).
+                // Legacy v1 voices is a documented read-only fallback, no TTS charges.
+                if [400, 404, 422].contains(http.statusCode) && cursor == nil {
+                    let fallbackURL = URL(string: "https://api.elevenlabs.io/v1/voices")!
+                    var fallback = URLRequest(url: fallbackURL)
+                    fallback.httpMethod = "GET"
+                    fallback.timeoutInterval = 18
+                    fallback.setValue(key, forHTTPHeaderField: "xi-api-key")
+                    fallback.setValue("application/json", forHTTPHeaderField: "Accept")
+                    (payload, response) = try await session.data(for: fallback)
+                    guard let fallbackHTTP = response as? HTTPURLResponse else { throw ElevenLabsVoiceError.invalidResponse }
+                    http = fallbackHTTP
+                }
+                guard http.statusCode == 200 else {
+                    libraryStatus = "목소리 목록 조회 실패 · HTTP \(http.statusCode). ElevenLabs API 키의 음성 조회 권한 또는 요청 호환성을 확인해 주세요."
+                    return
+                }
+                let root = try JSONSerialization.jsonObject(with: payload) as? [String: Any]
+                guard let rows = root?["voices"] as? [[String: Any]] else { throw ElevenLabsVoiceError.invalidResponse }
+                for item in rows {
+                    guard let id = item["voice_id"] as? String,
+                          id.range(of: "^[A-Za-z0-9]{20}$", options: .regularExpression) != nil,
+                          !seen.contains(id) else { continue }
+                    seen.insert(id)
+                    let labels = item["labels"] as? [String: String] ?? [:]
+                    let category = item["category"] as? String ?? ""
+                    let gender = labels["gender"] ?? "미표시"
+                    let accent = labels["accent"] ?? ""
+                    let versions = item["verified_languages"] as? [[String: Any]] ?? []
+                    let korean = versions.contains { ($0["language"] as? String)?.lowercased() == "ko" }
+                        || (labels["language"]?.lowercased().contains("korean") ?? false)
+                    let preview = item["preview_url"] as? String
+                    let sampleURL = preview.flatMap(URL.init(string:)).flatMap { $0.scheme == "https" ? $0 : nil }
+                    all.append(ElevenLabsLibraryVoice(id: id,
+                        name: String((item["name"] as? String ?? "이름 없음").prefix(90)),
+                        category: category, gender: gender, accent: accent,
+                        korean: korean, sampleURL: sampleURL))
+                }
+                if root?["has_more"] as? Bool == true,
+                   let next = root?["next_page_token"] as? String,
+                   !next.isEmpty, next != cursor { cursor = next }
+                else { cursor = nil; break }
+            }
+            libraryVoices = all.sorted { a, b in
+                let ar = (a.korean ? 0 : 2) + (a.gender.lowercased() == "female" ? 0 : 1)
+                let br = (b.korean ? 0 : 2) + (b.gender.lowercased() == "female" ? 0 : 1)
+                return ar == br ? a.name.localizedStandardCompare(b.name) == .orderedAscending : ar < br
+            }
+            libraryStatus = all.isEmpty ? "사용 가능한 음성이 조회되지 않았습니다. ElevenLabs의 My Voices에서 음성을 추가해 주세요." :
+                "조회 완료 · \(all.count)개 (목록 조회는 음성 크레딧 미사용)" + (cursor != nil ? " · 처음 300개만 표시" : "")
+        } catch {
+            libraryStatus = "목소리 목록 연결 실패. ElevenLabs 계정·키체인 권한·네트워크를 확인해 주세요."
+        }
+    }
+
+    /// Select only. This does not enable paid synthesis automatically.
+    func selectLibraryVoice(_ voice: ElevenLabsLibraryVoice) {
+        guard libraryVoices.contains(voice) else { return }
+        voiceID = voice.id
+        libraryStatus = "선택됨: \(voice.name). 유료 합성 설정은 변경하지 않았습니다. 현재 \(enabled ? "ON" : "OFF")입니다."
+    }
+
+    /// Play a provider-supplied preview_url, not text-to-speech generation.
+    func playLibrarySample(_ voice: ElevenLabsLibraryVoice) {
+        guard libraryVoices.contains(voice), let url = voice.sampleURL,
+              url.scheme == "https" else {
+            libraryStatus = "이 목소리에는 재생 가능한 미리 듣기 주소가 없습니다."
+            return
+        }
+        samplePlayer?.pause()
+        samplePlayer = AVPlayer(url: url)
+        samplePlayer?.play()
+        libraryStatus = "ElevenLabs 제공 샘플 재생 중 · 음성 생성 요청 없음. 샘플 언어는 한국어가 아닐 수 있습니다."
     }
 
     func preview(fallback: JarvisVoiceService) async {

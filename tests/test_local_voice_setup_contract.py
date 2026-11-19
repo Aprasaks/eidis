@@ -19,7 +19,7 @@ class LocalVoiceSetupContract(unittest.TestCase):
         self.assertNotIn('https://', VIEW)
     def test_default_window_stays_suppressed(self):
         self.assertIn('Window("내 목소리 설정", id: "jarvis-voice-setup")', APP)
-        self.assertEqual(APP.count('.defaultLaunchBehavior(.suppressed)'), 2)
+        self.assertEqual(APP.count('.defaultLaunchBehavior(.suppressed)'), 3)
         self.assertIn('openWindow(id: "jarvis-voice-setup")', APP)
         self.assertIn('Button("내 목소리 설정")', APP)
 

@@ -28,6 +28,12 @@ struct EidisMacApp: App {
         }
         .defaultSize(width: 690, height: 530)
         .defaultLaunchBehavior(.suppressed)
+
+        Window("ElevenLabs 목소리 선택", id: "jarvis-elevenlabs-voices") {
+            JarvisElevenLabsLibraryView()
+        }
+        .defaultSize(width: 720, height: 600)
+        .defaultLaunchBehavior(.suppressed)
     }
 }
 
@@ -43,6 +49,10 @@ private struct JarvisMenuCommands: View {
         }
         Button("내 목소리 설정") {
             openWindow(id: "jarvis-voice-setup")
+            NSApp.activate(ignoringOtherApps: true)
+        }
+        Button("ElevenLabs 목소리 선택") {
+            openWindow(id: "jarvis-elevenlabs-voices")
             NSApp.activate(ignoringOtherApps: true)
         }
         Divider()
@@ -151,7 +161,7 @@ private enum JarvisTab: Hashable {
 struct JarvisWindow: View {
     @EnvironmentObject private var localServer: JarvisBundledServer
     @StateObject private var voice = JarvisVoiceService()
-    @StateObject private var elevenLabs = ElevenLabsVoiceService()
+    @StateObject private var elevenLabs = ElevenLabsVoiceService.shared
     @StateObject private var vision = ScreenObserver()
     @StateObject private var uiInspector = AccessibilityInspector()
     @StateObject private var bridge = JarvisBridge()
