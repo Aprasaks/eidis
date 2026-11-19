@@ -58,8 +58,14 @@ final class ElevenLabsVoiceService: ObservableObject {
         configuration.timeoutIntervalForRequest = 20
         configuration.timeoutIntervalForResource = 25
         self.session = URLSession(configuration: configuration)
-        Task { [weak self] in
-            await self?.refreshSavedKeyAvailability()
+        // Preview builds have a separate bundle identity and must never request
+        // access to the production user's ElevenLabs Keychain item.
+        if Bundle.main.bundleIdentifier == "dev.dechive.eidis" {
+            Task { [weak self] in
+                await self?.refreshSavedKeyAvailability()
+            }
+        } else {
+            self.status = "독립 시험 앱: ElevenLabs 키체인 자동 조회 생략"
         }
     }
 

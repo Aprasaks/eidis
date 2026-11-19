@@ -22,6 +22,8 @@ cp "$INFO" "$APP/Contents/Info.plist"
 # developer's SQLite DB, Python caches, credentials, .env, Git or other files.
 RESOURCES="$APP/Contents/Resources"
 mkdir -p "$RESOURCES/jarvis" "$RESOURCES/web"
+# Transparent looping activation core. Contains no user recordings or credentials.
+cp "$PACKAGE/Resources/Art/JARVIS_Activation_Alpha_HEVC.mov" "$RESOURCES/JARVIS_Activation_Alpha_HEVC.mov"
 cp "$ROOT/app.py" "$RESOURCES/app.py"
 for source in "$ROOT"/jarvis/*.py; do
   cp "$source" "$RESOURCES/jarvis/"

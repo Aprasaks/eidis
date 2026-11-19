@@ -177,12 +177,23 @@ final class JarvisBundledServer: ObservableObject {
 @MainActor
 final class JarvisAppLifecycle: NSObject, NSApplicationDelegate {
     let server = JarvisBundledServer()
+    let fullscreen = JarvisFullscreenOverlay()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        fullscreen.start()
         Task { await server.connectOnLaunch() }
     }
 
+    func applicationShouldHandleReopen(_ sender: NSApplication,
+                                       hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            NSApp.windows.first(where: { $0.title.contains("JARVIS") })?.makeKeyAndOrderFront(nil)
+        }
+        return true
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
+        fullscreen.stop()
         server.stopOwnedServer()
     }
 }
