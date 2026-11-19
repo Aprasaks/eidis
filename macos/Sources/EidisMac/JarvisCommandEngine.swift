@@ -8,6 +8,7 @@ enum JarvisCommand: Equatable {
     case openBrowser(JarvisWebIntent.SearchEngine)
     case searchWeb(String, JarvisWebIntent.SearchEngine)
     case showDashboard
+    case summarizePage
     case closePanel(Panel)
 
     enum Panel: String { case browser, dashboard }
@@ -34,6 +35,11 @@ enum JarvisCommand: Equatable {
             "parameters": ["type": "object", "properties": [:] as [String: Any]]
         ]],
         ["type": "function", "function": [
+            "name": "summarize_current_page",
+            "description": "현재 JARVIS 내부 브라우저에 열린 실제 웹페이지의 본문을 읽고 출처를 명시해 분석·요약해달라는 요청. 링크 없는 유튜브 영상 자체 분석은 지원하지 않음.",
+            "parameters": ["type": "object", "properties": [:] as [String: Any]]
+        ]],
+        ["type": "function", "function": [
             "name": "close_panel",
             "description": "현재 열린 브라우저/웹 검색창 또는 작업 대시보드를 숨기라는 요청.",
             "parameters": ["type": "object", "properties": [
@@ -42,7 +48,7 @@ enum JarvisCommand: Equatable {
         ]]
     ]
 
-    static let toolNames: Set<String> = ["open_browser", "search_web", "show_work_dashboard", "close_panel"]
+    static let toolNames: Set<String> = ["open_browser", "search_web", "show_work_dashboard", "summarize_current_page", "close_panel"]
 
     static let systemInstructions = """
     당신은 JARVIS Mac에서 작동하는 한국어 개인 비서의 명령 판단기입니다.
@@ -51,6 +57,8 @@ enum JarvisCommand: Equatable {
     '뭐 좀 찾아봐', '웹에서 조사해봐'처럼 검색 요청이면 검색어가 있을 때 search_web을 사용하세요.
     '내 할 일 어디까지 됐어', '프로젝트 상태 보여줘'는 show_work_dashboard를 사용하세요.
     대시보드/검색창을 치워달라고 하면 close_panel을 사용하세요.
+    사용자가 현재 브라우저에 열린 페이지 내용을 요약·분석·설명해달라고 하면 summarize_current_page 함수를 호출하세요.
+    어떤 페이지가 열려 있는지는 실제 화면 상태를 참고하고, 실행 전 내용을 읽었다고 주장하지 마세요.
     복합 요청은 최대 세 개의 허용된 함수를 필요한 순서대로 호출하세요.
     그냥 대화나 설명을 요청하면 함수를 호출하지 않고 한국어로 간결히 답하세요.
     아직 유튜브 영상 분석, GitHub 저장소 읽기, Notion/Obsidian 편집, 사진 정리, 임의 앱 제어는 연결되지 않았습니다.
@@ -87,6 +95,8 @@ enum JarvisCommand: Equatable {
                 actions.append(.searchWeb(trimmed, requestedEngine))
             case "show_work_dashboard":
                 actions.append(.showDashboard)
+            case "summarize_current_page":
+                actions.append(.summarizePage)
             case "close_panel":
                 guard let panelName = args["panel"] as? String,
                       let panel = Panel(rawValue: panelName) else { return [] }
@@ -109,6 +119,16 @@ enum JarvisCommand: Equatable {
         return true
     }
 
+    static func directPageSummaryIntent(_ phrase: String) -> Bool {
+        let text = phrase.lowercased().replacingOccurrences(of: " ", with: "")
+        let page = ["이페이지", "이웹페이지", "현재페이지", "지금페이지", "이사이트", "이기사",
+                    "지금보는페이지", "열린페이지", "여기내용", "이화면내용", "이글"].contains {
+            text.contains($0)
+        }
+        let operation = ["요약", "분석", "설명", "정리", "알려줘", "핵심"].contains { text.contains($0) }
+        return page && operation
+    }
+
     /// No-model safety net for very clear high-frequency commands when the
     /// locally run model responds in text rather than selecting a tool.
     static func directFallback(for phrase: String) -> [Self]? {
@@ -125,6 +145,7 @@ enum JarvisCommand: Equatable {
                 if isSafePublicSearch(phrase, query: query) { return [.searchWeb(query, engine)] }
             }
         }
+        if directPageSummaryIntent(phrase) { return [.summarizePage] }
         if let dashboard = JarvisDashboardIntent.parse(phrase) {
             switch dashboard {
             case .show: return [.showDashboard]

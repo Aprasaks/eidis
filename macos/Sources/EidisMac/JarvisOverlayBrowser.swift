@@ -2,6 +2,18 @@ import Foundation
 import SwiftUI
 import WebKit
 
+/// Read-only snapshot of the currently loaded webpage.
+/// This text is untrusted evidence, never instructions for JARVIS tools.
+struct JarvisWebPageSnapshot {
+    let title: String
+    let url: URL
+    let text: String
+}
+
+enum JarvisWebPageReadError: Error {
+    case noOpenPage, pageStillLoading, unavailableText, navigationChanged
+}
+
 /// User-requested web search is displayed in the overlay, not Safari/Chrome.
 /// A fresh ephemeral WKWebView is constructed only when a search is requested.
 @MainActor
@@ -42,6 +54,36 @@ final class JarvisOverlayBrowser: ObservableObject {
         isLoading = true
         isVisible = true
         return "‘\(query)’ 검색 결과를 자비스 화면에 띄웠습니다. 원하시는 링크를 직접 열어볼 수 있습니다."
+    }
+
+    /// Read only the currently visible webpage at explicit user request.
+    /// No DOM/website content is fed into the tool-selection model call.
+    func snapshotVisiblePage() async throws -> JarvisWebPageSnapshot {
+        guard isVisible, let view = webView,
+              let current = view.url,
+              current.scheme?.lowercased() == "https",
+              current.host != nil else {
+            throw JarvisWebPageReadError.noOpenPage
+        }
+        guard !view.isLoading else { throw JarvisWebPageReadError.pageStillLoading }
+        // Text only: no HTML, scripts, cookies, form values or selected files.
+        // Prefer article/main content, falling back to visible body text.
+        let js = """
+        (() => {
+            const body = document.querySelector('article, main, [role="main"]') || document.body;
+            if (!body) return '';
+            return (body.innerText || '').slice(0, 12000);
+        })()
+        """
+        let raw = try await view.evaluateJavaScript(js)
+        guard isVisible, webView === view, view.url == current, !view.isLoading else {
+            throw JarvisWebPageReadError.navigationChanged
+        }
+        guard let text = raw as? String else { throw JarvisWebPageReadError.unavailableText }
+        let content = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard content.count >= 100 else { throw JarvisWebPageReadError.unavailableText }
+        return JarvisWebPageSnapshot(title: String((view.title ?? current.host ?? "웹페이지").prefix(150)),
+                                     url: current, text: content)
     }
 
     func back() { webView?.goBack() }

@@ -202,11 +202,33 @@ private struct JarvisSummonedView: View {
                             Text(dialogue.question)
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(Color.orange.opacity(0.85))
-                            Text(dialogue.answer)
-                                .font(.system(size: 14))
-                                .foregroundStyle(.white.opacity(0.93))
-                                .fixedSize(horizontal: false, vertical: true)
-                                .lineLimit(6)
+                            if dialogue.sourceURL != nil {
+                                // Web analysis can be longer than a spoken reply.
+                                // Keep its full text scrollable, never truncate
+                                // the user's researched answer with an ellipsis.
+                                ScrollView(.vertical) {
+                                    Text(dialogue.answer)
+                                        .font(.system(size: 13))
+                                        .foregroundStyle(.white.opacity(0.93))
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .textSelection(.enabled)
+                                }
+                                .frame(maxHeight: min(210, area.size.height * 0.25))
+                                .scrollIndicators(.visible)
+                            } else {
+                                Text(dialogue.answer)
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(.white.opacity(0.93))
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .lineLimit(6)
+                            }
+                            if let source = dialogue.sourceURL {
+                                Text("출처: \(dialogue.sourceTitle) · \(source.host ?? "웹페이지")")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(Color.orange.opacity(0.83))
+                                    .lineLimit(2)
+                                    .accessibilityLabel("웹페이지 출처: \(source.absoluteString)")
+                            }
                         }
                         .frame(width: min(440, area.size.width * 0.34), alignment: .leading)
                         .padding(13)
@@ -218,7 +240,7 @@ private struct JarvisSummonedView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
                     .padding(.leading, 30)
                     .padding(.bottom, 89)
-                    .allowsHitTesting(false)
+                    .allowsHitTesting(dialogue.sourceURL != nil)
                 }
 
                 // Dashboard is summoned on an explicit command only; the gold

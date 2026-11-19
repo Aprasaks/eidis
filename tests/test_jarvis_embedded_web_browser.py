@@ -31,7 +31,8 @@ class JarvisEmbeddedBrowserContract(unittest.TestCase):
                       'view.stopLoading()', 'view.allowsBackForwardNavigationGestures = true']:
             self.assertIn(token, WEB)
         self.assertNotIn('WKScriptMessageHandler',WEB)
-        self.assertNotIn('evaluateJavaScript', WEB)
+        self.assertIn('view.evaluateJavaScript(js)', WEB)
+        self.assertIn('document.querySelector', WEB)
         self.assertNotIn('Process()',WEB)
         self.assertNotIn('NSWorkspace.shared.open',WEB)
     def test_overlay_only_on_demand_and_esc(self):
@@ -42,6 +43,6 @@ class JarvisEmbeddedBrowserContract(unittest.TestCase):
                       'browser: dialogue.browser', 'hotkey?.uninstallEscape()',
                       'self.dialogue?.browser.isVisible != true', 'JARVIS_FullHD_Loop']:
             self.assertIn(token,OVERLAY)
-        self.assertIn('<string>3.10.9</string>',APP)
+        self.assertIn('<string>3.11.1</string>',APP)
 
 if __name__ == '__main__': unittest.main()
