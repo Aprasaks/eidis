@@ -55,6 +55,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
         if path == "/api/status":
             return self._json(200, {"name": "JARVIS Lab", "version": "0.1.0",
                                     "capabilities": CAPABILITIES, "memory_count": self.store.count_memories(),
+                                    "profile_count": len(self.store.list_profile()),
                                     "design": {"local_available": True, "remote_configured": remote_ready()},
                                     "brain": {"local_context": True, "remote_configured": brain_ready(),
                                               "remaining": max(0, MAX_REMOTE_CALLS - self.brain.remote_calls),
@@ -82,6 +83,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
                     "aws_deployment", "paid_ai_provider"
                 ]
             })
+        if path == "/api/profile":
+            return self._json(200, {"items": self.store.list_profile()})
         if path == "/api/memories":
             return self._json(200, {"items": self.store.recent_memories()})
         if path == "/api/projects":
@@ -119,7 +122,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         if path not in ("/api/command", "/api/chat", "/api/design/suggest", "/api/vision/analyze",
                          "/api/projects", "/api/projects/task", "/api/projects/status",
-                         "/api/projects/github/check"):
+                         "/api/projects/github/check", "/api/profile", "/api/profile/forget"):
             return self._json(404, {"error": "알 수 없는 경로"})
         if not self._same_origin():
             return self._json(403, {"error": "로컬 앱에서만 요청할 수 있습니다."})
@@ -132,6 +135,13 @@ class JarvisHandler(BaseHTTPRequestHandler):
             data = json.loads(self.rfile.read(size))
             if not isinstance(data, dict):
                 raise ValueError("JSON 객체로 요청해야 합니다.")
+            if path == "/api/profile":
+                entry = self.store.upsert_profile(data.get("key"), data.get("value"),
+                                                  source="user_direct", confirmed=True)
+                return self._json(200, {"fact": entry})
+            if path == "/api/profile/forget":
+                deleted = self.store.delete_profile(data.get("key"))
+                return self._json(200, {"deleted": deleted})
             if path == "/api/projects":
                 project = self.store.create_project(
                     data.get("name"), data.get("goal", ""), data.get("repo", "")

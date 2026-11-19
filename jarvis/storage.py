@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import sqlite3
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -86,7 +87,68 @@ class MemoryStore:
                 completed_at TEXT NOT NULL DEFAULT ''
             );
         """)
+        # Personal identity facts live apart from ephemeral chat and project tasks.
+        # All fields are opt-in and individually editable/deletable. Existing
+        # memories and projects are preserved by this additive migration.
+        self.db.execute("""
+            CREATE TABLE IF NOT EXISTS personal_profile (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                source TEXT NOT NULL,
+                confirmed INTEGER NOT NULL DEFAULT 0 CHECK(confirmed IN (0,1)),
+                updated_at TEXT NOT NULL
+            )
+        """)
         self.db.commit()
+
+    PROFILE_FIELDS = frozenset({
+        "display_name", "identity", "values", "working_style",
+        "communication_style", "environment", "assistant_role", "goals",
+    })
+
+    def list_profile(self) -> list[dict]:
+        return [dict(row) for row in self.db.execute(
+            "SELECT key,value,source,confirmed,updated_at FROM personal_profile ORDER BY key"
+        )]
+
+    def upsert_profile(self, key: object, value: object,
+                       source: str = "user_direct", *, confirmed: bool = True) -> dict:
+        if not isinstance(key, str) or key not in self.PROFILE_FIELDS:
+            raise ValueError("지원하지 않는 프로필 항목입니다.")
+        if not isinstance(value, str) or not 1 <= len(value.strip()) <= 350:
+            raise ValueError("프로필 내용은 1~350자 이내여야 합니다.")
+        # The Mac client and local API must both reject common secrets.
+        secret_markers = ("비밀번호", "주민번호", "신용카드", "패스워드", "api키", "api key",
+                          "인증토큰", "secret key", "access token", "private key")
+        if any(marker in value.lower() for marker in secret_markers) or re.search(
+            r"(?:sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9_]{24,})", value
+        ):
+            raise ValueError("비밀번호나 API 인증정보는 사용자 프로필에 저장하지 않습니다.")
+        if source not in ("user_direct", "user_approved_seed"):
+            raise ValueError("확인되지 않은 정보 출처입니다.")
+        if not confirmed:
+            raise ValueError("사용자가 확인하지 않은 프로필은 저장하지 않습니다.")
+        value = value.strip()
+        now = iso_now()
+        with self.db:
+            self.db.execute("""
+                INSERT INTO personal_profile(key,value,source,confirmed,updated_at)
+                VALUES (?,?,?,?,?)
+                ON CONFLICT(key) DO UPDATE SET value=excluded.value,
+                    source=excluded.source,confirmed=excluded.confirmed,
+                    updated_at=excluded.updated_at
+            """, (key, value, source, 1, now))
+        return dict(self.db.execute(
+            "SELECT key,value,source,confirmed,updated_at FROM personal_profile WHERE key=?",
+            (key,)
+        ).fetchone())
+
+    def delete_profile(self, key: object) -> bool:
+        if not isinstance(key, str) or key not in self.PROFILE_FIELDS:
+            raise ValueError("지원하지 않는 프로필 항목입니다.")
+        with self.db:
+            removed = self.db.execute("DELETE FROM personal_profile WHERE key=?", (key,))
+        return removed.rowcount == 1
 
     def count_memories(self) -> int:
         return self.db.execute("SELECT COUNT(*) FROM memories").fetchone()[0]

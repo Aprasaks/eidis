@@ -202,8 +202,9 @@ private struct JarvisSummonedView: View {
                             Text(dialogue.question)
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(Color.orange.opacity(0.85))
-                            if dialogue.sourceURL != nil {
-                                // Web analysis can be longer than a spoken reply.
+                            if dialogue.sourceURL != nil || dialogue.isMemoryAnswer {
+                                // Web analysis or verified saved memories can be
+                                // longer than a short spoken reply.
                                 // Keep its full text scrollable, never truncate
                                 // the user's researched answer with an ellipsis.
                                 ScrollView(.vertical) {
@@ -240,7 +241,7 @@ private struct JarvisSummonedView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
                     .padding(.leading, 30)
                     .padding(.bottom, 89)
-                    .allowsHitTesting(dialogue.sourceURL != nil)
+                    .allowsHitTesting(dialogue.sourceURL != nil || dialogue.isMemoryAnswer)
                 }
 
                 // Dashboard is summoned on an explicit command only; the gold

@@ -51,7 +51,7 @@ class JarvisWebPageAnalysisContract(unittest.TestCase):
         self.assertIn('출처:',OVERLAY)
         self.assertIn('ScrollView(.vertical)', OVERLAY)
         self.assertIn('maxHeight: min(210, area.size.height * 0.25)', OVERLAY)
-        self.assertIn('.allowsHitTesting(dialogue.sourceURL != nil)', OVERLAY)
+        self.assertIn('.allowsHitTesting(dialogue.sourceURL != nil || dialogue.isMemoryAnswer)', OVERLAY)
         self.assertIn('hotkey?.uninstallEscape()',OVERLAY)
 
 if __name__=='__main__': unittest.main()

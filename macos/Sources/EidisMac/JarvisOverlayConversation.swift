@@ -12,6 +12,7 @@ final class JarvisOverlayConversation: ObservableObject {
     @Published private(set) var answer = ""
     @Published private(set) var sourceURL: URL?
     @Published private(set) var sourceTitle = ""
+    @Published private(set) var isMemoryAnswer = false
     @Published private(set) var isListening = false
     @Published private(set) var isThinking = false
     @Published private(set) var isSpeaking = false
@@ -23,6 +24,7 @@ final class JarvisOverlayConversation: ObservableObject {
     private let macVoice = JarvisVoiceService()
     let dashboard = JarvisOverlayDashboard()
     let browser = JarvisOverlayBrowser()
+    let personalProfile = JarvisPersonalProfile()
     private let elevenLabs = ElevenLabsVoiceService.shared
     private let session: URLSession
     private var conversation: [[String: String]] = []
@@ -116,6 +118,7 @@ final class JarvisOverlayConversation: ObservableObject {
         answer = ""
         sourceURL = nil
         sourceTitle = ""
+        isMemoryAnswer = JarvisPersonalProfile.parse(prompt) == .recall
         isThinking = true
         status = "Qwen3.5가 요청을 이해하고 기능을 선택하는 중…"
         do {
@@ -144,6 +147,23 @@ final class JarvisOverlayConversation: ObservableObject {
     /// Qwen selects tools through the local Ollama API. This client only runs
     /// audited, read-only actions from JarvisCommand, never generated code.
     private func planAndRespond(_ prompt: String, token: UUID) async throws -> String {
+        // Personal memories require an explicit user instruction. This path
+        // never asks Qwen to invent or infer facts and persists no transcripts.
+        if let intent = JarvisPersonalProfile.parse(prompt) {
+            let outcome: String
+            switch intent {
+            case .needsField:
+                outcome = "기억할 프로필 항목을 구체적으로 알려주세요. 예를 들면 '내 작업 방식은 검증을 우선한다 기억해줘'라고 말씀하시면 됩니다."
+            case .recall: outcome = await personalProfile.recall()
+            case .set(let key, let value): outcome = await personalProfile.set(key, value: value)
+            case .forget(let key): outcome = await personalProfile.forget(key)
+            }
+            guard !Task.isCancelled, token == generation else { return "" }
+            conversation.append(["role": "user", "content": prompt])
+            conversation.append(["role": "assistant", "content": outcome])
+            if conversation.count > 8 { conversation.removeFirst(conversation.count - 8) }
+            return outcome
+        }
         // Unsupported integrations never get misrepresented as completed work.
         // Explicit public web searches about those topics remain supported.
         if let unsupported = Self.notYetConnectedResponse(for: prompt),
@@ -176,7 +196,12 @@ final class JarvisOverlayConversation: ObservableObject {
             "작업 대시보드=\(dashboard.isVisible ? "열림" : "닫힘"). " +
             "사용자가 '그거'나 '이 창'을 닫으라고 하면 현재 열린 패널을 close_panel로 닫으세요. " +
             "브라우저가 열렸을 때 검색어는 '한 번에 한 패널' 원칙으로 처리하세요."
-        var messages = [["role": "system", "content": JarvisCommand.systemInstructions + "\n" + panelContext]]
+        // Read the live, confirmed profile on every conversational turn. If
+        // local memory is unavailable, never substitute guessed facts.
+        let profileContext = await personalProfile.contextForQwen()
+        guard !Task.isCancelled, token == generation else { return "" }
+        var messages = [["role": "system", "content": JarvisCommand.systemInstructions + "\n" + panelContext +
+                        (profileContext.isEmpty ? "" : "\n" + profileContext)]]
         messages.append(contentsOf: conversation.suffix(8))
         messages.append(["role": "user", "content": prompt])
         let body: [String: Any] = [
@@ -397,9 +422,11 @@ final class JarvisOverlayConversation: ObservableObject {
         answer = ""
         sourceURL = nil
         sourceTitle = ""
+        isMemoryAnswer = false
         conversation.removeAll()
         dashboard.cancel()
         browser.cancel()
+        personalProfile.cancel()
         status = "자비스 대화 종료"
         session.invalidateAndCancel()
     }
