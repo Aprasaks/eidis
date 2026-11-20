@@ -14,7 +14,7 @@ class JarvisLiveDialogueContract(unittest.TestCase):
     def test_partial_transcription_is_actual_on_device_audio(self):
         for value in ('shouldReportPartialResults = true',
                       'requiresOnDeviceRecognition = true',
-                      'self.transcript = result.bestTranscription.formattedString'):
+                      'self.transcript = self.assembled.receive('):
             self.assertIn(value, SPEECH)
         for value in ('listener.$transcript.sink', 'liveTranscript = String(partial.prefix(6000))',
                       'lastPartialAt = Date()', 'YOU / LIVE TRANSCRIPT',

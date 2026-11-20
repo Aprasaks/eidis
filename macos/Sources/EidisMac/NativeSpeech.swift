@@ -25,6 +25,27 @@ final class JarvisBridge: ObservableObject {
     @Published var event: JarvisVisualEvent?
 }
 
+/// Route the existing microphone tap to whichever short recognition segment is
+/// active. The lock prevents a swap from racing with the audio callback.
+private final class JarvisSpeechAudioRelay: @unchecked Sendable {
+    private let lock = NSLock()
+    private var request: SFSpeechAudioBufferRecognitionRequest?
+
+    func replace(with next: SFSpeechAudioBufferRecognitionRequest?) {
+        lock.lock()
+        let old = request
+        request = next
+        old?.endAudio()
+        lock.unlock()
+    }
+
+    func append(_ buffer: AVAudioPCMBuffer) {
+        lock.lock()
+        request?.append(buffer)
+        lock.unlock()
+    }
+}
+
 /// Explicit push-to-talk only. No background listening or transcript archive.
 /// Ending audio is not the same as cancelling speech recognition. We allow
 /// a bounded finalization period before forwarding any recognized words.
@@ -41,6 +62,9 @@ final class LocalSpeechListener: ObservableObject {
     private let engine = AVAudioEngine()
     private var audioRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
+    private let audioRelay = JarvisSpeechAudioRelay()
+    private var assembled = JarvisSpeechTranscriptAssembler()
+    private var recognitionEpoch: UInt = 0
     private var tapInstalled = false
     private var finalReceived = false
     private var recognitionFailed = false
@@ -55,6 +79,9 @@ final class LocalSpeechListener: ObservableObject {
         isStarting = true
         defer { if sessionId == session { isStarting = false } }
         transcript = ""
+        assembled.reset()
+        recognitionEpoch &+= 1
+        audioRelay.replace(with: nil)
         lastCaptureEvidence = ""
         finalReceived = false
         recognitionFailed = false
@@ -92,9 +119,6 @@ final class LocalSpeechListener: ObservableObject {
             return
         }
 
-        let request = SFSpeechAudioBufferRecognitionRequest()
-        request.requiresOnDeviceRecognition = true
-        request.shouldReportPartialResults = true
         do {
             let input = engine.inputNode
             let format = input.outputFormat(forBus: 0)
@@ -102,40 +126,16 @@ final class LocalSpeechListener: ObservableObject {
                 status = "마이크 입력 형식이 올바르지 않습니다."
                 return
             }
+            let relay = audioRelay
             input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
-                request.append(buffer)
+                relay.append(buffer)
             }
             tapInstalled = true
-            audioRequest = request
             engine.prepare()
             try engine.start()
             isListening = true
-            status = "듣는 중… '자비스, 다음 할 일 뭐야?'라고 말한 뒤 완료를 누르세요."
-
-            recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
-                Task { @MainActor [weak self] in
-                    guard let self, self.sessionId == session,
-                          self.isListening || self.isFinalizing else { return }
-                    if let result {
-                        self.transcript = result.bestTranscription.formattedString
-                        if result.isFinal { self.finalReceived = true }
-                    }
-                    if let error, !self.finalReceived {
-                        self.recognitionFailed = true
-                        self.status = "음성 인식 실패: \(error.localizedDescription). 명령은 보내지 않았습니다."
-                        self.stopAudio()
-                        // Do not leave the microphone UI claiming LISTENING after
-                        // the recognizer has already failed.
-                        if self.isListening {
-                            self.isListening = false
-                            self.audioRequest?.endAudio()
-                            self.recognitionTask?.cancel()
-                            self.recognitionTask = nil
-                            self.audioRequest = nil
-                        }
-                    }
-                }
-            }
+            status = "듣는 중… 인식된 문장은 쉬었다 이어가도 유지됩니다."
+            beginRecognitionSegment(session: session)
         } catch {
             stopAudio()
             audioRequest?.endAudio()
@@ -144,6 +144,55 @@ final class LocalSpeechListener: ObservableObject {
             audioRequest = nil
             isListening = false
             status = "마이크 시작 실패: \(error.localizedDescription)"
+        }
+    }
+
+    /// A final result can arrive before the person finishes speaking. Keep
+    /// listening on the *same microphone turn* while starting a new segment.
+    private func beginRecognitionSegment(session: UUID) {
+        guard sessionId == session, isListening || isFinalizing,
+              let recognizer, recognizer.isAvailable else { return }
+        recognitionEpoch &+= 1
+        let epoch = recognitionEpoch
+        let request = SFSpeechAudioBufferRecognitionRequest()
+        request.requiresOnDeviceRecognition = true
+        request.shouldReportPartialResults = true
+        audioRequest = request
+        finalReceived = false
+        audioRelay.replace(with: request)
+        recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
+            Task { @MainActor [weak self] in
+                guard let self, self.sessionId == session,
+                      self.recognitionEpoch == epoch,
+                      self.isListening || self.isFinalizing else { return }
+                if let result {
+                    self.transcript = self.assembled.receive(
+                        result.bestTranscription.formattedString,
+                        isFinal: result.isFinal)
+                    if result.isFinal {
+                        self.finalReceived = true
+                        if self.isListening {
+                            // Reject callbacks from the old recognition task.
+                            self.recognitionTask?.cancel()
+                            self.recognitionTask = nil
+                            self.beginRecognitionSegment(session: session)
+                            return
+                        }
+                    }
+                }
+                if let error, !self.finalReceived {
+                    self.recognitionFailed = true
+                    self.status = "음성 인식 실패: \(error.localizedDescription). 명령은 보내지 않았습니다."
+                    self.stopAudio()
+                    if self.isListening {
+                        self.isListening = false
+                        self.audioRelay.replace(with: nil)
+                        self.recognitionTask?.cancel()
+                        self.recognitionTask = nil
+                        self.audioRequest = nil
+                    }
+                }
+            }
         }
     }
 
@@ -176,8 +225,10 @@ final class LocalSpeechListener: ObservableObject {
         let final = finalReceived
         let failed = recognitionFailed
         let failureDescription = status
+        recognitionEpoch &+= 1
         recognitionTask?.cancel()
         recognitionTask = nil
+        audioRelay.replace(with: nil)
         audioRequest = nil
         isFinalizing = false
         guard let recognized else {
@@ -196,10 +247,12 @@ final class LocalSpeechListener: ObservableObject {
     func cancel() {
         // Invalidate any late recognition or permissions callbacks.
         sessionId = UUID()
+        recognitionEpoch &+= 1
         stopAudio()
         audioRequest?.endAudio()
         recognitionTask?.cancel()
         recognitionTask = nil
+        audioRelay.replace(with: nil)
         audioRequest = nil
         isStarting = false
         isListening = false
@@ -207,6 +260,7 @@ final class LocalSpeechListener: ObservableObject {
         recognitionFailed = false
         finalReceived = false
         transcript = ""
+        assembled.reset()
         lastCaptureEvidence = ""
         status = "음성 입력을 취소했습니다. 아무 명령도 보내지 않았습니다."
     }

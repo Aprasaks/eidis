@@ -95,13 +95,17 @@ struct JarvisLiveDialoguePanel: View {
                 HStack {
                     Text("말 끝 대기")
                         .font(.system(size: 10)).foregroundStyle(muted)
-                    Slider(value: $dialogue.silenceWaitSeconds, in: 2.5...5.0, step: 0.5)
+                    Slider(value: $dialogue.silenceWaitSeconds, in: 5.0...12.0, step: 0.5)
                         .accessibilityIdentifier("jarvis-live-dialogue-pause-length")
                     Text(String(format: "%.1f초", dialogue.silenceWaitSeconds))
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundStyle(amber)
                 }
             }
+            Text("긴 이야기는 자동 확정을 끄고 Space로 끝내세요. 중간에 쉬어도 앞 문장은 유지합니다.")
+                .font(.system(size: 9))
+                .foregroundStyle(muted)
+                .fixedSize(horizontal: false, vertical: true)
             HStack {
                 Text("ElevenLabs 말하기 속도")
                     .font(.system(size: 10)).foregroundStyle(muted)

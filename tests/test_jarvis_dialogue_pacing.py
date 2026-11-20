@@ -10,8 +10,8 @@ COMMAND = (ROOT/"macos/Sources/EidisMac/JarvisCommandEngine.swift").read_text()
 
 class DialoguePacingContract(unittest.TestCase):
     def test_pause_can_be_set_without_guessing_what_was_said(self):
-        self.assertIn("savedPause ?? 3.5", CHAT)
-        self.assertIn("min(max(silenceWaitSeconds, 2.5), 5.0)", CHAT)
+        self.assertIn("savedPause ?? 6.5", CHAT)
+        self.assertIn("min(max(silenceWaitSeconds, 5.0), 12.0)", CHAT)
         self.assertIn(">= self.silenceWaitSeconds", CHAT)
         self.assertIn("self.listener.finish()", CHAT)
         self.assertIn("jarvis-live-dialogue-pause-length", UI)

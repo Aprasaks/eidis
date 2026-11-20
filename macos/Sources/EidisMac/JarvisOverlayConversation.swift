@@ -32,7 +32,7 @@ final class JarvisOverlayConversation: ObservableObject {
     }
     @Published var silenceWaitSeconds: Double {
         didSet {
-            silenceWaitSeconds = min(max(silenceWaitSeconds, 2.5), 5.0)
+            silenceWaitSeconds = min(max(silenceWaitSeconds, 5.0), 12.0)
             UserDefaults.standard.set(silenceWaitSeconds, forKey: "jarvis.dialogue.silenceWaitSeconds")
         }
     }
@@ -64,7 +64,9 @@ final class JarvisOverlayConversation: ObservableObject {
         session = URLSession(configuration: config)
         autoTurnEnabled = UserDefaults.standard.object(forKey: "jarvis.dialogue.autoTurn") as? Bool ?? true
         let savedPause = UserDefaults.standard.object(forKey: "jarvis.dialogue.silenceWaitSeconds") as? Double
-        silenceWaitSeconds = min(max(savedPause ?? 3.5, 2.5), 5.0)
+        // Earlier builds offered only 2.5–5 seconds; migrate that setting
+        // upward so a natural thinking pause does not prematurely end a turn.
+        silenceWaitSeconds = min(max(savedPause ?? 6.5, 6.5), 12.0)
         transcriptObserver = listener.$transcript.sink { [weak self] partial in
             guard let self else { return }
             guard self.isListening, !partial.isEmpty else { return }
