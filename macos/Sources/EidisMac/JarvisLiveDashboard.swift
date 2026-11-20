@@ -46,6 +46,15 @@ enum JarvisLiveDashboardIntent: Equatable {
         if external && (dashboard || text.contains("현황") || text.contains("분석") || text.contains("통계")) {
             return .unavailable
         }
+        // A direct user command opens the immersive, one-screen dashboard.
+        // Written without spaces or with natural variants, it is the same intent.
+        let fullDashboard = ["전체대시보드", "통합대시보드", "종합대시보드",
+                             "전체화면대시보드", "풀스크린대시보드", "전체관제실"]
+            .contains { text.contains($0) }
+        let openWords = ["열어", "켜줘", "켜", "띄워", "보여", "실행해", "실행", "표시해"]
+        if fullDashboard && openWords.contains(where: { text.contains($0) }) {
+            return .show(.overview)
+        }
         let showing = ["보여", "띄워", "열어", "알려", "확인", "분석", "현황", "상태", "통계", "갱신", "새로고침"].contains { text.contains($0) }
         guard showing else { return nil }
         if overview { return .show(.overview) }

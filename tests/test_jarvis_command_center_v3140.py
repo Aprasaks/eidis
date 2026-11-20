@@ -31,7 +31,7 @@ class CommandCenterContract(unittest.TestCase):
         for forbidden in ('git push','git fetch','git checkout','INSERT INTO','api.github.com'):
             self.assertNotIn(forbidden,GIT)
     def test_tv_readable_layout_and_provenance(self):
-        for text in ('width >= 1120', 'min(2.2, max(1.10', 'ScrollView(.vertical)',
+        for text in ('width < 1120', 'min(2.0, max(0.84', 'ScrollView(.vertical)',
                      'PROJECT OPERATIONS','GIT WORKTREES','YOUTUBE / 채널 분석',
                      'API NOT CONNECTED','LOCAL GIT', 'LIVE CHECKS',
                      'RECORDED EVENTS', 'model.sourceChecks',
@@ -39,5 +39,5 @@ class CommandCenterContract(unittest.TestCase):
                      '실제 기록 시각', 'GitHub 원격 저장소 전체 현황은 아직 연결되지 않았습니다.'):
             self.assertIn(text,COMMAND)
         self.assertNotIn('fake statistics', COMMAND.lower())
-        self.assertIn('<string>3.14.1</string>', INFO)
+        self.assertIn('<string>3.14.3</string>', INFO)
 if __name__=='__main__':unittest.main()

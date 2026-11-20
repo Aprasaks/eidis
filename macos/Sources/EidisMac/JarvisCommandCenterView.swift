@@ -15,75 +15,81 @@ struct JarvisCommandCenterView: View {
         GeometryReader { geometry in
             let width = geometry.size.width
             let height = geometry.size.height
-            let wide = width >= 1120
-            let scale = min(2.2, max(1.10, min(width / 1375, height / 780)))
-            let outer = min(40, max(14, width * 0.018))
-            ScrollView(.vertical) {
-                if wide {
-                    HStack(alignment: .top, spacing: 16) {
-                        leftColumn(height: height, scale: scale)
-                            .frame(width: width * 0.265)
-                        rightColumn(height: height, scale: scale)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .padding(.horizontal, outer)
-                    .padding(.top, 16)
-                } else {
-                    VStack(spacing: 14) {
-                        // A smaller display still shows the same spinning core
-                        // at the top; panels flow below instead of overflowing.
-                        Color.clear.frame(height: min(365, height * 0.41))
-                        header(scale: scale)
-                        keyMetrics(scale: scale)
-                        projectsCard(scale: scale).frame(minHeight: 235)
-                        gitCard(scale: scale).frame(minHeight: 250)
-                        HStack(alignment: .top, spacing: 10) {
-                            youtubeCard(scale: scale)
-                            knowledgeCard(scale: scale)
-                        }.frame(minHeight: 210)
-                        systemCard(scale: scale)
-                        activityCard(scale: scale).frame(height: 250)
-                        recordedCard(scale: scale).frame(minHeight: 170)
-                    }
-                    .padding(.horizontal, outer)
-                    .padding(.top, 12)
-                }
+            // The entire command center fits the current display without an
+            // outer scrolling surface. The existing voice input stays below.
+            let outer = min(32, max(12, width * 0.015))
+            let inputReserve: CGFloat = 116
+            let topInset: CGFloat = 12
+            let usableHeight = max(0, height - inputReserve - topInset)
+            let scale = min(2.0, max(0.84, min(width / 1430, height / 880)))
+            let narrow = width < 1120
+            let leftRatio: CGFloat = narrow ? 0.27 : 0.265
+            let gap: CGFloat = narrow ? 10 : 16
+            let innerWidth = max(0, width - 2 * outer)
+
+            HStack(alignment: .top, spacing: gap) {
+                leftColumn(fullHeight: height, scale: scale)
+                    .frame(width: max(0, innerWidth * leftRatio), height: usableHeight)
+                rightColumn(height: usableHeight, scale: scale, compact: narrow)
+                    .frame(width: max(0, innerWidth * (1 - leftRatio) - gap),
+                           height: usableHeight)
             }
-            .scrollIndicators(.visible)
-            .padding(.bottom, 106) // The existing input & voice area stays usable.
+            .frame(width: innerWidth, height: usableHeight, alignment: .top)
+            .padding(.horizontal, outer)
+            .padding(.top, topInset)
+            .frame(width: width, height: height, alignment: .top)
+            .clipped()
             .accessibilityIdentifier("jarvis-command-center")
         }
     }
 
-    private func leftColumn(height: CGFloat, scale: CGFloat) -> some View {
-        VStack(spacing: 13) {
-            // Reserved for the SAME looping core which moves here from center.
-            Color.clear.frame(height: height * 0.465)
+    private func leftColumn(fullHeight: CGFloat, scale: CGFloat) -> some View {
+        VStack(spacing: 9) {
+            // A transparent slot for the same continuously rotating AVPlayer.
+            // Reserve only space; the entire screen never becomes scrollable.
+            Color.clear.frame(height: fullHeight * 0.465)
             HStack(spacing: 7) {
                 Circle().fill(mint).frame(width: 6, height: 6)
                 Text("JARVIS CORE / ACTIVE")
-                    .tracking(1.3)
-                    .font(.system(size: 11 * scale, weight: .semibold, design: .monospaced))
+                    .tracking(1.1)
+                    .font(.system(size: 10 * scale, weight: .semibold, design: .monospaced))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
                 Spacer(minLength: 0)
             }
             .foregroundStyle(amber)
+            .frame(height: 20)
             activityCard(scale: scale)
-                .frame(minHeight: max(205, height * 0.30))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .clipped()
     }
 
-    private func rightColumn(height: CGFloat, scale: CGFloat) -> some View {
-        VStack(spacing: 13) {
+    private func rightColumn(height: CGFloat, scale: CGFloat, compact: Bool) -> some View {
+        // Calculate rows from the available screen height, not from their text
+        // contents. Each potentially long list scrolls INSIDE its own card.
+        let spacing: CGFloat = compact ? 8 : 11
+        let headerHeight = min(73, height * 0.088)
+        let metricsHeight = min(84, height * 0.096)
+        let remaining = max(0, height - headerHeight - metricsHeight - 4 * spacing)
+        let projectHeight = remaining * 0.43
+        let serviceHeight = remaining * 0.35
+        let eventsHeight = remaining - projectHeight - serviceHeight
+
+        return VStack(spacing: spacing) {
             header(scale: scale)
+                .frame(height: headerHeight)
             keyMetrics(scale: scale)
-            HStack(alignment: .top, spacing: 12) {
+                .frame(height: metricsHeight)
+            HStack(alignment: .top, spacing: spacing) {
                 projectsCard(scale: scale)
                     .frame(maxWidth: .infinity)
                 gitCard(scale: scale)
                     .frame(maxWidth: .infinity)
             }
-            .frame(height: max(280, height * 0.34))
-            HStack(alignment: .top, spacing: 12) {
+            .frame(height: projectHeight)
+            HStack(alignment: .top, spacing: spacing) {
                 youtubeCard(scale: scale)
                     .frame(maxWidth: .infinity)
                 knowledgeCard(scale: scale)
@@ -91,10 +97,12 @@ struct JarvisCommandCenterView: View {
                 systemCard(scale: scale)
                     .frame(maxWidth: .infinity)
             }
-            .frame(height: max(215, height * 0.235))
+            .frame(height: serviceHeight)
             recordedCard(scale: scale)
-                .frame(height: max(105, height * 0.105))
+                .frame(height: eventsHeight)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .clipped()
     }
 
     private func header(scale: CGFloat) -> some View {
@@ -184,6 +192,7 @@ struct JarvisCommandCenterView: View {
         .background(Color(red: 0.038, green: 0.044, blue: 0.051).opacity(0.95),
                     in: RoundedRectangle(cornerRadius: 13))
         .overlay(RoundedRectangle(cornerRadius: 13).stroke(amber.opacity(0.20), lineWidth: 1))
+        .clipped()
     }
 
     private func projectsCard(scale: CGFloat) -> some View {
@@ -225,6 +234,7 @@ struct JarvisCommandCenterView: View {
                         }
                     }
                 }
+                .frame(maxHeight: .infinity)
                 .scrollIndicators(.visible)
             }
         }
@@ -271,6 +281,7 @@ struct JarvisCommandCenterView: View {
                         if snapshot.repositories.isEmpty { status("발견한 로컬 Git 저장소 없음", scale: scale) }
                     }
                 }
+                .frame(maxHeight: .infinity)
                 .scrollIndicators(.visible)
                 Text("GitHub 원격 저장소 전체 현황은 아직 연결되지 않았습니다.")
                     .font(.system(size: 9 * scale))
@@ -284,54 +295,75 @@ struct JarvisCommandCenterView: View {
 
     private func youtubeCard(scale: CGFloat) -> some View {
         panel("YOUTUBE / 채널 분석", symbol: "play.rectangle", scale: scale) {
-            Text("API NOT CONNECTED")
-                .font(.system(size: 15 * scale, weight: .semibold, design: .monospaced))
-                .foregroundStyle(amber)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Text("채널·영상별 조회수, 구독자, 시청 시간은 YouTube 인증 이후 실제 값으로 표시됩니다.")
-                .font(.system(size: 10 * scale))
-                .foregroundStyle(muted)
-                .fixedSize(horizontal: false, vertical: true)
-            Text("현재 수집 중인 YouTube 분석 데이터: 없음")
-                .font(.system(size: 9 * scale, design: .monospaced))
-                .foregroundStyle(mint.opacity(0.8))
+            ScrollView(.vertical) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("API NOT CONNECTED")
+                        .font(.system(size: 15 * scale, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(amber)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    Text("채널·영상별 조회수, 구독자, 시청 시간은 YouTube 인증 이후 실제 값으로 표시됩니다.")
+                        .font(.system(size: 10 * scale))
+                        .foregroundStyle(muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("현재 수집 중인 YouTube 분석 데이터: 없음")
+                        .font(.system(size: 9 * scale, design: .monospaced))
+                        .foregroundStyle(mint.opacity(0.8))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxHeight: .infinity)
+            .scrollIndicators(.visible)
         }
     }
 
     private func knowledgeCard(scale: CGFloat) -> some View {
         panel("KNOWLEDGE / 자료·기억", symbol: "books.vertical", scale: scale) {
-            if let count = model.vaultTotal {
-                labelValue("활성 자료", "\(count)", scale: scale)
-                ForEach(JarvisKnowledgeVault.categoryOrder, id: \.self) { category in
-                    if let total = model.vaultCounts[category], total > 0 {
-                        HStack {
-                            Text(JarvisKnowledgeVault.labels[category] ?? category)
-                            Spacer()
-                            Text("\(total)")
+            ScrollView(.vertical) {
+                VStack(alignment: .leading, spacing: 8) {
+                    if let count = model.vaultTotal {
+                        labelValue("활성 자료", "\(count)", scale: scale)
+                        ForEach(JarvisKnowledgeVault.categoryOrder, id: \.self) { category in
+                            if let total = model.vaultCounts[category], total > 0 {
+                                HStack {
+                                    Text(JarvisKnowledgeVault.labels[category] ?? category)
+                                    Spacer()
+                                    Text("\(total)")
+                                }
+                                .font(.system(size: 10 * scale))
+                                .foregroundStyle(muted)
+                            }
                         }
-                        .font(.system(size: 10 * scale))
+                        if count == 0 { status("활성 보관함이 비어 있습니다.", scale: scale) }
+                    } else { status("자료 보관함 조회 안 됨", scale: scale) }
+                    Text("로컬 SQLite · 외부 동기화 아님")
+                        .font(.system(size: 9 * scale))
                         .foregroundStyle(muted)
-                    }
                 }
-                if count == 0 { status("활성 보관함이 비어 있습니다.", scale: scale) }
-            } else { status("자료 보관함 조회 안 됨", scale: scale) }
-            Text("로컬 SQLite · 외부 동기화 아님")
-                .font(.system(size: 9 * scale))
-                .foregroundStyle(muted)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxHeight: .infinity)
+            .scrollIndicators(.visible)
         }
     }
 
     private func systemCard(scale: CGFloat) -> some View {
         panel("SYSTEM / 상태", symbol: "waveform.path.ecg", scale: scale) {
-            systemRow("SQLite", model.databaseStatus == "ok" ? "OK" : "확인 불가", scale: scale)
-            systemRow("Ollama", model.ollamaVersion.map { "v\($0)" } ?? "연결 안 됨", scale: scale)
-            systemRow("프로필", model.profileCount.map { "\($0)건" } ?? "확인 불가", scale: scale)
-            systemRow("갱신 주기", "약 7초", scale: scale)
-            Text("실제 연결 상태만 표시 · 사용량 미측정")
-                .font(.system(size: 9 * scale))
-                .foregroundStyle(muted)
-                .fixedSize(horizontal: false, vertical: true)
+            ScrollView(.vertical) {
+                VStack(alignment: .leading, spacing: 8) {
+                    systemRow("SQLite", model.databaseStatus == "ok" ? "OK" : "확인 불가", scale: scale)
+                    systemRow("Ollama", model.ollamaVersion.map { "v\($0)" } ?? "연결 안 됨", scale: scale)
+                    systemRow("프로필", model.profileCount.map { "\($0)건" } ?? "확인 불가", scale: scale)
+                    systemRow("갱신 주기", "약 7초", scale: scale)
+                    Text("실제 연결 상태만 표시 · 사용량 미측정")
+                        .font(.system(size: 9 * scale))
+                        .foregroundStyle(muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxHeight: .infinity)
+            .scrollIndicators(.visible)
         }
     }
 
@@ -362,6 +394,7 @@ struct JarvisCommandCenterView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(maxHeight: .infinity)
             .scrollIndicators(.visible)
             .accessibilityIdentifier("jarvis-command-real-checks")
             HStack(spacing: 6) {
@@ -398,6 +431,7 @@ struct JarvisCommandCenterView: View {
                         }
                     }
                 }
+                .frame(maxHeight: .infinity)
                 .scrollIndicators(.visible)
             } else {
                 status("기록 원장 연결 실패 또는 조회 중", scale: scale)

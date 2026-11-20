@@ -286,7 +286,9 @@ private struct JarvisSummonedView: View {
                             .padding(.horizontal, 14)
                             .padding(.vertical, 7)
                             .background(.black.opacity(0.85), in: Capsule())
-                            .padding(.bottom, 103)
+                            // Stay in the reserved strip below the fixed-height
+                            // command center and above the input controls.
+                            .padding(.bottom, 82)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .allowsHitTesting(false)
