@@ -1,5 +1,7 @@
 import Foundation
 import SwiftUI
+import AppKit
+import UniformTypeIdentifiers
 
 /// Dashboard types correspond to actual, connected read-only local sources.
 /// External research/video analytics cannot be presented as available until connected.
@@ -44,7 +46,9 @@ enum JarvisLiveDashboardIntent: Equatable {
         let githubRequest = ["깃허브", "github", "깃전체", "깃프로젝트", "git현황",
                              "vercel", "버셀"]
             .contains { text.contains($0) }
-        if githubRequest && ["보여", "열어", "띄워", "현황", "상태", "분석", "프로젝트", "전체"]
+        let youtubeRequest = ["유튜브", "youtube"].contains { text.contains($0) }
+        if (githubRequest || youtubeRequest) &&
+            ["보여", "열어", "띄워", "현황", "상태", "분석", "프로젝트", "전체", "통계"]
             .contains(where: { text.contains($0) }) {
             return .show(.overview)
         }
@@ -100,6 +104,32 @@ private struct LiveStatusReply: Decodable {
 }
 private struct LiveOllamaReply: Decodable { let version: String }
 
+struct LiveYouTubeAnalytics: Decodable {
+    let views: Int
+    let estimatedMinutesWatched: Double
+    let subscribersGained: Int
+}
+struct LiveYouTubeData: Decodable {
+    let channelId: String
+    let channelTitle: String
+    let subscriberCount: String?
+    let videoCount: String?
+    let channelViews: String?
+    let periodStart: String
+    let periodEnd: String
+    let analytics: LiveYouTubeAnalytics?
+    let analyticsError: String?
+    let checkedAt: String
+}
+struct LiveYouTubeReply: Decodable {
+    let connected: Bool
+    let data: LiveYouTubeData?
+    let error: String?
+}
+private struct LiveYouTubeAuthReply: Decodable {
+    let authorizationUrl: String
+}
+
 struct JarvisRecordedActivity: Decodable, Identifiable {
     let id: Int
     let category: String
@@ -146,6 +176,9 @@ final class JarvisLiveDashboard: ObservableObject {
     @Published private(set) var githubIsLoading = false
     private var githubTask: Task<Void, Never>?
     private var githubLastCheckedAt: Date?
+    @Published private(set) var youtubeSummary: LiveYouTubeReply?
+    @Published private(set) var youtubeConnectMessage: String?
+    @Published private(set) var youtubeIsConnecting = false
     @Published private(set) var vercelSnapshot: JarvisVercelSnapshot?
     @Published private(set) var vercelIsLoading = false
     private var vercelTask: Task<Void, Never>?
@@ -220,6 +253,9 @@ final class JarvisLiveDashboard: ObservableObject {
         vercelSnapshot = nil
         vercelLastCheckedAt = nil
         vercelIsLoading = false
+        youtubeSummary = nil
+        youtubeConnectMessage = nil
+        youtubeIsConnecting = false
         let loaded = await refresh(id: id)
         guard isVisible && revision == id && !Task.isCancelled else { return "" }
         pollingTask = Task { [weak self] in
@@ -310,6 +346,20 @@ final class JarvisLiveDashboard: ObservableObject {
             ollamaChecked = true
         }
         if selected == .overview {
+            do {
+                let reply: LiveYouTubeReply = try await fetch("/api/youtube/summary")
+                guard isVisible && revision == id && !Task.isCancelled else { return false }
+                youtubeSummary = reply
+                if reply.connected, let data = reply.data {
+                    recordCheck("YouTube 읽기 전용 API", success: true, detail: data.channelTitle)
+                } else {
+                    recordCheck("YouTube", success: false, detail: reply.error ?? "계정 연결 전")
+                }
+            } catch {
+                guard isVisible && revision == id && !Task.isCancelled else { return false }
+                youtubeSummary = nil
+                recordCheck("YouTube", success: false, detail: "로컬 API 연결 실패")
+            }
             do {
                 let events: LiveActivityReply = try await fetch("/api/activity")
                 guard isVisible && revision == id && !Task.isCancelled else { return false }
@@ -406,6 +456,82 @@ final class JarvisLiveDashboard: ObservableObject {
             self.vercelTask = nil
             self.recordCheck("Vercel CLI", success: snapshot.error == nil,
                              detail: snapshot.error ?? "\(snapshot.projects.count)개 프로젝트 · 최근 배포 \(snapshot.deployments.count)건")
+        }
+    }
+
+    /// The user selects the OAuth client file locally; it is never transferred
+    /// through JARVIS chat or Git. Authentication tokens use macOS Keychain.
+    func importYouTubeClient() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.message = "Google Cloud에서 다운로드한 DECHIVE-JARVIS 데스크톱 OAuth JSON을 선택하세요."
+        panel.prompt = "JARVIS에 등록"
+        panel.begin { [weak self] response in
+            guard response == .OK, let url = panel.url else { return }
+            Task { @MainActor in
+                guard let self else { return }
+                do {
+                    let input = try Data(contentsOf: url)
+                    guard input.count > 10, input.count < 64_000,
+                          let value = try JSONSerialization.jsonObject(with: input) as? [String: Any],
+                          let installed = value["installed"] as? [String: Any],
+                          installed["project_id"] as? String == "dechive-jarvis",
+                          let clientId = installed["client_id"] as? String,
+                          clientId.hasSuffix(".apps.googleusercontent.com"),
+                          installed["client_secret"] as? String != nil else {
+                        self.youtubeConnectMessage = "DECHIVE-JARVIS 데스크톱 인증 JSON 파일이 아닙니다."
+                        return
+                    }
+                    let directory = FileManager.default.homeDirectoryForCurrentUser
+                        .appendingPathComponent(".jarvis-lab/oauth", isDirectory: true)
+                    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
+                                                            attributes: [.posixPermissions: 0o700])
+                    try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
+                    let destination = directory.appendingPathComponent("youtube-client.json")
+                    try input.write(to: destination, options: .atomic)
+                    try FileManager.default.setAttributes([.posixPermissions: 0o600],
+                                                          ofItemAtPath: destination.path)
+                    self.youtubeConnectMessage = "OAuth 인증 파일을 Mac에 안전하게 등록했습니다. Google 계정 연결을 눌러주세요."
+                } catch {
+                    self.youtubeConnectMessage = "OAuth 파일을 가져오지 못했습니다. 파일 권한을 확인해 주세요."
+                }
+            }
+        }
+    }
+
+    func connectYouTube() async {
+        guard !youtubeIsConnecting else { return }
+        youtubeIsConnecting = true
+        defer { youtubeIsConnecting = false }
+        do {
+            guard let url = URL(string: "http://127.0.0.1:8765/api/youtube/connect") else { return }
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = Data("{}".utf8)
+            let (data, response) = try await session.data(for: request)
+            guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+                youtubeConnectMessage = "OAuth 클라이언트 설정을 확인해 주세요."
+                return
+            }
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            let reply = try decoder.decode(LiveYouTubeAuthReply.self, from: data)
+            guard let browserURL = URL(string: reply.authorizationUrl),
+                  browserURL.scheme == "https",
+                  browserURL.host == "accounts.google.com" else {
+                youtubeConnectMessage = "Google 인증 주소가 올바르지 않습니다."
+                return
+            }
+            if NSWorkspace.shared.open(browserURL) {
+                youtubeConnectMessage = "Google 브라우저에서 읽기 권한을 승인해 주세요."
+            } else {
+                youtubeConnectMessage = "기본 브라우저를 열지 못했습니다."
+            }
+        } catch {
+            youtubeConnectMessage = "로컬 Google 인증 연결 실패"
         }
     }
 

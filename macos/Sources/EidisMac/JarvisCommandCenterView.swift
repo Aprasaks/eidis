@@ -337,19 +337,58 @@ struct JarvisCommandCenterView: View {
     private func youtubeCard(scale: CGFloat) -> some View {
         panel("YOUTUBE / 채널 분석", symbol: "play.rectangle", scale: scale) {
             ScrollView(.vertical) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("API NOT CONNECTED")
-                        .font(.system(size: 15 * scale, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(amber)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                    Text("채널·영상별 조회수, 구독자, 시청 시간은 YouTube 인증 이후 실제 값으로 표시됩니다.")
-                        .font(.system(size: 10 * scale))
-                        .foregroundStyle(muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text("현재 수집 중인 YouTube 분석 데이터: 없음")
-                        .font(.system(size: 9 * scale, design: .monospaced))
-                        .foregroundStyle(mint.opacity(0.8))
+                VStack(alignment: .leading, spacing: 7) {
+                    if let reply = model.youtubeSummary, reply.connected, let item = reply.data {
+                        Text(item.channelTitle)
+                            .font(.system(size: 13 * scale, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .lineLimit(2)
+                        systemRow("구독자", item.subscriberCount ?? "비공개", scale: scale)
+                        systemRow("채널 영상", item.videoCount ?? "미확인", scale: scale)
+                        if let analytics = item.analytics {
+                            Text("최근 분석 · \(item.periodStart) ~ \(item.periodEnd)")
+                                .font(.system(size: 9 * scale, design: .monospaced))
+                                .foregroundStyle(muted)
+                            systemRow("조회수", "\(analytics.views)", scale: scale)
+                            systemRow("시청 시간(분)", String(format: "%.0f", analytics.estimatedMinutesWatched), scale: scale)
+                            systemRow("구독 증가", "\(analytics.subscribersGained)", scale: scale)
+                        } else {
+                            status(item.analyticsError ?? "분석 데이터 없음", scale: scale)
+                        }
+                        Text("Google YouTube API · 실제 채널 정보")
+                            .font(.system(size: 9 * scale)).foregroundStyle(mint)
+                    } else {
+                        Text("GOOGLE AUTH REQUIRED")
+                            .font(.system(size: 12 * scale, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(amber)
+                        status(model.youtubeSummary?.error ?? "Google 계정의 YouTube 읽기 권한을 연결해야 합니다.", scale: scale)
+                        Button {
+                            model.importYouTubeClient()
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "doc.badge.plus")
+                                Text("인증 JSON 선택")
+                            }
+                            .font(.system(size: 11 * scale, weight: .medium))
+                        }
+                        .buttonStyle(.bordered)
+                        .accessibilityIdentifier("jarvis-youtube-oauth-file-import")
+                        Button {
+                            Task { await model.connectYouTube() }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "person.crop.circle.badge.checkmark")
+                                Text("Google 계정 연결")
+                            }
+                            .font(.system(size: 11 * scale, weight: .medium))
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(model.youtubeIsConnecting)
+                        .accessibilityIdentifier("jarvis-youtube-google-connect")
+                        if let message = model.youtubeConnectMessage {
+                            status(message, scale: scale)
+                        }
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }

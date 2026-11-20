@@ -15,6 +15,7 @@ from .vision import VisionError, VisionRemoteError, vision_ready, analyze_screen
 from .storage import MemoryStore
 from .projects import ProjectCheckError, verify_public_github
 from .tools import ToolRunner, ToolDenied, ToolExecutionError
+from .google_youtube import GoogleYouTubeConnection, YouTubeConnectionError
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 DB_PATH = Path(os.environ.get("JARVIS_DB", str(Path.home() / ".jarvis-lab" / "memory.sqlite3")))
@@ -28,6 +29,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
     engine: JarvisEngine
     brain: JarvisBrain
     tools: ToolRunner
+    youtube: GoogleYouTubeConnection
     server_version = "JARVIS-Lab/0.1"
 
     def _json(self, status: int, payload: dict) -> None:
@@ -52,6 +54,20 @@ class JarvisHandler(BaseHTTPRequestHandler):
         if not self._same_origin():
             return self._json(403, {"error": "로컬 앱에서만 접근할 수 있습니다."})
         path = urlsplit(self.path).path
+        if path == "/api/youtube/status":
+            return self._json(200, self.youtube.status())
+        if path == "/api/youtube/summary":
+            try:
+                return self._json(200, {"connected": True, "data": self.youtube.summary()})
+            except YouTubeConnectionError as exc:
+                return self._json(200, {"connected": False, "error": str(exc)})
+        if path == "/api/youtube/oauth/callback":
+            try:
+                self.youtube.finish(parse_qs(urlsplit(self.path).query))
+                content = "JARVIS YouTube 연결 완료. 이 창을 닫고 자비스로 돌아가세요."
+                return self._json(200, {"message": content, "connected": True})
+            except YouTubeConnectionError as exc:
+                return self._json(400, {"connected": False, "error": str(exc)})
         if path == "/api/status":
             return self._json(200, {"name": "JARVIS Lab", "version": "0.1.0",
                                     "capabilities": CAPABILITIES, "memory_count": self.store.count_memories(),
@@ -138,7 +154,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
         if path not in ("/api/command", "/api/chat", "/api/design/suggest", "/api/vision/analyze",
                          "/api/projects", "/api/projects/task", "/api/projects/status",
                          "/api/projects/github/check", "/api/profile", "/api/profile/forget",
-                         "/api/vault", "/api/vault/archive", "/api/vault/restore"):
+                         "/api/vault", "/api/vault/archive", "/api/vault/restore",
+                         "/api/youtube/connect"):
             return self._json(404, {"error": "알 수 없는 경로"})
         if not self._same_origin():
             return self._json(403, {"error": "로컬 앱에서만 요청할 수 있습니다."})
@@ -151,6 +168,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
             data = json.loads(self.rfile.read(size))
             if not isinstance(data, dict):
                 raise ValueError("JSON 객체로 요청해야 합니다.")
+            if path == "/api/youtube/connect":
+                return self._json(200, self.youtube.begin(self.server.server_port))
             if path == "/api/vault":
                 item = self.store.save_vault(
                     title=data.get("title"), content=data.get("content"),
@@ -237,6 +256,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
                 return self._json(200, result)
             result = self.engine.handle(data.get("text", ""))
             return self._json(200, result)
+        except YouTubeConnectionError as exc:
+            return self._json(400, {"error": str(exc)})
         except (ToolDenied, ToolExecutionError) as exc:
             return self._json(400 if isinstance(exc, ToolDenied) else 502,
                               {"error": str(exc)})
@@ -265,8 +286,10 @@ def make_server(host: str = "127.0.0.1", port: int = 8765, db_path: Path | None 
     engine = JarvisEngine(store)
     tools = ToolRunner(store)
     brain = JarvisBrain(store, engine, tools=tools)
+    youtube = GoogleYouTubeConnection()
     handler = type("LocalHandler", (JarvisHandler,),
-                   {"store": store, "engine": engine, "brain": brain, "tools": tools})
+                   {"store": store, "engine": engine, "brain": brain, "tools": tools,
+                    "youtube": youtube})
     server = HTTPServer(("127.0.0.1", port), handler)
     server.vision_calls = 0
     return server

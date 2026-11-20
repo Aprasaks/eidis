@@ -19,7 +19,9 @@ class LiveDashboardContract(unittest.TestCase):
         self.assertNotIn('api.openai.com',LIVE)
         self.assertNotIn('https://',LIVE)
         self.assertNotIn('INSERT INTO',LIVE)
-        self.assertNotIn('POST',LIVE)
+        # Only the user's explicit YouTube Connect action sends a POST.
+        self.assertIn('request.httpMethod = "POST"', LIVE)
+        self.assertIn('/api/youtube/connect', LIVE)
     def test_native_visualization_and_natural_language_routing(self):
         for marker in ('@ObservedObject var liveDashboard: JarvisLiveDashboard',
                        'private var liveDashboardPanel:', 'jarvis-live-dashboard-panel',
