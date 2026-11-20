@@ -85,6 +85,7 @@ private final class JarvisVideoSurface: NSView {
 
 private struct JarvisLoopingCore: NSViewRepresentable {
     let videoURL: URL
+    let compact: Bool
     final class Coordinator {
         let player = AVQueuePlayer()
         var looper: AVPlayerLooper?
@@ -103,13 +104,16 @@ private struct JarvisLoopingCore: NSViewRepresentable {
         view.layer?.backgroundColor = NSColor.clear.cgColor
         view.playerLayer?.backgroundColor = NSColor.clear.cgColor
         view.playerLayer?.isOpaque = false
-        view.playerLayer?.videoGravity = .resizeAspect
+        view.playerLayer?.videoGravity = compact ? .resizeAspectFill : .resizeAspect
         view.playerLayer?.player = context.coordinator.player
         context.coordinator.player.play()
         return view
     }
     func updateNSView(_ view: JarvisVideoSurface, context: Context) {
         view.playerLayer?.frame = view.bounds
+        // One AVPlayerLooper remains alive during the idle-to-command-center
+        // movement. Only its aspect crop and its SwiftUI position change.
+        view.playerLayer?.videoGravity = compact ? .resizeAspectFill : .resizeAspect
     }
     static func dismantleNSView(_ view: JarvisVideoSurface, coordinator: Coordinator) {
         coordinator.player.pause()
@@ -132,18 +136,41 @@ private struct JarvisSummonedView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         GeometryReader { area in
+            let commandCenter = liveDashboard.isVisible && liveDashboard.mode == .overview
+            let wide = area.size.width >= 1120
+            let smallCore = min(area.size.width * (wide ? 0.253 : 0.34),
+                                area.size.height * (wide ? 0.44 : 0.37))
             ZStack {
                 // Full-HD original has a black backdrop. Match it without
                 // chroma-key artifacts or a visibly scaled transparency matte.
                 Color.black.opacity(appeared ? 1 : 0)
                     .ignoresSafeArea()
-                JarvisLoopingCore(videoURL: videoURL)
-                    .frame(width: area.size.width, height: area.size.height)
+                JarvisLoopingCore(videoURL: videoURL, compact: commandCenter)
+                    .frame(width: commandCenter ? smallCore : area.size.width,
+                           height: commandCenter ? smallCore : area.size.height)
+                    // The 10-second film has the original JARVIS caption at its
+                    // bottom. Mask ONLY the compact crop, never alter the source.
+                    .mask {
+                        if commandCenter {
+                            LinearGradient(stops: [
+                                .init(color: .white, location: 0.0),
+                                .init(color: .white, location: 0.72),
+                                .init(color: .clear, location: 0.82)
+                            ], startPoint: .top, endPoint: .bottom)
+                            .clipShape(Circle())
+                        } else {
+                            Rectangle().fill(.white)
+                        }
+                    }
+                    .position(x: commandCenter ? area.size.width * (wide ? 0.143 : 0.24) : area.size.width / 2,
+                              y: commandCenter ? area.size.height * (wide ? 0.235 : 0.18) : area.size.height / 2)
                     .opacity(appeared ? 1 : 0)
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.72), value: commandCenter)
                     .allowsHitTesting(false)
                 VStack {
                     HStack {
                         Spacer()
+                        if !commandCenter {
                         Button(action: dismiss) {
                             Image(systemName: "xmark")
                                 .font(.system(size: 12, weight: .medium))
@@ -152,6 +179,7 @@ private struct JarvisSummonedView: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("자비스 화면 닫기")
+                        }
                     }
                     Spacer()
                     // The original film and its core remain untouched. Dialogue
@@ -195,10 +223,11 @@ private struct JarvisSummonedView: View {
                     .padding(.bottom, 15)
                 }
                 .padding(.horizontal, 30)
+                .zIndex(12) // Voice/text stays accessible above the scrollable control room.
 
                 // Keep the original JARVIS title unobstructed even for long
                 // answers: subtitles sit on the left, not atop the gold core.
-                if !dialogue.answer.isEmpty {
+                if !dialogue.answer.isEmpty && !commandCenter {
                     HStack(alignment: .bottom) {
                         VStack(alignment: .leading, spacing: 7) {
                             Text(dialogue.question)
@@ -246,9 +275,31 @@ private struct JarvisSummonedView: View {
                     .allowsHitTesting(dialogue.sourceURL != nil || dialogue.isMemoryAnswer)
                 }
 
-                // Dashboard is summoned on an explicit command only; the gold
-                // core artwork/video remains unchanged and visible beneath it.
-                if liveDashboard.isVisible {
+                if commandCenter && !dialogue.answer.isEmpty {
+                    VStack {
+                        Spacer()
+                        Text(dialogue.answer)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.94))
+                            .lineLimit(2)
+                            .frame(maxWidth: min(690, area.size.width * 0.56))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(.black.opacity(0.85), in: Capsule())
+                            .padding(.bottom, 103)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .allowsHitTesting(false)
+                }
+
+                // A single immersive control room for the entire monitor.
+                // Core is still rendered by the original, continuous AVPlayer.
+                if commandCenter {
+                    JarvisCommandCenterView(model: liveDashboard) {
+                        _ = liveDashboard.hide()
+                    }
+                    .transition(.opacity)
+                } else if liveDashboard.isVisible {
                     HStack {
                         Spacer(minLength: 0)
                         liveDashboardPanel

@@ -32,18 +32,23 @@ enum JarvisLiveDashboardIntent: Equatable {
 
     static func parse(_ phrase: String) -> Self? {
         let text = phrase.lowercased().filter { !$0.isWhitespace && !$0.isNewline }
-        let dashboard = text.contains("대시보드") || text.contains("현황판") || text.contains("통계")
+        let dashboard = text.contains("대시보드") || text.contains("현황판") || text.contains("통계") || text.contains("관제실")
+        let overview = ["전체현황", "전체상황", "내상황", "종합현황", "통합현황", "전반적인현황", "모든현황"].contains { text.contains($0) }
         let project = ["프로젝트", "작업현황", "할일", "해야할일", "진행상황"].contains { text.contains($0) }
         let knowledge = ["보관함", "저장자료", "저장한자료", "내자료", "지식", "기억통계", "자료분석"].contains { text.contains($0) }
         let system = ["자비스상태", "시스템상태", "서버상태", "ollama상태", "로컬서버", "시스템진단"].contains { text.contains($0) }
         let close = ["닫아", "꺼줘", "숨겨", "치워", "내려", "접어"].contains { text.contains($0) }
-        if dashboard && close { return .hide }
+        let returnToCore = ["원래대로돌아", "기본화면으로", "처음화면으로", "코어중앙으로", "관제실닫아", "관제실꺼", "전체현황닫아"].contains { text.contains($0) }
+        if returnToCore || (dashboard && close) { return .hide }
         let externalSignals = ["유튜브", "youtube", "뉴스", "날씨", "증시", "주가", "주식", "stock",
                                "깃허브", "github", "인스타", "instagram", "threads", "코인", "환율", "외부"]
         let external = externalSignals.contains { text.contains($0) }
-        if dashboard && external { return .unavailable }
+        if external && (dashboard || text.contains("현황") || text.contains("분석") || text.contains("통계")) {
+            return .unavailable
+        }
         let showing = ["보여", "띄워", "열어", "알려", "확인", "분석", "현황", "상태", "통계", "갱신", "새로고침"].contains { text.contains($0) }
         guard showing else { return nil }
+        if overview { return .show(.overview) }
         if system && (dashboard || text.contains("자비스") || text.contains("시스템") || text.contains("서버") || text.contains("ollama")) {
             return .show(.system)
         }
@@ -54,7 +59,7 @@ enum JarvisLiveDashboardIntent: Equatable {
             return .show(.projects)
         }
         if dashboard && !project && !knowledge && !system {
-            let general = ["전체", "종합", "통합", "내현황", "자비스대시보드", "실시간대시보드", "대시보드띄워", "대시보드보여", "현황판띄워"].contains {
+            let general = ["전체", "종합", "통합", "내현황", "자비스대시보드", "실시간대시보드", "대시보드띄워", "대시보드보여", "현황판띄워", "관제실보여", "관제실띄워", "관제실열어"].contains {
                 text.contains($0)
             }
             return general ? .show(.overview) : .unavailable
@@ -78,6 +83,22 @@ private struct LiveStatusReply: Decodable {
 }
 private struct LiveOllamaReply: Decodable { let version: String }
 
+struct JarvisRecordedActivity: Decodable, Identifiable {
+    let id: Int
+    let category: String
+    let result: String
+    let createdAt: String
+}
+private struct LiveActivityReply: Decodable { let items: [JarvisRecordedActivity] }
+
+struct JarvisVerifiedSourceCheck: Identifiable {
+    let id = UUID()
+    let at: Date
+    let source: String
+    let success: Bool
+    let detail: String
+}
+
 /// Polling while visible, stopped immediately on hide/Esc. Each displayed
 /// number comes from its named source with a successful HTTP response.
 @MainActor
@@ -97,6 +118,13 @@ final class JarvisLiveDashboard: ObservableObject {
     @Published private(set) var profileCount: Int?
     @Published private(set) var ollamaVersion: String?
     @Published private(set) var ollamaChecked = false
+    @Published private(set) var recordedActivity: [JarvisRecordedActivity] = []
+    @Published private(set) var activityChecked = false
+    @Published private(set) var sourceChecks: [JarvisVerifiedSourceCheck] = []
+    @Published private(set) var gitSnapshot: JarvisLocalGitSnapshot?
+    @Published private(set) var gitIsLoading = false
+    private var gitTask: Task<Void, Never>?
+    private var gitLastCheckedAt: Date?
 
     private let session: URLSession
     private var pollingTask: Task<Void, Never>?
@@ -132,6 +160,8 @@ final class JarvisLiveDashboard: ObservableObject {
 
     func show(_ selected: JarvisLiveDashboardMode) async -> String {
         pollingTask?.cancel()
+        gitTask?.cancel()
+        gitTask = nil
         let id = UUID()
         revision = id
         isVisible = true
@@ -149,6 +179,12 @@ final class JarvisLiveDashboard: ObservableObject {
         profileCount = nil
         ollamaVersion = nil
         ollamaChecked = false
+        recordedActivity = []
+        activityChecked = false
+        sourceChecks = []
+        gitSnapshot = nil
+        gitLastCheckedAt = nil
+        gitIsLoading = false
         let loaded = await refresh(id: id)
         guard isVisible && revision == id && !Task.isCancelled else { return "" }
         pollingTask = Task { [weak self] in
@@ -172,6 +208,7 @@ final class JarvisLiveDashboard: ObservableObject {
         let needsProjects = selected == .overview || selected == .projects
         let needsVault = selected == .overview || selected == .knowledge
         let needsStatus = selected == .overview || selected == .system
+        if selected == .overview { startLocalGitScanIfNeeded(id: id) }
         var success = true
         if needsProjects {
             do {
@@ -179,11 +216,13 @@ final class JarvisLiveDashboard: ObservableObject {
                 guard isVisible && revision == id && !Task.isCancelled else { return false }
                 projects = reply.items
                 projectsReady = true
+                recordCheck("프로젝트 원장", success: true, detail: "\(projects.count)개 · 작업 \(taskTotal)건")
             } catch {
                 guard isVisible && revision == id && !Task.isCancelled else { return false }
                 success = false
                 projects = []
                 projectsReady = false
+                recordCheck("프로젝트 원장", success: false, detail: "연결 실패")
             }
         }
         if needsVault {
@@ -193,12 +232,14 @@ final class JarvisLiveDashboard: ObservableObject {
                 vaultTotal = reply.total
                 vaultCounts = reply.counts
                 recentItems = Array(reply.items.prefix(6))
+                recordCheck("자료 보관함", success: true, detail: "활성 \(reply.total)건")
             } catch {
                 guard isVisible && revision == id && !Task.isCancelled else { return false }
                 success = false
                 vaultTotal = nil
                 vaultCounts = [:]
                 recentItems = []
+                recordCheck("자료 보관함", success: false, detail: "연결 실패")
             }
         }
         if needsStatus {
@@ -208,21 +249,41 @@ final class JarvisLiveDashboard: ObservableObject {
                 guard isVisible && revision == id && !Task.isCancelled else { return false }
                 databaseStatus = diagnostics.database.status
                 profileCount = status.profileCount
+                recordCheck("SQLite 진단", success: diagnostics.database.status == "ok",
+                            detail: diagnostics.database.status == "ok" ? "정상" : diagnostics.database.status)
             } catch {
                 guard isVisible && revision == id && !Task.isCancelled else { return false }
                 success = false
                 databaseStatus = nil
                 profileCount = nil
+                recordCheck("SQLite 진단", success: false, detail: "연결 실패")
             }
             do {
                 let ollama: LiveOllamaReply = try await fetch("/api/version", port: 11434)
                 guard isVisible && revision == id && !Task.isCancelled else { return false }
                 ollamaVersion = ollama.version
+                recordCheck("Ollama", success: true, detail: "v\(ollama.version)")
             } catch {
                 guard isVisible && revision == id && !Task.isCancelled else { return false }
                 ollamaVersion = nil // A disconnected Ollama is a real status, not invented data.
+                recordCheck("Ollama", success: false, detail: "연결 실패")
             }
             ollamaChecked = true
+        }
+        if selected == .overview {
+            do {
+                let events: LiveActivityReply = try await fetch("/api/activity")
+                guard isVisible && revision == id && !Task.isCancelled else { return false }
+                recordedActivity = Array(events.items.prefix(18))
+                activityChecked = true
+                recordCheck("작업 이벤트 원장", success: true, detail: "\(events.items.count)건 조회")
+            } catch {
+                guard isVisible && revision == id && !Task.isCancelled else { return false }
+                activityChecked = false
+                recordedActivity = []
+                recordCheck("작업 이벤트 원장", success: false, detail: "연결 실패")
+                success = false
+            }
         }
         guard isVisible && revision == id && !Task.isCancelled else { return false }
         errorText = success ? nil : "일부 로컬 자료에 연결되지 않았습니다. 해당 값은 표시하지 않습니다."
@@ -232,10 +293,44 @@ final class JarvisLiveDashboard: ObservableObject {
         return success
     }
 
+    private func recordCheck(_ source: String, success: Bool, detail: String) {
+        // These entries represent completed, real HTTP checks. They are never
+        // synthetic 'AI jobs' or invented progress indicators.
+        sourceChecks.insert(JarvisVerifiedSourceCheck(at: Date(), source: source,
+                                                      success: success, detail: detail), at: 0)
+        if sourceChecks.count > 40 { sourceChecks.removeLast(sourceChecks.count - 40) }
+    }
+
+    private func startLocalGitScanIfNeeded(id: UUID) {
+        guard gitTask == nil,
+              gitLastCheckedAt.map({ Date().timeIntervalSince($0) > 25 }) ?? true else { return }
+        gitIsLoading = true
+        gitLastCheckedAt = Date()
+        gitTask = Task { [weak self] in
+            let worker = Task.detached(priority: .utility) {
+                JarvisLocalGitScanner.scan()
+            }
+            let snapshot = await withTaskCancellationHandler {
+                await worker.value
+            } onCancel: {
+                worker.cancel()
+            }
+            guard let self, !Task.isCancelled, self.isVisible, self.revision == id else { return }
+            self.gitSnapshot = snapshot
+            self.gitIsLoading = false
+            self.gitTask = nil
+            self.recordCheck("로컬 Git", success: snapshot.error == nil,
+                             detail: "\(snapshot.repositories.count)개 저장소 확인")
+        }
+    }
+
     func hide() -> String {
         revision = UUID()
         pollingTask?.cancel()
         pollingTask = nil
+        gitTask?.cancel()
+        gitTask = nil
+        gitIsLoading = false
         isVisible = false
         isLoading = false
         isRefreshing = false

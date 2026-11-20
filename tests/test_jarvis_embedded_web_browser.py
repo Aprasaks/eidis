@@ -43,6 +43,6 @@ class JarvisEmbeddedBrowserContract(unittest.TestCase):
                       'browser: dialogue.browser', 'hotkey?.uninstallEscape()',
                       'self.dialogue?.browser.isVisible != true', 'JARVIS_FullHD_Loop']:
             self.assertIn(token,OVERLAY)
-        self.assertIn('<string>3.13.1</string>',APP)
+        self.assertIn('<string>3.14.1</string>',APP)
 
 if __name__ == '__main__': unittest.main()

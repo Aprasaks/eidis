@@ -17,7 +17,7 @@ class FullscreenOverlayContract(unittest.TestCase):
     def test_actual_desktop_overlay_and_real_looping_video(self):
         for marker in ('window.level = .screenSaver', 'window.hidesOnDeactivate = false', '.canJoinAllSpaces',
                        'Color.black.opacity(appeared ? 1 : 0)', 'AVPlayerLooper',
-                       'JARVIS_FullHD_Loop', 'videoGravity = .resizeAspect',
+                       'JARVIS_FullHD_Loop', 'videoGravity = compact ? .resizeAspectFill : .resizeAspect',
                        'window.orderOut(nil)', 'window.contentView = nil'):
             self.assertIn(marker, OVERLAY)
         self.assertTrue(ASSET.exists() and ASSET.stat().st_size > 1_000_000)

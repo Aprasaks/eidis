@@ -1,0 +1,449 @@
+import SwiftUI
+
+/// Full-screen, TV-friendly JARVIS command center. The active AVPlayer is owned
+/// by the parent overlay and moves to the upper left. This view NEVER renders
+/// fake analytics; all values come from live local APIs or bounded git scans.
+struct JarvisCommandCenterView: View {
+    @ObservedObject var model: JarvisLiveDashboard
+    let close: () -> Void
+
+    private let amber = Color(red: 0.94, green: 0.67, blue: 0.30)
+    private let muted = Color(red: 0.64, green: 0.66, blue: 0.68)
+    private let mint = Color(red: 0.46, green: 0.84, blue: 0.69)
+
+    var body: some View {
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            let height = geometry.size.height
+            let wide = width >= 1120
+            let scale = min(2.2, max(1.10, min(width / 1375, height / 780)))
+            let outer = min(40, max(14, width * 0.018))
+            ScrollView(.vertical) {
+                if wide {
+                    HStack(alignment: .top, spacing: 16) {
+                        leftColumn(height: height, scale: scale)
+                            .frame(width: width * 0.265)
+                        rightColumn(height: height, scale: scale)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .padding(.horizontal, outer)
+                    .padding(.top, 16)
+                } else {
+                    VStack(spacing: 14) {
+                        // A smaller display still shows the same spinning core
+                        // at the top; panels flow below instead of overflowing.
+                        Color.clear.frame(height: min(365, height * 0.41))
+                        header(scale: scale)
+                        keyMetrics(scale: scale)
+                        projectsCard(scale: scale).frame(minHeight: 235)
+                        gitCard(scale: scale).frame(minHeight: 250)
+                        HStack(alignment: .top, spacing: 10) {
+                            youtubeCard(scale: scale)
+                            knowledgeCard(scale: scale)
+                        }.frame(minHeight: 210)
+                        systemCard(scale: scale)
+                        activityCard(scale: scale).frame(height: 250)
+                        recordedCard(scale: scale).frame(minHeight: 170)
+                    }
+                    .padding(.horizontal, outer)
+                    .padding(.top, 12)
+                }
+            }
+            .scrollIndicators(.visible)
+            .padding(.bottom, 106) // The existing input & voice area stays usable.
+            .accessibilityIdentifier("jarvis-command-center")
+        }
+    }
+
+    private func leftColumn(height: CGFloat, scale: CGFloat) -> some View {
+        VStack(spacing: 13) {
+            // Reserved for the SAME looping core which moves here from center.
+            Color.clear.frame(height: height * 0.465)
+            HStack(spacing: 7) {
+                Circle().fill(mint).frame(width: 6, height: 6)
+                Text("JARVIS CORE / ACTIVE")
+                    .tracking(1.3)
+                    .font(.system(size: 11 * scale, weight: .semibold, design: .monospaced))
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(amber)
+            activityCard(scale: scale)
+                .frame(minHeight: max(205, height * 0.30))
+        }
+    }
+
+    private func rightColumn(height: CGFloat, scale: CGFloat) -> some View {
+        VStack(spacing: 13) {
+            header(scale: scale)
+            keyMetrics(scale: scale)
+            HStack(alignment: .top, spacing: 12) {
+                projectsCard(scale: scale)
+                    .frame(maxWidth: .infinity)
+                gitCard(scale: scale)
+                    .frame(maxWidth: .infinity)
+            }
+            .frame(height: max(280, height * 0.34))
+            HStack(alignment: .top, spacing: 12) {
+                youtubeCard(scale: scale)
+                    .frame(maxWidth: .infinity)
+                knowledgeCard(scale: scale)
+                    .frame(maxWidth: .infinity)
+                systemCard(scale: scale)
+                    .frame(maxWidth: .infinity)
+            }
+            .frame(height: max(215, height * 0.235))
+            recordedCard(scale: scale)
+                .frame(height: max(105, height * 0.105))
+        }
+    }
+
+    private func header(scale: CGFloat) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text("JARVIS / COMMAND CENTER")
+                    .font(.system(size: 21 * scale, weight: .semibold, design: .monospaced))
+                    .tracking(1.3)
+                    .foregroundStyle(amber)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Text("DECHIVE · 실시간 로컬 관제 · 확인된 자료만 표시")
+                    .font(.system(size: 10 * scale))
+                    .foregroundStyle(muted)
+            }
+            Spacer(minLength: 2)
+            VStack(alignment: .trailing, spacing: 5) {
+                HStack(spacing: 5) {
+                    Circle().fill(model.errorText == nil ? mint : amber)
+                        .frame(width: 6, height: 6)
+                    Text(model.errorText == nil ? "SOURCE CHECKS ONLINE" : "PARTIAL CONNECTION")
+                }
+                .foregroundStyle(model.errorText == nil ? mint : amber)
+                .font(.system(size: 10 * scale, weight: .medium, design: .monospaced))
+                Text(model.refreshedAt.map { "확인: " + $0.formatted(date: .omitted, time: .standard) } ?? "조회 중")
+                    .font(.system(size: 10 * scale, design: .monospaced))
+                    .foregroundStyle(muted)
+            }
+            Button(action: close) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .medium))
+                    .frame(width: 26, height: 26)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.white.opacity(0.72))
+            .accessibilityIdentifier("jarvis-command-center-close")
+        }
+        .padding(.horizontal, 4)
+        .padding(.vertical, 7)
+    }
+
+    private func keyMetrics(scale: CGFloat) -> some View {
+        HStack(spacing: 10) {
+            metric("PROJECTS", value: model.projectsReady ? String(model.projects.count) : "—", scale: scale)
+            metric("TASK RECORDS", value: model.projectsReady ? String(model.taskTotal) : "—", scale: scale)
+            metric("LOCAL GIT", value: model.gitSnapshot.map { String($0.repositories.count) } ?? "—", scale: scale)
+            metric("SAVED DATA", value: model.vaultTotal.map(String.init) ?? "—", scale: scale)
+        }
+    }
+
+    private func metric(_ name: String, value: String, scale: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(name)
+                .font(.system(size: 9 * scale, weight: .medium, design: .monospaced))
+                .foregroundStyle(muted)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Text(value)
+                .font(.system(size: 23 * scale, weight: .light, design: .rounded))
+                .foregroundStyle(.white.opacity(0.94))
+                .monospacedDigit()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(11)
+        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 11))
+        .overlay(RoundedRectangle(cornerRadius: 11).stroke(amber.opacity(0.13)))
+    }
+
+    private func panel<Content: View>(_ title: String, symbol: String, scale: CGFloat,
+                                      @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 7) {
+                Image(systemName: symbol)
+                Text(title)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+                Spacer(minLength: 0)
+            }
+            .font(.system(size: 11 * scale, weight: .medium, design: .monospaced))
+            .tracking(0.7)
+            .foregroundStyle(amber)
+            Rectangle().fill(amber.opacity(0.22)).frame(height: 1)
+            content()
+        }
+        .padding(13)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color(red: 0.038, green: 0.044, blue: 0.051).opacity(0.95),
+                    in: RoundedRectangle(cornerRadius: 13))
+        .overlay(RoundedRectangle(cornerRadius: 13).stroke(amber.opacity(0.20), lineWidth: 1))
+    }
+
+    private func projectsCard(scale: CGFloat) -> some View {
+        panel("PROJECT OPERATIONS / 로컬 작업 원장", symbol: "square.stack.3d.up", scale: scale) {
+            if !model.projectsReady {
+                status("프로젝트 원장 연결 실패 또는 조회 중", scale: scale)
+            } else {
+                HStack(spacing: 8) {
+                    labelValue("진행", String(model.doing), scale: scale)
+                    labelValue("예정", String(model.todo), scale: scale)
+                    labelValue("완료", String(model.done), scale: scale)
+                    labelValue("막힘", String(model.blocked), scale: scale)
+                }
+                ScrollView(.vertical) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        ForEach(model.projects) { project in
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Text(project.name)
+                                        .font(.system(size: 12 * scale, weight: .medium))
+                                        .foregroundStyle(.white)
+                                        .lineLimit(1)
+                                    Spacer(minLength: 4)
+                                    Text("\(project.taskCounts.done)/\(project.tasks.count)")
+                                        .font(.system(size: 10 * scale, design: .monospaced))
+                                        .foregroundStyle(muted)
+                                }
+                                progress(project.taskCounts.done, total: project.tasks.count)
+                                if let next = project.nextTasks.first {
+                                    Text("NEXT / \(next.title)")
+                                        .font(.system(size: 10 * scale))
+                                        .foregroundStyle(muted)
+                                        .lineLimit(2)
+                                }
+                            }
+                        }
+                        if model.projects.isEmpty {
+                            status("등록된 프로젝트 없음", scale: scale)
+                        }
+                    }
+                }
+                .scrollIndicators(.visible)
+            }
+        }
+    }
+
+    private func gitCard(scale: CGFloat) -> some View {
+        panel("GIT WORKTREES / 이 Mac의 로컬 Git", symbol: "chevron.left.forwardslash.chevron.right", scale: scale) {
+            if let snapshot = model.gitSnapshot {
+                Text("범위: \(snapshot.scannedLocations.joined(separator: ", ")) 하위 일부 폴더")
+                    .font(.system(size: 9 * scale))
+                    .foregroundStyle(muted)
+                    .lineLimit(2)
+                if snapshot.truncated {
+                    Text("탐색 상한에 도달함 · 전체 목록 아님")
+                        .font(.system(size: 10 * scale))
+                        .foregroundStyle(amber)
+                }
+                if let error = snapshot.error { status(error, scale: scale) }
+                ScrollView(.vertical) {
+                    VStack(alignment: .leading, spacing: 9) {
+                        ForEach(snapshot.repositories) { repo in
+                            VStack(alignment: .leading, spacing: 3) {
+                                HStack(alignment: .firstTextBaseline) {
+                                    Text(repo.name)
+                                        .font(.system(size: 12 * scale, weight: .medium))
+                                        .foregroundStyle(.white)
+                                        .lineLimit(1)
+                                    Spacer(minLength: 5)
+                                    Text(repo.branch)
+                                        .font(.system(size: 10 * scale, design: .monospaced))
+                                        .foregroundStyle(amber)
+                                        .lineLimit(1)
+                                }
+                                Text(repo.latestCommit)
+                                    .font(.system(size: 10 * scale, design: .monospaced))
+                                    .foregroundStyle(muted)
+                                    .lineLimit(1)
+                                Text(repo.trackedChanged.map { "추적 파일 변경 \($0)개" } ?? "변경 사항 확인 불가")
+                                    .font(.system(size: 9 * scale))
+                                    .foregroundStyle(mint.opacity(0.85))
+                            }
+                            .padding(.vertical, 3)
+                        }
+                        if snapshot.repositories.isEmpty { status("발견한 로컬 Git 저장소 없음", scale: scale) }
+                    }
+                }
+                .scrollIndicators(.visible)
+                Text("GitHub 원격 저장소 전체 현황은 아직 연결되지 않았습니다.")
+                    .font(.system(size: 9 * scale))
+                    .foregroundStyle(muted)
+                    .lineLimit(2)
+            } else {
+                status(model.gitIsLoading ? "로컬 Git 저장소를 읽는 중…" : "로컬 Git 조회 준비 중", scale: scale)
+            }
+        }
+    }
+
+    private func youtubeCard(scale: CGFloat) -> some View {
+        panel("YOUTUBE / 채널 분석", symbol: "play.rectangle", scale: scale) {
+            Text("API NOT CONNECTED")
+                .font(.system(size: 15 * scale, weight: .semibold, design: .monospaced))
+                .foregroundStyle(amber)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text("채널·영상별 조회수, 구독자, 시청 시간은 YouTube 인증 이후 실제 값으로 표시됩니다.")
+                .font(.system(size: 10 * scale))
+                .foregroundStyle(muted)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("현재 수집 중인 YouTube 분석 데이터: 없음")
+                .font(.system(size: 9 * scale, design: .monospaced))
+                .foregroundStyle(mint.opacity(0.8))
+        }
+    }
+
+    private func knowledgeCard(scale: CGFloat) -> some View {
+        panel("KNOWLEDGE / 자료·기억", symbol: "books.vertical", scale: scale) {
+            if let count = model.vaultTotal {
+                labelValue("활성 자료", "\(count)", scale: scale)
+                ForEach(JarvisKnowledgeVault.categoryOrder, id: \.self) { category in
+                    if let total = model.vaultCounts[category], total > 0 {
+                        HStack {
+                            Text(JarvisKnowledgeVault.labels[category] ?? category)
+                            Spacer()
+                            Text("\(total)")
+                        }
+                        .font(.system(size: 10 * scale))
+                        .foregroundStyle(muted)
+                    }
+                }
+                if count == 0 { status("활성 보관함이 비어 있습니다.", scale: scale) }
+            } else { status("자료 보관함 조회 안 됨", scale: scale) }
+            Text("로컬 SQLite · 외부 동기화 아님")
+                .font(.system(size: 9 * scale))
+                .foregroundStyle(muted)
+        }
+    }
+
+    private func systemCard(scale: CGFloat) -> some View {
+        panel("SYSTEM / 상태", symbol: "waveform.path.ecg", scale: scale) {
+            systemRow("SQLite", model.databaseStatus == "ok" ? "OK" : "확인 불가", scale: scale)
+            systemRow("Ollama", model.ollamaVersion.map { "v\($0)" } ?? "연결 안 됨", scale: scale)
+            systemRow("프로필", model.profileCount.map { "\($0)건" } ?? "확인 불가", scale: scale)
+            systemRow("갱신 주기", "약 7초", scale: scale)
+            Text("실제 연결 상태만 표시 · 사용량 미측정")
+                .font(.system(size: 9 * scale))
+                .foregroundStyle(muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func activityCard(scale: CGFloat) -> some View {
+        panel("LIVE CHECKS / 실제 조회 로그", symbol: "terminal", scale: scale) {
+            HStack(spacing: 6) {
+                Circle().fill(mint).frame(width: 5, height: 5)
+                Text("대시보드 표시 중 자동 갱신 · 오류도 기록")
+                    .font(.system(size: 9 * scale, design: .monospaced))
+                    .foregroundStyle(muted)
+            }
+            ScrollView(.vertical) {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(model.sourceChecks) { check in
+                        HStack(alignment: .top, spacing: 6) {
+                            Text(check.at.formatted(date: .omitted, time: .standard))
+                                .foregroundStyle(muted)
+                            Text(check.success ? "OK" : "ERR")
+                                .foregroundStyle(check.success ? mint : amber)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(check.source).foregroundStyle(.white.opacity(0.90))
+                                Text(check.detail).foregroundStyle(muted)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .font(.system(size: 10 * scale, design: .monospaced))
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .scrollIndicators(.visible)
+            .accessibilityIdentifier("jarvis-command-real-checks")
+            HStack(spacing: 6) {
+                Text(">")
+                Text("AWAITING COMMAND")
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    Text(Int(context.date.timeIntervalSince1970).isMultiple(of: 2) ? "█" : " ")
+                }
+            }
+            .font(.system(size: 10 * scale, design: .monospaced))
+            .foregroundStyle(amber)
+        }
+    }
+
+    private func recordedCard(scale: CGFloat) -> some View {
+        panel("RECORDED EVENTS / JARVIS 기록 원장", symbol: "clock.arrow.circlepath", scale: scale) {
+            if model.activityChecked {
+                ScrollView(.vertical) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(model.recordedActivity.prefix(10)) { event in
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Text(String(event.createdAt.prefix(16)))
+                                    .foregroundStyle(muted)
+                                Text(event.category)
+                                    .foregroundStyle(mint)
+                                Spacer(minLength: 3)
+                                Text(event.result)
+                                    .foregroundStyle(.white.opacity(0.75))
+                            }
+                            .font(.system(size: 9 * scale, design: .monospaced))
+                        }
+                        if model.recordedActivity.isEmpty {
+                            status("아직 기록된 작업 이벤트가 없습니다.", scale: scale)
+                        }
+                    }
+                }
+                .scrollIndicators(.visible)
+            } else {
+                status("기록 원장 연결 실패 또는 조회 중", scale: scale)
+            }
+            Text("표시된 날짜는 실제 기록 시각입니다. 오늘 실행한 작업이라는 뜻이 아닙니다.")
+                .font(.system(size: 9 * scale))
+                .foregroundStyle(muted)
+                .lineLimit(2)
+        }
+    }
+
+    private func progress(_ completed: Int, total: Int) -> some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.white.opacity(0.13))
+                Capsule().fill(amber)
+                    .frame(width: geometry.size.width * CGFloat(completed) / CGFloat(max(1, total)))
+            }
+        }
+        .frame(height: 5)
+    }
+
+    private func labelValue(_ name: String, _ value: String, scale: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(name).foregroundStyle(muted)
+                .font(.system(size: 10 * scale))
+            Text(value).foregroundStyle(.white)
+                .font(.system(size: 15 * scale, weight: .semibold, design: .rounded))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func systemRow(_ name: String, _ value: String, scale: CGFloat) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(name).foregroundStyle(muted)
+            Spacer(minLength: 4)
+            Text(value).foregroundStyle(.white).lineLimit(2)
+                .multilineTextAlignment(.trailing)
+        }
+        .font(.system(size: 11 * scale, design: .monospaced))
+    }
+
+    private func status(_ text: String, scale: CGFloat) -> some View {
+        Text(text)
+            .font(.system(size: 11 * scale))
+            .foregroundStyle(muted)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+}
