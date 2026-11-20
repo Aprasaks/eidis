@@ -30,13 +30,36 @@ class CommandCenterContract(unittest.TestCase):
             self.assertIn(text,GIT)
         for forbidden in ('git push','git fetch','git checkout','INSERT INTO','api.github.com'):
             self.assertNotIn(forbidden,GIT)
+    def test_read_only_github_account_scan_and_cache(self):
+        github = (R/'macos/Sources/EidisMac/JarvisGitHubRemoteScanner.swift').read_text()
+        for text in ('"--method", "GET"', '"/user/repos?per_page=100',
+                     '"--paginate"', 'GH_PROMPT_DISABLED', 'GH_HTTP_TIMEOUT',
+                     'privateRepo', 'maximumDisplayed = 100'):
+            self.assertIn(text, github)
+        for forbidden in ('"auth", "token"', '"push"', '"fetch"', '"checkout"'):
+            self.assertNotIn(forbidden, github)
+        self.assertIn('startGitHubScanIfNeeded(id: id)', LIVE)
+        self.assertIn('Date().timeIntervalSince($0) > 60', LIVE)
+
+    def test_vercel_read_only_project_and_deployment_status(self):
+        vercel = (R/'macos/Sources/EidisMac/JarvisVercelRemoteScanner.swift').read_text()
+        for text in ('["project", "ls", "--format=json"]',
+                     '["ls", "--format=json"]', 'VERCEL_DISABLE_UPDATE_CHECK',
+                     'JarvisVercelSnapshot', 'hasMoreDeployments'):
+            self.assertIn(text,vercel)
+        for forbidden in ('"deploy"', '"promote"', '"rollback"', '"remove"'):
+            self.assertNotIn(forbidden,vercel)
+        self.assertIn('startVercelScanIfNeeded(id: id)',LIVE)
+        self.assertIn('Date().timeIntervalSince($0) > 120',LIVE)
+        self.assertIn('model.vercelSnapshot',COMMAND)
+
     def test_tv_readable_layout_and_provenance(self):
         for text in ('width < 1120', 'min(2.0, max(0.84', 'ScrollView(.vertical)',
-                     'PROJECT OPERATIONS','GIT WORKTREES','YOUTUBE / 채널 분석',
+                     'PROJECT OPERATIONS','GITHUB + LOCAL GIT','YOUTUBE / 채널 분석',
                      'API NOT CONNECTED','LOCAL GIT', 'LIVE CHECKS',
                      'RECORDED EVENTS', 'model.sourceChecks',
-                     'model.recordedActivity', 'model.gitSnapshot',
-                     '실제 기록 시각', 'GitHub 원격 저장소 전체 현황은 아직 연결되지 않았습니다.'):
+                     'model.recordedActivity', 'model.gitSnapshot', 'model.githubSnapshot',
+                     '실제 기록 시각', 'GitHub는 로그인 계정의 API 결과'):
             self.assertIn(text,COMMAND)
         self.assertNotIn('fake statistics', COMMAND.lower())
         self.assertIn('<string>3.14.3</string>', INFO)

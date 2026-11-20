@@ -40,6 +40,14 @@ enum JarvisLiveDashboardIntent: Equatable {
         let close = ["닫아", "꺼줘", "숨겨", "치워", "내려", "접어"].contains { text.contains($0) }
         let returnToCore = ["원래대로돌아", "기본화면으로", "처음화면으로", "코어중앙으로", "관제실닫아", "관제실꺼", "전체현황닫아"].contains { text.contains($0) }
         if returnToCore || (dashboard && close) { return .hide }
+        // GitHub account status is backed by a real read-only gh API call.
+        let githubRequest = ["깃허브", "github", "깃전체", "깃프로젝트", "git현황",
+                             "vercel", "버셀"]
+            .contains { text.contains($0) }
+        if githubRequest && ["보여", "열어", "띄워", "현황", "상태", "분석", "프로젝트", "전체"]
+            .contains(where: { text.contains($0) }) {
+            return .show(.overview)
+        }
         let externalSignals = ["유튜브", "youtube", "뉴스", "날씨", "증시", "주가", "주식", "stock",
                                "깃허브", "github", "인스타", "instagram", "threads", "코인", "환율", "외부"]
         let external = externalSignals.contains { text.contains($0) }
@@ -134,6 +142,14 @@ final class JarvisLiveDashboard: ObservableObject {
     @Published private(set) var gitIsLoading = false
     private var gitTask: Task<Void, Never>?
     private var gitLastCheckedAt: Date?
+    @Published private(set) var githubSnapshot: JarvisGitHubRemoteSnapshot?
+    @Published private(set) var githubIsLoading = false
+    private var githubTask: Task<Void, Never>?
+    private var githubLastCheckedAt: Date?
+    @Published private(set) var vercelSnapshot: JarvisVercelSnapshot?
+    @Published private(set) var vercelIsLoading = false
+    private var vercelTask: Task<Void, Never>?
+    private var vercelLastCheckedAt: Date?
 
     private let session: URLSession
     private var pollingTask: Task<Void, Never>?
@@ -171,6 +187,10 @@ final class JarvisLiveDashboard: ObservableObject {
         pollingTask?.cancel()
         gitTask?.cancel()
         gitTask = nil
+        githubTask?.cancel()
+        githubTask = nil
+        vercelTask?.cancel()
+        vercelTask = nil
         let id = UUID()
         revision = id
         isVisible = true
@@ -194,6 +214,12 @@ final class JarvisLiveDashboard: ObservableObject {
         gitSnapshot = nil
         gitLastCheckedAt = nil
         gitIsLoading = false
+        githubSnapshot = nil
+        githubLastCheckedAt = nil
+        githubIsLoading = false
+        vercelSnapshot = nil
+        vercelLastCheckedAt = nil
+        vercelIsLoading = false
         let loaded = await refresh(id: id)
         guard isVisible && revision == id && !Task.isCancelled else { return "" }
         pollingTask = Task { [weak self] in
@@ -217,7 +243,11 @@ final class JarvisLiveDashboard: ObservableObject {
         let needsProjects = selected == .overview || selected == .projects
         let needsVault = selected == .overview || selected == .knowledge
         let needsStatus = selected == .overview || selected == .system
-        if selected == .overview { startLocalGitScanIfNeeded(id: id) }
+        if selected == .overview {
+            startLocalGitScanIfNeeded(id: id)
+            startGitHubScanIfNeeded(id: id)
+            startVercelScanIfNeeded(id: id)
+        }
         var success = true
         if needsProjects {
             do {
@@ -333,6 +363,52 @@ final class JarvisLiveDashboard: ObservableObject {
         }
     }
 
+    private func startGitHubScanIfNeeded(id: UUID) {
+        guard githubTask == nil,
+              githubLastCheckedAt.map({ Date().timeIntervalSince($0) > 60 }) ?? true else { return }
+        githubIsLoading = true
+        githubLastCheckedAt = Date()
+        githubTask = Task { [weak self] in
+            let worker = Task.detached(priority: .utility) {
+                JarvisGitHubRemoteScanner.scan()
+            }
+            let snapshot = await withTaskCancellationHandler {
+                await worker.value
+            } onCancel: {
+                worker.cancel()
+            }
+            guard let self, !Task.isCancelled, self.isVisible, self.revision == id else { return }
+            self.githubSnapshot = snapshot
+            self.githubIsLoading = false
+            self.githubTask = nil
+            self.recordCheck("GitHub 계정 API", success: snapshot.error == nil,
+                             detail: snapshot.error ?? "\(snapshot.repositories.count)개 원격 저장소 확인")
+        }
+    }
+
+    private func startVercelScanIfNeeded(id: UUID) {
+        guard vercelTask == nil,
+              vercelLastCheckedAt.map({ Date().timeIntervalSince($0) > 120 }) ?? true else { return }
+        vercelIsLoading = true
+        vercelLastCheckedAt = Date()
+        vercelTask = Task { [weak self] in
+            let worker = Task.detached(priority: .utility) {
+                JarvisVercelRemoteScanner.scan()
+            }
+            let snapshot = await withTaskCancellationHandler {
+                await worker.value
+            } onCancel: {
+                worker.cancel()
+            }
+            guard let self, !Task.isCancelled, self.isVisible, self.revision == id else { return }
+            self.vercelSnapshot = snapshot
+            self.vercelIsLoading = false
+            self.vercelTask = nil
+            self.recordCheck("Vercel CLI", success: snapshot.error == nil,
+                             detail: snapshot.error ?? "\(snapshot.projects.count)개 프로젝트 · 최근 배포 \(snapshot.deployments.count)건")
+        }
+    }
+
     func hide() -> String {
         revision = UUID()
         pollingTask?.cancel()
@@ -340,6 +416,12 @@ final class JarvisLiveDashboard: ObservableObject {
         gitTask?.cancel()
         gitTask = nil
         gitIsLoading = false
+        githubTask?.cancel()
+        githubTask = nil
+        githubIsLoading = false
+        vercelTask?.cancel()
+        vercelTask = nil
+        vercelIsLoading = false
         isVisible = false
         isLoading = false
         isRefreshing = false

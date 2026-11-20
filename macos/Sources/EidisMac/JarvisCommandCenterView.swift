@@ -149,6 +149,7 @@ struct JarvisCommandCenterView: View {
             metric("PROJECTS", value: model.projectsReady ? String(model.projects.count) : "—", scale: scale)
             metric("TASK RECORDS", value: model.projectsReady ? String(model.taskTotal) : "—", scale: scale)
             metric("LOCAL GIT", value: model.gitSnapshot.map { String($0.repositories.count) } ?? "—", scale: scale)
+            metric("GITHUB", value: model.githubSnapshot.flatMap { $0.error == nil ? String($0.repositories.count) : nil } ?? "—", scale: scale)
             metric("SAVED DATA", value: model.vaultTotal.map(String.init) ?? "—", scale: scale)
         }
     }
@@ -241,7 +242,7 @@ struct JarvisCommandCenterView: View {
     }
 
     private func gitCard(scale: CGFloat) -> some View {
-        panel("GIT WORKTREES / 이 Mac의 로컬 Git", symbol: "chevron.left.forwardslash.chevron.right", scale: scale) {
+        panel("GITHUB + LOCAL GIT / 전체 저장소", symbol: "chevron.left.forwardslash.chevron.right", scale: scale) {
             if let snapshot = model.gitSnapshot {
                 Text("범위: \(snapshot.scannedLocations.joined(separator: ", ")) 하위 일부 폴더")
                     .font(.system(size: 9 * scale))
@@ -255,6 +256,46 @@ struct JarvisCommandCenterView: View {
                 if let error = snapshot.error { status(error, scale: scale) }
                 ScrollView(.vertical) {
                     VStack(alignment: .leading, spacing: 9) {
+                        if let remote = model.githubSnapshot {
+                            if let error = remote.error {
+                                status("GitHub: " + error, scale: scale)
+                            } else {
+                                HStack(spacing: 6) {
+                                    Text("REMOTE / GitHub API · \(remote.repositories.count)개")
+                                        .foregroundStyle(mint)
+                                    Spacer(minLength: 0)
+                                    Text(remote.checkedAt.formatted(date: .omitted, time: .shortened))
+                                        .foregroundStyle(muted)
+                                }
+                                .font(.system(size: 10 * scale, design: .monospaced))
+                                if remote.truncated {
+                                    status("표시 상한 100개 · 전체 목록 아님", scale: scale)
+                                }
+                                ForEach(remote.repositories) { item in
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        HStack(alignment: .firstTextBaseline) {
+                                            Text(item.fullName).foregroundStyle(.white)
+                                                .lineLimit(1)
+                                            Spacer(minLength: 3)
+                                            Text(item.privateRepo ? "PRIVATE" : "PUBLIC")
+                                                .foregroundStyle(amber)
+                                        }
+                                        .font(.system(size: 10 * scale, design: .monospaced))
+                                        Text("기본 \(item.defaultBranch ?? "미확인") · 열린 이슈/PR \(item.openIssueOrPrCount.map(String.init) ?? "—")")
+                                            .font(.system(size: 9 * scale))
+                                            .foregroundStyle(muted)
+                                            .lineLimit(1)
+                                    }
+                                    .padding(.vertical, 2)
+                                }
+                            }
+                        } else {
+                            status(model.githubIsLoading ? "GitHub API에서 원격 저장소를 조회 중…" : "GitHub 원격 조회 준비 중", scale: scale)
+                        }
+                        Rectangle().fill(amber.opacity(0.2)).frame(height: 1)
+                        Text("LOCAL / 이 Mac의 Git 작업복사본")
+                            .font(.system(size: 10 * scale, design: .monospaced))
+                            .foregroundStyle(mint)
                         ForEach(snapshot.repositories) { repo in
                             VStack(alignment: .leading, spacing: 3) {
                                 HStack(alignment: .firstTextBaseline) {
@@ -283,7 +324,7 @@ struct JarvisCommandCenterView: View {
                 }
                 .frame(maxHeight: .infinity)
                 .scrollIndicators(.visible)
-                Text("GitHub 원격 저장소 전체 현황은 아직 연결되지 않았습니다.")
+                Text("GitHub는 로그인 계정의 API 결과, 로컬 Git은 Mac 작업복사본입니다.")
                     .font(.system(size: 9 * scale))
                     .foregroundStyle(muted)
                     .lineLimit(2)
@@ -354,7 +395,34 @@ struct JarvisCommandCenterView: View {
                     systemRow("SQLite", model.databaseStatus == "ok" ? "OK" : "확인 불가", scale: scale)
                     systemRow("Ollama", model.ollamaVersion.map { "v\($0)" } ?? "연결 안 됨", scale: scale)
                     systemRow("프로필", model.profileCount.map { "\($0)건" } ?? "확인 불가", scale: scale)
-                    systemRow("갱신 주기", "약 7초", scale: scale)
+                    Rectangle().fill(amber.opacity(0.2)).frame(height: 1)
+                    if let vercel = model.vercelSnapshot {
+                        if let error = vercel.error {
+                            status("Vercel: " + error, scale: scale)
+                        }
+                        systemRow("Vercel 프로젝트", "\(vercel.projects.count)개", scale: scale)
+                        if vercel.error == nil {
+                            let ready = vercel.deployments.filter { $0.state == "READY" }.count
+                            let failed = vercel.deployments.filter { $0.state == "ERROR" }.count
+                            systemRow("최근 배포", "\(vercel.deployments.count)건 · READY \(ready) / ERROR \(failed)", scale: scale)
+                            ForEach(vercel.deployments.prefix(5)) { deployment in
+                                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                                    Text(deployment.name).lineLimit(1)
+                                    Spacer(minLength: 4)
+                                    Text(deployment.state ?? "미확인")
+                                        .foregroundStyle(deployment.state == "READY" ? mint : amber)
+                                }
+                                .font(.system(size: 9 * scale, design: .monospaced))
+                                .foregroundStyle(muted)
+                            }
+                            if vercel.hasMoreDeployments {
+                                status("최근 목록 일부만 표시 · 전체 배포 아님", scale: scale)
+                            }
+                        }
+                    } else {
+                        status(model.vercelIsLoading ? "Vercel 프로젝트·배포 조회 중…" : "Vercel 조회 준비 중", scale: scale)
+                    }
+                    systemRow("로컬 갱신 주기", "약 7초", scale: scale)
                     Text("실제 연결 상태만 표시 · 사용량 미측정")
                         .font(.system(size: 9 * scale))
                         .foregroundStyle(muted)

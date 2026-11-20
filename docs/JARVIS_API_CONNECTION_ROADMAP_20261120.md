@@ -8,7 +8,8 @@
 
 - **로컬 완료:** Qwen3.5:9B / Ollama, Python JARVIS 서버(127.0.0.1:8765), SQLite 개인 기억과 작업/자료 원장, 로컬 Git 작업복사본 읽기, 현재 금빛 코어 UI.
 - **구현됨 / 현 시점 인증 상태 별도 확인 필요:** ElevenLabs 음성 합성·음성 목록(Apple Keychain), 공개 GitHub 특정 프로젝트 읽기.
-- **아직 JARVIS 직접 미구현:** 인증된 GitHub 전체 계정, YouTube Data / Analytics, Google Workspace/GA4/GSC, Notion, Meta SNS, NAVER API HUB, 외부 검색 API, 날씨 등.
+- **2026-11-20 새로 실기기 확인:** 기존 `gh` 인증으로 GitHub REST API 접근 가능한 저장소 19개 조회, 기존 Vercel CLI 인증으로 프로젝트 6개·최근 배포 20건 조회. 모두 JARVIS Mac 전체 관제실에 읽기 전용으로 연동. 두 소스 모두 전체 권한이나 전체 이력의 완전한 커버리지를 뜻하지 않음.
+- **아직 JARVIS 직접 미구현:** YouTube Data / Analytics, Google Workspace/GA4/GSC, Notion, Meta SNS, NAVER API HUB, 외부 검색 API, 날씨 및 GitHub Actions 상세 분석 등.
 
 ## 권장 순서 및 계정 준비물
 
