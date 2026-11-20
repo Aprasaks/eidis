@@ -90,7 +90,7 @@ final class LocalSpeechListener: ObservableObject {
         // SwiftPM's unbundled executable has no usage descriptions.
         guard Bundle.main.object(forInfoDictionaryKey: "NSMicrophoneUsageDescription") != nil,
               Bundle.main.object(forInfoDictionaryKey: "NSSpeechRecognitionUsageDescription") != nil else {
-            status = "권한 설명이 포함된 JARVIS.app으로 실행해야 합니다."
+            status = "권한 설명이 포함된 DECHIVE 앱으로 실행해야 합니다."
             return
         }
         guard let recognizer, recognizer.isAvailable else {
@@ -363,7 +363,7 @@ struct NativeSpeechPanel: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-            Label("자비스의 귀 · 한국어 음성 명령", systemImage: "mic")
+            Label("DECHIVE의 귀 · 한국어 음성 명령", systemImage: "mic")
                 .font(.headline)
             Text("사용자가 누르는 동안만 마이크를 엽니다. 지원되는 Mac에서는 한국어 온디바이스 음성 인식만 사용합니다. 항상 듣기·화면 분석·외부 AI 연결은 아직 없습니다.")
                 .font(.callout)
@@ -500,15 +500,15 @@ struct NativeSpeechPanel: View {
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
             }
-            Text("마이크로 실제 명령 점검: '자비스, 다음 할 일 뭐야?'라고 말하세요. 음성 인식 문장과 아래 로컬 서버 응답을 각각 확인합니다. 음성이 실제로 들렸는지는 직접 확인해야 합니다.")
+            Text("마이크로 실제 명령 점검: 'DECHIVE, 다음 할 일 뭐야?'라고 말하세요. 음성 인식 문장과 아래 로컬 서버 응답을 각각 확인합니다. 음성이 실제로 들렸는지는 직접 확인해야 합니다.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Text("프로젝트 이어하기 예: JARVIS eidis 작업 이어서 열어줘 · 아래 메뉴에서 다른 등록 프로젝트도 선택할 수 있어요.")
+            Text("프로젝트 이어하기 예: DECHIVE.WIKI 작업 이어서 열어줘 · 아래 메뉴에서 다른 등록 프로젝트도 선택할 수 있어요.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             GroupBox("인식한 문장") {
                 ScrollView {
-                    Text(listener.transcript.isEmpty ? "예: 자비스, 대시보드 띄워" : listener.transcript)
+                    Text(listener.transcript.isEmpty ? "예: DECHIVE, 대시보드 띄워" : listener.transcript)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .textSelection(.enabled)
                         .padding(8)
@@ -516,11 +516,11 @@ struct NativeSpeechPanel: View {
                 .frame(minHeight: 95)
             }
             HStack {
-                Button("자비스 다음 할 일") {
+                Button("DECHIVE 다음 할 일") {
                     sendCommand("자비스, 다음 할 일 뭐야?")
                 }
                 .disabled(routingBusy || client.busy)
-                .help("JARVIS eidis의 저장된 작업을 로컬 서버에서 읽고 답합니다. GitHub 조회나 코드 실행은 하지 않습니다.")
+                .help("DECHIVE.WIKI의 저장된 작업을 로컬 서버에서 읽고 답합니다. GitHub 조회나 코드 실행은 하지 않습니다.")
                 Menu("등록 프로젝트 선택") {
                     ForEach(projectWork.projects) { project in
                         Button(project.name) {
@@ -546,13 +546,13 @@ struct NativeSpeechPanel: View {
                     .disabled(client.busy || routingBusy ||
                               typedCommand.trimmingCharacters(in: .whitespaces).isEmpty)
             }
-            GroupBox("자비스 응답") {
+            GroupBox("DECHIVE 응답") {
                 Text(workspaceRoutingResult.isEmpty ? client.lastResponse : workspaceRoutingResult)
                     .frame(maxWidth: .infinity, minHeight: 62, alignment: .topLeading)
                     .textSelection(.enabled)
                     .padding(8)
             }
-            Text("일반 명령은 로컬 자비스 서버로 전달합니다. 정확한 프로젝트 이름과 '작업 이어서 열어줘'를 포함한 문장은 이 Mac의 작업 탭에 제안을 만들 뿐, 승인 없이 Finder·GitHub를 열지 않습니다.")
+            Text("일반 명령은 로컬 DECHIVE 서버로 전달합니다. 정확한 프로젝트 이름과 '작업 이어서 열어줘'를 포함한 문장은 이 Mac의 작업 탭에 제안을 만들 뿐, 승인 없이 Finder·GitHub를 열지 않습니다.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }

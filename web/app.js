@@ -334,7 +334,7 @@ async function analyzeSharedScreenOnce() {
   const capturedGeneration = visionGeneration;
   try {
     const configResponse = await fetch('/api/status',{cache:'no-store'});
-    if (!configResponse.ok) throw new Error('로컬 자비스 서버에 연결할 수 없습니다.');
+    if (!configResponse.ok) throw new Error('로컬 DECHIVE 서버에 연결할 수 없습니다.');
     const config = await configResponse.json();
     if (!config.vision?.remote_configured) {
       throw new Error('외부 AI 화면 분석이 꺼져 있습니다. 별도 API 키와 허용 설정이 필요합니다.');
@@ -419,7 +419,7 @@ if (Recognition) {
         if (!said) continue;
         if (/^(자비스|jarvis)(?:[\s?!.,，？]|$)/i.test(said)) {voiceWakeUntil=Date.now()+12000;issue(said);}
         else if (Date.now()<voiceWakeUntil) {voiceWakeUntil=0;issue(said);}
-        else showMessage('먼저 “자비스”라고 불러 주세요. 음성은 명시적 호출 후에만 명령으로 처리합니다.');
+        else showMessage('먼저 음성 호출어를 말해 주세요. 명시적으로 호출한 뒤에만 명령을 처리합니다.');
       }
     }
   };
@@ -436,7 +436,7 @@ $('#voice-toggle').addEventListener('click',()=>{
   if(!Recognition){showMessage('이 브라우저에서는 음성 인식이 제공되지 않습니다. 크롬의 지원 여부를 확인하거나 텍스트를 입력해 주세요.');return;}
   if(wantMic){disableMic('마이크를 껐습니다.');return;}
   wantMic=true;micButtonState();
-  try{recognition.start();recognizing=true;showMessage('마이크가 켜졌습니다. “자비스”라고 말해 보세요.');}
+  try{recognition.start();recognizing=true;showMessage('마이크가 켜졌습니다. 음성 호출어를 말해 보세요.');}
   catch(err){disableMic(`마이크를 시작하지 못했습니다: ${err.message}`);}
 });
 document.addEventListener('visibilitychange',()=>{

@@ -38,7 +38,7 @@ class OnDemandDashboard(unittest.TestCase):
                        'dashboard: dialogue.dashboard',
                        'jarvis-on-demand-dashboard', 'jarvis-dashboard-close'):
             self.assertIn(marker, OVERLAY)
-        self.assertIn('JARVIS_FullHD_Loop', OVERLAY)
+        self.assertIn('DECHIVE_FullHD_Loop', OVERLAY)
         self.assertIn('hotkey?.uninstallEscape()', OVERLAY)
         self.assertIn('if !dialogue.answer.isEmpty', OVERLAY)
         self.assertIn('subtitles sit on the left', OVERLAY)

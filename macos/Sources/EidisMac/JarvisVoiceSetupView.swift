@@ -39,7 +39,7 @@ final class JarvisVoiceCloneSetup: NSObject, ObservableObject {
         guard !isRecording && !isGenerating else { return }
         let allowed = await AVCaptureDevice.requestAccess(for: .audio)
         guard allowed else {
-            status = "마이크 권한이 필요합니다. macOS 설정 → 개인정보 보호 및 보안 → 마이크에서 JARVIS를 허용해 주세요."
+            status = "마이크 권한이 필요합니다. macOS 설정 → 개인정보 보호 및 보안 → 마이크에서 DECHIVE를 허용해 주세요."
             return
         }
         do {
@@ -162,14 +162,14 @@ final class JarvisVoiceCloneSetup: NSObject, ObservableObject {
                 return task.terminationStatus
             }.value
             guard exitCode == 0 && FileManager.default.fileExists(atPath: output.path) else {
-                status = "생성하지 못했습니다. 로그: \(log.lastPathComponent). 기존 JARVIS 음성은 그대로 유지됩니다."
+                status = "생성하지 못했습니다. 로그: \(log.lastPathComponent). 기존 DECHIVE 음성은 그대로 유지됩니다."
                 isGenerating = false
                 return
             }
             generatedURL = output
             originalGeneratedURL = output.deletingLastPathComponent()
                 .appendingPathComponent(output.deletingPathExtension().lastPathComponent + "_original.wav")
-            status = "로컬 목소리 생성 완료! 원본 생성 음성과 낮은 톤을 비교해 주세요. 기존 자비스 답변 음성은 아직 변경하지 않았습니다."
+            status = "로컬 목소리 생성 완료! 원본 생성 음성과 낮은 톤을 비교해 주세요. 기존 DECHIVE 답변 음성은 아직 변경하지 않았습니다."
         } catch {
             status = "생성 실행 실패: \(error.localizedDescription)"
         }
@@ -182,9 +182,9 @@ struct JarvisVoiceSetupView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
-            Text("JARVIS · 내 목소리 만들기")
+            Text("DECHIVE · 내 목소리 만들기")
                 .font(.system(size: 23, weight: .semibold))
-            Text("네 목소리를 참고해 조금 더 낮고 차분한 자비스 목소리를 로컬에서 생성해 봅니다.")
+            Text("네 목소리를 참고해 조금 더 낮고 차분한 DECHIVE 목소리를 로컬에서 생성해 봅니다.")
                 .foregroundStyle(.secondary)
             Text("읽을 문장")
                 .font(.headline)
@@ -210,7 +210,7 @@ struct JarvisVoiceSetupView: View {
                 .border(.gray.opacity(0.25))
                 .disabled(voice.isRecording || voice.isGenerating)
             HStack(spacing: 12) {
-                Button("내 목소리로 자비스 시험 음성 만들기") {
+                Button("내 목소리로 DECHIVE 시험 음성 만들기") {
                     Task { await voice.generatePreview() }
                 }
                 .disabled(voice.referenceURL == nil || voice.isRecording || voice.isGenerating)
@@ -222,7 +222,7 @@ struct JarvisVoiceSetupView: View {
             Text(voice.status)
                 .font(.system(size: 12))
                 .foregroundStyle(voice.isGenerating ? .orange : .secondary)
-            Text("음성 파일은 Mac에만 저장됩니다. 사용자가 직접 녹음 버튼을 누르지 않으면 마이크는 실행되지 않습니다. 생성 결과를 듣고 승인하기 전에는 기존 JARVIS의 음성이 바뀌지 않습니다.")
+            Text("음성 파일은 Mac에만 저장됩니다. 사용자가 직접 녹음 버튼을 누르지 않으면 마이크는 실행되지 않습니다. 생성 결과를 듣고 승인하기 전에는 기존 DECHIVE의 음성이 바뀌지 않습니다.")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
             Spacer(minLength: 0)

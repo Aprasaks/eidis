@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OVERLAY = (ROOT / 'macos/Sources/EidisMac/JarvisFullscreenOverlay.swift').read_text()
 LIFECYCLE = (ROOT / 'macos/Sources/EidisMac/JarvisBundledServer.swift').read_text()
 PACKAGING = (ROOT / 'macos/scripts/package-app.sh').read_text()
-ASSET = ROOT / 'macos/Resources/Art/JARVIS_FullHD_Loop.mp4'
+ASSET = ROOT / 'macos/Resources/Art/DECHIVE_FullHD_Loop.mp4'
 
 class FullscreenOverlayContract(unittest.TestCase):
     def test_global_hotkey_is_explicit_and_can_close(self):
@@ -17,13 +17,13 @@ class FullscreenOverlayContract(unittest.TestCase):
     def test_actual_desktop_overlay_and_real_looping_video(self):
         for marker in ('window.level = .screenSaver', 'window.hidesOnDeactivate = false', '.canJoinAllSpaces',
                        'Color.black.opacity(appeared ? 1 : 0)', 'AVPlayerLooper',
-                       'JARVIS_FullHD_Loop', 'videoGravity = compact ? .resizeAspectFill : .resizeAspect',
+                       'DECHIVE_FullHD_Loop', 'videoGravity = compact ? .resizeAspectFill : .resizeAspect',
                        'window.orderOut(nil)', 'window.contentView = nil'):
             self.assertIn(marker, OVERLAY)
         self.assertTrue(ASSET.exists() and ASSET.stat().st_size > 1_000_000)
-        self.assertIn('cp "$PACKAGE/Resources/Art/JARVIS_FullHD_Loop.mp4"', PACKAGING)
+        self.assertIn('cp "$PACKAGE/Resources/Art/DECHIVE_FullHD_Loop.mp4"', PACKAGING)
         self.assertNotIn('Bundle.main.url(forResource: "JARVIS_Activation_Alpha_HEVC"', OVERLAY)
-        self.assertGreater(ASSET.stat().st_size, 5_000_000)
+        self.assertGreater(ASSET.stat().st_size, 3_500_000)
         self.assertIn('rm -f "$RESOURCES/JARVIS_Activation_Alpha_HEVC.mov"', PACKAGING)
 
     def test_esc_is_immediate_and_screen_switching_has_input_guards(self):

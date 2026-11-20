@@ -24,7 +24,8 @@ RESOURCES="$APP/Contents/Resources"
 mkdir -p "$RESOURCES/jarvis" "$RESOURCES/web"
 # Use the user's original 1920x1080 clip verbatim. The old 720p alpha
 # conversion introduced visible edge noise on external ultrawide displays.
-cp "$PACKAGE/Resources/Art/JARVIS_FullHD_Loop.mp4" "$RESOURCES/JARVIS_FullHD_Loop.mp4"
+cp "$PACKAGE/Resources/Art/DECHIVE_FullHD_Loop.mp4" "$RESOURCES/DECHIVE_FullHD_Loop.mp4"
+rm -f "$RESOURCES/JARVIS_FullHD_Loop.mp4"
 # Remove only the obsolete generated alpha movie from the owned dist bundle.
 # Keep the original alpha source in macos/Resources/Art for rollback.
 rm -f "$RESOURCES/JARVIS_Activation_Alpha_HEVC.mov"

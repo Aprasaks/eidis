@@ -11,10 +11,10 @@ PLIST = (ROOT / 'macos/Resources/Info.plist').read_text()
 class SummonOnlyLaunchTests(unittest.TestCase):
     def test_no_legacy_window_created_on_launch(self):
         self.assertIn('.defaultLaunchBehavior(.suppressed)', APP)
-        self.assertIn('MenuBarExtra("JARVIS"', APP)
+        self.assertIn('MenuBarExtra("DECHIVE"', APP)
         self.assertIn('openWindow(id: "jarvis-tools")', APP)
         self.assertIn('Button("작업 및 설정 열기")', APP)
-        self.assertIn('Button("자비스 소환 / 닫기', APP)
+        self.assertIn('Button("DECHIVE 소환 / 닫기', APP)
         self.assertIn('if !flag { fullscreen.show() }', LIFE)
         self.assertNotIn('NSApp.windows.first(where: { $0.title.contains("JARVIS") })?.makeKeyAndOrderFront(nil)', LIFE)
 

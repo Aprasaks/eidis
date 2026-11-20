@@ -58,7 +58,7 @@ final class ElevenLabsVoiceService: ObservableObject {
     @Published private(set) var libraryStatus = "ElevenLabs 계정에 저장된 목소리를 가져올 수 있습니다."
     @Published private(set) var isLoadingLibrary = false
     private var samplePlayer: AVPlayer?
-    private static let summonGreeting = "데카이브, 자비스입니다."
+    private static let summonGreeting = "주인님, 자비스입니다."
     // Cache only the fixed greeting for the lifetime of this app process.
     // Dynamic answers still use the existing per-request synthesis path.
     private var greetingCache: (voiceID: String, modelID: String, audio: Data)?
@@ -392,7 +392,7 @@ final class ElevenLabsVoiceService: ObservableObject {
         player?.stop()
         player = nil
         samplePlayer?.pause()
-        status = "자비스 소환 음성 중단 · Esc"
+        status = "DECHIVE 소환 음성 중단 · Esc"
     }
 
     /// Wait for either ElevenLabs or the offline Mac fallback to finish speaking.

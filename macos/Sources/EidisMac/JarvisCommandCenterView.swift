@@ -86,7 +86,7 @@ struct JarvisCommandCenterView: View {
             Color.clear.frame(height: fullHeight * 0.465)
             HStack(spacing: 7) {
                 Circle().fill(mint).frame(width: 6, height: 6)
-                Text("JARVIS CORE / ACTIVE")
+                Text("DECHIVE CORE / ACTIVE")
                     .tracking(1.1)
                     .font(.system(size: 10 * scale, weight: .semibold, design: .monospaced))
                     .lineLimit(1)
@@ -150,7 +150,7 @@ struct JarvisCommandCenterView: View {
     private func header(scale: CGFloat) -> some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 5) {
-                Text("JARVIS / COMMAND CENTER")
+                Text("DECHIVE / COMMAND CENTER")
                     .font(.system(size: 21 * scale, weight: .semibold, design: .monospaced))
                     .tracking(1.3)
                     .foregroundStyle(amber)
@@ -254,7 +254,7 @@ struct JarvisCommandCenterView: View {
                         ForEach(model.projects) { project in
                             VStack(alignment: .leading, spacing: 6) {
                                 HStack {
-                                    Text(project.name)
+                                    Text(project.name == "JARVIS eidis" ? "DECHIVE / CORE" : project.name)
                                         .font(.system(size: 12 * scale, weight: .medium))
                                         .foregroundStyle(.white)
                                         .lineLimit(1)
@@ -585,7 +585,7 @@ struct JarvisCommandCenterView: View {
     }
 
     private func recordedCard(scale: CGFloat) -> some View {
-        panel("RECORDED EVENTS / JARVIS 기록 원장", symbol: "clock.arrow.circlepath", scale: scale) {
+        panel("RECORDED EVENTS / DECHIVE 기록 원장", symbol: "clock.arrow.circlepath", scale: scale) {
             if model.activityChecked {
                 ScrollView(.vertical) {
                     VStack(alignment: .leading, spacing: 6) {

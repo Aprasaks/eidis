@@ -295,7 +295,7 @@ struct AccessibilityPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Label("자비스의 눈 · UI 구조 확인", systemImage: "rectangle.on.rectangle")
+            Label("DECHIVE의 눈 · UI 구조 확인", systemImage: "rectangle.on.rectangle")
                 .font(.headline)
             Text("앱을 직접 선택해 버튼을 누르면 종류와 일부 버튼·메뉴 제목만 읽습니다. 문서 제목·본문·텍스트 입력값·화면 사진은 읽거나 저장하지 않습니다.")
                 .font(.callout)

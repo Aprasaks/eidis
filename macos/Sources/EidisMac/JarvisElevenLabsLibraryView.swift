@@ -21,7 +21,7 @@ struct JarvisElevenLabsLibraryView: View {
         VStack(alignment: .leading, spacing: 13) {
             Text("ElevenLabs · 내 라이브러리")
                 .font(.system(size: 23, weight: .semibold))
-            Text("ElevenLabs 계정에 저장된 목소리를 가져와 자비스에 적용합니다. 목록 조회와 선택은 음성 생성 크레딧을 쓰지 않습니다.")
+            Text("ElevenLabs 계정에 저장된 목소리를 가져와 DECHIVE에 적용합니다. 목록 조회와 선택은 음성 생성 크레딧을 쓰지 않습니다.")
                 .font(.callout).foregroundStyle(.secondary)
             HStack(spacing: 12) {
                 Button(elevenLabs.isLoadingLibrary ? "목록 가져오는 중…" : "내 ElevenLabs 목소리 불러오기") {
@@ -91,7 +91,7 @@ struct JarvisElevenLabsLibraryView: View {
                 }
                 .padding(.vertical, 4)
             }
-            Text("선택은 저장되지만 ElevenLabs 자동 음성 생성은 켜지지 않습니다. 실제 자비스 답변에 사용하려면 '작업 및 설정 열기 → 음성'에서 활성화해 주세요. 음성 합성과 시험 합성은 ElevenLabs 크레딧을 사용할 수 있습니다.")
+            Text("선택은 저장되지만 ElevenLabs 자동 음성 생성은 켜지지 않습니다. 실제 DECHIVE 답변에 사용하려면 '작업 및 설정 열기 → 음성'에서 활성화해 주세요. 음성 합성과 시험 합성은 ElevenLabs 크레딧을 사용할 수 있습니다.")
                 .font(.caption).foregroundStyle(.secondary)
         }
         .padding(20)

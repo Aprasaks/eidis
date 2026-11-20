@@ -12,14 +12,14 @@ struct EidisMacApp: App {
     var body: some Scene {
         // A summoned assistant should not spawn its legacy dashboard on startup.
         // macOS 15+ supports native suppression before a window is ever shown.
-        WindowGroup("JARVIS", id: "jarvis-tools") {
+        WindowGroup("DECHIVE", id: "jarvis-tools") {
             JarvisWindow().environmentObject(lifecycle.server)
         }
         .defaultSize(width: 1180, height: 770)
         .defaultLaunchBehavior(.suppressed)
 
         // Work/voice/diagnostics are secondary; available only when requested.
-        MenuBarExtra("JARVIS", systemImage: "circle.hexagongrid") {
+        MenuBarExtra("DECHIVE", systemImage: "circle.hexagongrid") {
             JarvisMenuCommands(lifecycle: lifecycle)
         }
 
@@ -42,7 +42,7 @@ private struct JarvisMenuCommands: View {
     let lifecycle: JarvisAppLifecycle
 
     var body: some View {
-        Button("자비스 소환 / 닫기  ⌘⌥J") { lifecycle.fullscreen.toggle() }
+        Button("DECHIVE 소환 / 닫기  ⌘⌥J") { lifecycle.fullscreen.toggle() }
         Button("작업 및 설정 열기") {
             openWindow(id: "jarvis-tools")
             NSApp.activate(ignoringOtherApps: true)
@@ -56,7 +56,7 @@ private struct JarvisMenuCommands: View {
             NSApp.activate(ignoringOtherApps: true)
         }
         Divider()
-        Button("자비스 종료") { NSApp.terminate(nil) }
+        Button("DECHIVE 종료") { NSApp.terminate(nil) }
     }
 }
 
@@ -253,7 +253,7 @@ struct JarvisWindow: View {
                 HStack(spacing: 12) {
                     Image(systemName: "circle.hexagongrid")
                         .foregroundStyle(Color(red: 0.25, green: 0.82, blue: 0.90))
-                    Text("JARVIS")
+                    Text("DECHIVE")
                         .font(.system(size: 13, weight: .medium))
                         .tracking(2.5)
                     Text("PERSONAL SYSTEM")
@@ -322,7 +322,7 @@ struct JarvisWindow: View {
                         if showLegacyConsole {
                             VStack(spacing: 8) {
                                 HStack {
-                                    Text("기존 자비스 웹 콘솔 · 127.0.0.1")
+                                    Text("기존 DECHIVE 웹 콘솔 · 127.0.0.1")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                     Text(localServer.message)
@@ -342,7 +342,7 @@ struct JarvisWindow: View {
                             .padding(18)
                         }
                     }
-                    .tabItem { Label("자비스", systemImage: "circle.hexagongrid") }
+                    .tabItem { Label("DECHIVE", systemImage: "circle.hexagongrid") }
                     .tag(JarvisTab.assistant)
 
                 ApprovedProjectsPanel(work: projectWork, requestedWorkspace: workspaceRequest)
@@ -364,7 +364,7 @@ struct JarvisWindow: View {
                     VStack(alignment: .leading, spacing: 16) {
                     HStack {
                         VStack(alignment: .leading, spacing: 5) {
-                            Text("자비스의 눈 · 수동 캡처 테스트")
+                            Text("DECHIVE의 눈 · 수동 캡처 테스트")
                                 .font(.headline)
                             Text("버튼을 누른 경우에만 화면을 한 번 캡처하고 글자를 Mac에서 읽습니다.")
                                 .font(.caption)

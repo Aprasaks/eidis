@@ -14,14 +14,14 @@ class DialoguePacingContract(unittest.TestCase):
         self.assertIn("min(max(silenceWaitSeconds, 5.0), 12.0)", CHAT)
         self.assertIn(">= self.silenceWaitSeconds", CHAT)
         self.assertIn("self.listener.finish()", CHAT)
-        self.assertIn("jarvis-live-dialogue-pause-length", UI)
-        self.assertIn('Toggle(isOn: $dialogue.autoTurnEnabled)', UI)
+        self.assertNotIn("jarvis-live-dialogue-pause-length", UI)
+        self.assertNotIn('Toggle(isOn: $dialogue.autoTurnEnabled)', UI)
 
     def test_elevenlabs_speed_is_configurable_and_safe(self):
         self.assertIn('savedResponseSpeed ?? 0.90', TTS)
         self.assertIn('min(max(responseSpeed, 0.8), 1.05)', TTS)
         self.assertIn('"voice_settings": ["speed": isSummonGreeting ? 1.0 : responseSpeed]', TTS)
-        self.assertIn('jarvis-live-dialogue-voice-speed', UI)
+        self.assertNotIn('jarvis-live-dialogue-voice-speed', UI)
         self.assertIn('fallback.speak(phrase)', TTS)
         self.assertIn('generation == speechGeneration', TTS)
     

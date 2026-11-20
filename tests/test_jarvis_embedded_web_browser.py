@@ -41,7 +41,7 @@ class JarvisEmbeddedBrowserContract(unittest.TestCase):
                       'jarvis-internal-web-browser', 'jarvis-browser-close',
                       '.frame(width: min(790, max(510, area.size.width * 0.29))',
                       'browser: dialogue.browser', 'hotkey?.uninstallEscape()',
-                      'self.dialogue?.browser.isVisible != true', 'JARVIS_FullHD_Loop']:
+                      'self.dialogue?.browser.isVisible != true', 'DECHIVE_FullHD_Loop']:
             self.assertIn(token,OVERLAY)
         self.assertIn('<string>3.14.3</string>',APP)
 

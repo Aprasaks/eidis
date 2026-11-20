@@ -38,8 +38,8 @@ class SpeechContinuityContract(unittest.TestCase):
         self.assertIn("savedPause ?? 6.5", CHAT)
         self.assertIn("min(max(silenceWaitSeconds, 5.0), 12.0)", CHAT)
         self.assertIn(">= self.silenceWaitSeconds", CHAT)
-        self.assertIn('Toggle(isOn: $dialogue.autoTurnEnabled)', PANEL)
-        self.assertIn("긴 이야기는 자동 확정을 끄고 Space로 끝내세요", PANEL)
+        self.assertNotIn('Toggle(isOn: $dialogue.autoTurnEnabled)', PANEL)
+        self.assertIn("func completeUtterance()", CHAT)
 
 if __name__ == "__main__":
     unittest.main()

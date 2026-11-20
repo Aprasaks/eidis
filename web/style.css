@@ -435,7 +435,7 @@ body::before{
   .design-mode.dashboard-open .presence-content,
   .design-mode.dashboard-open .presence-floor{display:none}
   .design-mode.dashboard-open .presence::after{
-    content:"JARVIS / PRESENT";position:absolute;top:calc(50% + 79px);
+    content:"DECHIVE / PRESENT";position:absolute;top:calc(50% + 79px);
     color:#67859d;font-size:9px;letter-spacing:.15em;white-space:nowrap;
   }
   .design-mode.dashboard-open .workspace{

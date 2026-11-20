@@ -28,7 +28,7 @@ final class JarvisPersonalProfile {
         "working_style": "작업 방식",
         "communication_style": "대화 방식",
         "environment": "작업 환경",
-        "assistant_role": "자비스의 역할",
+        "assistant_role": "DECHIVE 비서의 역할",
         "goals": "목표"
     ]
     static let displayOrder = ["display_name", "identity", "values", "working_style",
@@ -69,7 +69,9 @@ final class JarvisPersonalProfile {
 
     func contextForQwen() async -> String {
         guard let facts = try? await read(), !facts.isEmpty else { return "" }
-        let ordered = Self.displayOrder.compactMap { key -> String? in
+        // A previously saved display name is factual profile data, not
+        // permission to override the user's fixed spoken address "주인님".
+        let ordered = Self.displayOrder.filter { $0 != "display_name" }.compactMap { key -> String? in
             guard let value = facts.first(where: { $0.key == key })?.value else { return nil }
             return "\(Self.labels[key] ?? key): \(value.replacingOccurrences(of: "\\n", with: " "))"
         }
@@ -96,15 +98,9 @@ final class JarvisPersonalProfile {
     }
 
     func address() async -> String {
-        do {
-            let facts = try await read()
-            guard let name = facts.first(where: { $0.key == "display_name" })?.value else {
-                return "데카이브의 호칭 정보를 아직 확인하지 못했습니다."
-            }
-            return "\(name)라고 부르겠습니다."
-        } catch {
-            return "호칭 정보를 현재 확인하지 못했습니다."
-        }
+        // Fixed user instruction: the spoken honorific is not inferred from
+        // older saved name/profile facts and requires no network lookup.
+        "주인님이라고 부르겠습니다."
     }
 
     func set(_ key: String, value: String) async -> String {

@@ -12,7 +12,7 @@ class AriaFullscreenGreetingContract(unittest.TestCase):
         self.assertIn('window.orderFrontRegardless()', OVERLAY)
         self.assertLess(OVERLAY.index('window.orderFrontRegardless()\n        window.makeKey()'),
                         OVERLAY.index('speakSummonGreeting(fallback: self.greetingFallback)'))
-        self.assertIn('private static let summonGreeting = "데카이브, 자비스입니다."', ELEVEN)
+        self.assertIn('private static let summonGreeting = "주인님, 자비스입니다."', ELEVEN)
         self.assertIn('if !keyPresent { await refreshSavedKeyAvailability() }', ELEVEN)
         self.assertNotIn('SFSpeechRecognizer', OVERLAY)
     def test_cancel_on_escape_and_termination(self):

@@ -278,7 +278,7 @@ final class JarvisLiveDashboard: ObservableObject {
                 _ = await self.refresh(id: id)
             }
         }
-        return loaded ? "데카이브, 실제 로컬 데이터를 바탕으로 \(selected.koreanName) 대시보드를 열었습니다. 표시된 동안 약 7초 간격으로 갱신됩니다."
+        return loaded ? "주인님, 실제 로컬 데이터를 바탕으로 \(selected.koreanName) 대시보드를 열었습니다. 표시된 동안 약 7초 간격으로 갱신됩니다."
             : "\(selected.koreanName) 대시보드를 열었지만 일부 데이터를 가져오지 못했습니다. 연결 상태를 표시했습니다."
     }
 
@@ -538,8 +538,8 @@ final class JarvisLiveDashboard: ObservableObject {
         panel.allowedContentTypes = [.json]
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
-        panel.message = "Google Cloud에서 다운로드한 DECHIVE-JARVIS 데스크톱 OAuth JSON을 선택하세요."
-        panel.prompt = "JARVIS에 등록"
+        panel.message = "Google Cloud에서 다운로드한 DECHIVE-DECHIVE 데스크톱 OAuth JSON을 선택하세요."
+        panel.prompt = "DECHIVE에 등록"
         panel.begin { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
             Task { @MainActor in
@@ -553,7 +553,7 @@ final class JarvisLiveDashboard: ObservableObject {
                           let clientId = installed["client_id"] as? String,
                           clientId.hasSuffix(".apps.googleusercontent.com"),
                           installed["client_secret"] as? String != nil else {
-                        self.youtubeConnectMessage = "DECHIVE-JARVIS 데스크톱 인증 JSON 파일이 아닙니다."
+                        self.youtubeConnectMessage = "DECHIVE 데스크톱 인증 JSON 파일이 아닙니다."
                         return
                     }
                     let directory = FileManager.default.homeDirectoryForCurrentUser

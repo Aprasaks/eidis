@@ -41,7 +41,7 @@ final class JarvisOverlayBrowser: ObservableObject {
         currentURL = url
         isLoading = true
         isVisible = true
-        return "\(title) 브라우저를 자비스 화면 안에 열었습니다."
+        return "\(title) 브라우저를 DECHIVE 화면 안에 열었습니다."
     }
 
     func search(_ query: String, engine: JarvisWebIntent.SearchEngine) -> String {
@@ -53,7 +53,7 @@ final class JarvisOverlayBrowser: ObservableObject {
         currentURL = url
         isLoading = true
         isVisible = true
-        return "‘\(query)’ 검색 결과를 자비스 화면에 띄웠습니다. 원하시는 링크를 직접 열어볼 수 있습니다."
+        return "‘\(query)’ 검색 결과를 DECHIVE 화면에 띄웠습니다. 원하시는 링크를 직접 열어볼 수 있습니다."
     }
 
     /// Read only the currently visible webpage at explicit user request.

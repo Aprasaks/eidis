@@ -178,7 +178,7 @@ private struct JarvisSummonedView: View {
                                 .padding(16)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("자비스 화면 닫기")
+                        .accessibilityLabel("DECHIVE 화면 닫기")
                         }
                     }
                     Spacer()
@@ -445,7 +445,7 @@ private struct JarvisSummonedView: View {
             HStack(spacing: 9) {
                 Image(systemName: "books.vertical")
                     .foregroundStyle(Color.orange)
-                Text("JARVIS · 보관함")
+                Text("DECHIVE · 보관함")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(.white)
                 Spacer()
@@ -590,7 +590,7 @@ private struct JarvisSummonedView: View {
             HStack(spacing: 9) {
                 Image(systemName: "waveform.path.ecg.rectangle")
                     .foregroundStyle(.orange)
-                Text("JARVIS / \(liveDashboard.mode.title)")
+                Text("DECHIVE / \(liveDashboard.mode.title)")
                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
                     .tracking(0.6)
                     .foregroundStyle(.white)
@@ -854,7 +854,7 @@ private struct JarvisSummonedView: View {
                             .foregroundStyle(.white.opacity(0.8))
                             .padding(.vertical, 20)
                     } else {
-                        Text("로컬 JARVIS에 저장된 작업 · 조회 결과")
+                        Text("로컬 DECHIVE에 저장된 작업 · 조회 결과")
                             .font(.system(size: 11))
                             .foregroundStyle(.white.opacity(0.52))
                         HStack(spacing: 0) {
@@ -983,7 +983,7 @@ final class JarvisFullscreenOverlay {
         NSLog("JARVIS: show requested")
         guard panel == nil,
               let screen = NSScreen.main ?? NSScreen.screens.first,
-              let url = Bundle.main.url(forResource: "JARVIS_FullHD_Loop", withExtension: "mp4")
+              let url = Bundle.main.url(forResource: "DECHIVE_FullHD_Loop", withExtension: "mp4")
         else {
             NSLog("JARVIS: fullscreen video asset or active screen missing")
             return

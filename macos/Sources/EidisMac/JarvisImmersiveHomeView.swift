@@ -25,7 +25,7 @@ struct JarvisImmersiveHomeView: View {
                     .allowsHitTesting(false)
                 VStack(spacing: 0) {
                     HStack {
-                        Text("JARVIS")
+                        Text("DECHIVE")
                             .font(.system(size: 16, weight: .light, design: .rounded))
                             .tracking(5)
                             .foregroundStyle(.white.opacity(0.85))
@@ -43,8 +43,8 @@ struct JarvisImmersiveHomeView: View {
                     Spacer(minLength: 0)
                     JarvisHologramView(animated: !reduceMotion && phase == .active)
                         .frame(width: diameter, height: diameter)
-                        .accessibilityLabel("천천히 회전하는 자비스 3D 홀로그램 코어")
-                    Text("JARVIS")
+                        .accessibilityLabel("천천히 회전하는 DECHIVE 3D 홀로그램 코어")
+                    Text("DECHIVE")
                         .font(.system(size: 27, weight: .ultraLight, design: .rounded))
                         .tracking(11)
                         .foregroundStyle(.white.opacity(0.88))
@@ -75,7 +75,7 @@ struct JarvisImmersiveHomeView: View {
                 }
             }
         }
-        .accessibilityLabel("JARVIS 음성 중심 홈. \(snapshot.summaryLabel)")
+        .accessibilityLabel("DECHIVE 음성 중심 홈. \(snapshot.summaryLabel)")
     }
 }
 

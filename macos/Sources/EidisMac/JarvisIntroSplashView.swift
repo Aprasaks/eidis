@@ -83,7 +83,7 @@ struct JarvisIntroSplashView: View {
                 .padding(.horizontal, 30)
             }
         }
-        .accessibilityLabel("JARVIS 시작 화면. \(snapshot.summaryLabel)")
+        .accessibilityLabel("DECHIVE 시작 화면. \(snapshot.summaryLabel)")
     }
 }
 

@@ -14,7 +14,7 @@
   <div class="atmosphere" aria-hidden="true"></div>
   <div class="app-shell" id="shell">
     <main class="main-content">
-      <section class="presence" id="presence" aria-label="자비스 대기 화면">
+      <section class="presence" id="presence" aria-label="DECHIVE 대기 화면">
         <div class="presence-ambient" aria-hidden="true"></div>
         <div class="ring-visual" id="ring-visual" aria-hidden="true">
           <div class="ring-halo"></div><div class="ring-soft"></div>
@@ -28,12 +28,12 @@
             <button type="button" id="assistant-reply-dismiss" aria-label="답변 닫기">×</button>
           </div>
           <div class="presence-actions">
-            <button type="button" id="demo-wake" class="presence-action" title="자비스 호출" aria-label="자비스 호출">✧</button>
+            <button type="button" id="demo-wake" class="presence-action" title="DECHIVE 호출" aria-label="DECHIVE 호출">✧</button>
             <button type="button" id="demo-dashboard" class="presence-action presence-action-primary" title="작업 공간 열기" aria-label="작업 공간 열기">⌗</button>
           </div>
         </div>
       </section>
-      <section class="workspace" id="workspace" hidden aria-label="자비스 작업 공간">
+      <section class="workspace" id="workspace" hidden aria-label="DECHIVE 작업 공간">
         <div class="workspace-heading">
           <h2 id="workspace-title">작업 공간</h2>
           <button type="button" id="close-workspace" class="quiet-btn" title="작업 공간 닫기" aria-label="작업 공간 닫기">×</button>
@@ -83,7 +83,7 @@
         </section>
         <div id="variants-view" class="variants-view" hidden>
           <div class="design-intro">
-            <span class="section-overline">JARVIS / DESIGN LABORATORY</span>
+            <span class="section-overline">DECHIVE / DESIGN LABORATORY</span>
             <h3>같은 지능,<br/><em>완전히 다른 공간.</em></h3>
             <p>시안 네 개를 펼쳐 비교하고, 지금 화면에 직접 미리 적용해 보세요. AI 자동 생성 기능은 아직 연결되지 않았습니다.</p>
           </div>
@@ -160,7 +160,7 @@
               <span id="vision-status" role="status" aria-live="polite">외부 분석 기본 OFF · API 설정 없이는 전송되지 않습니다.</span>
             </div>
             <div id="vision-result" class="vision-result" role="region" aria-label="AI 화면 분석 응답" aria-live="polite">아직 분석한 화면이 없습니다.</div>
-            <p class="vision-disclaimer">결과는 화면 한 장에 대한 추정입니다. 다른 창이나 가려진 요소는 알 수 없고, 자비스가 클릭하거나 설정을 바꾸지는 않습니다.</p>
+            <p class="vision-disclaimer">결과는 화면 한 장에 대한 추정입니다. 다른 창이나 가려진 요소는 알 수 없고, DECHIVE가 클릭하거나 설정을 바꾸지는 않습니다.</p>
           </section>
           <button type="button" id="back-from-screen" class="quiet-btn back-btn">← 작업 공간으로</button>
         </div>
@@ -200,7 +200,7 @@
         이번 질문과 관련 대화·기억을 외부 AI에 보내기 (별도 API 요금 가능)
       </label>
       <form id="command-form" class="command-form" autocomplete="off">
-        <label for="command-input" class="sr-only">자비스에게 말하기</label>
+        <label for="command-input" class="sr-only">DECHIVE에 말하기</label>
         <span class="prompt-symbol" aria-hidden="true">⌁</span>
         <input id="command-input" type="text" maxlength="2000" placeholder="말하거나 입력하세요…"/>
         <button type="submit" title="명령 보내기" class="send-btn">↗</button>

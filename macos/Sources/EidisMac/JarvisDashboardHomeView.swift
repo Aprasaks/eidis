@@ -94,7 +94,7 @@ struct JarvisDashboardHomeView: View {
                             .font(.system(size: 10))
                             .foregroundStyle(ConsoleTheme.gray)
                         Spacer(minLength: 12)
-                        Button("기존 자비스 콘솔 열기") { onOpenConsole() }
+                        Button("기존 DECHIVE 콘솔 열기") { onOpenConsole() }
                             .buttonStyle(.plain)
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(ConsoleTheme.accent)
@@ -116,14 +116,14 @@ struct JarvisDashboardHomeView: View {
             }
         }
         .foregroundStyle(.white)
-        .accessibilityLabel("JARVIS 개인 시스템 홈. \(snapshot.summaryLabel)")
+        .accessibilityLabel("DECHIVE 개인 시스템 홈. \(snapshot.summaryLabel)")
     }
 
     private var header: some View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 5) {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Text("JARVIS")
+                    Text("DECHIVE")
                         .font(.system(size: 30, weight: .ultraLight, design: .rounded))
                         .tracking(6.5)
                     Text("v3.7")

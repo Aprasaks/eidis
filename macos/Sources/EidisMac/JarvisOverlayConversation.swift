@@ -15,7 +15,7 @@ struct JarvisLiveDialogueTurn: Identifiable {
 /// open files, change project data, or reach paid model APIs via this client.
 @MainActor
 final class JarvisOverlayConversation: ObservableObject {
-    @Published private(set) var status = "자비스 인사 중…"
+    @Published private(set) var status = "DECHIVE 인사 중…"
     @Published private(set) var question = ""
     @Published private(set) var answer = ""
     @Published private(set) var sourceURL: URL?
@@ -115,12 +115,12 @@ final class JarvisOverlayConversation: ObservableObject {
         elevenLabs.stopSpeakingNow()
         macVoice.stop()
         if isSpeaking, let index = dialogueTurns.indices.last,
-           dialogueTurns[index].role == "JARVIS" {
+           dialogueTurns[index].role == "DECHIVE" {
             dialogueTurns[index].interrupted = true
         }
         isThinking = false
         isSpeaking = false
-        status = "JARVIS 응답을 중단했습니다. 말씀하세요."
+        status = "DECHIVE 응답을 중단했습니다. 말씀하세요."
     }
 
     func pauseMicrophone() {
@@ -236,7 +236,7 @@ final class JarvisOverlayConversation: ObservableObject {
             guard token == generation && !Task.isCancelled else { return }
             isThinking = false
             answer = response
-            dialogueTurns.append(JarvisLiveDialogueTurn(role: "JARVIS", content: response))
+            dialogueTurns.append(JarvisLiveDialogueTurn(role: "DECHIVE", content: response))
             if dialogueTurns.count > 12 { dialogueTurns.removeFirst(dialogueTurns.count - 12) }
             if JarvisVaultIntent.parse(prompt) == nil && JarvisPersonalProfile.parse(prompt) == nil {
                 lastAssistantContent = response
@@ -654,7 +654,7 @@ final class JarvisOverlayConversation: ObservableObject {
         liveDashboard.cancel()
         personalProfile.cancel()
         lastAssistantContent = ""
-        status = "자비스 대화 종료"
+        status = "DECHIVE 대화 종료"
         session.invalidateAndCancel()
     }
 }

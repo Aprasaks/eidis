@@ -40,7 +40,7 @@ class OllamaFullscreenConversationContract(unittest.TestCase):
         self.assertIn('requiresOnDeviceRecognition = true', SPEECH)
         self.assertIn('waitForOutputToFinish(fallback:', ELEVEN)
     def test_existing_behaviors_and_permissions_preserved(self):
-        self.assertIn('JARVIS_FullHD_Loop', OVERLAY)
+        self.assertIn('DECHIVE_FullHD_Loop', OVERLAY)
         self.assertIn('moveToAdjacentScreen', OVERLAY)
         self.assertIn('NSSpeechRecognitionUsageDescription', PLIST)
         self.assertIn('NSMicrophoneUsageDescription', PLIST)

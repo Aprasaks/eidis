@@ -674,7 +674,7 @@ struct ApprovedProjectsPanel: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 5) {
-                        Text("자비스의 업무 실행실")
+                        Text("DECHIVE의 업무 실행실")
                             .font(.title3.weight(.medium))
                         Text("프로젝트 기록 → 작업 제안 → 사용자 승인 → 읽기 전용 실행 → 근거 보고")
                             .font(.caption)
@@ -1242,7 +1242,7 @@ struct ApprovedProjectsPanel: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 } else {
-                    Text("프로젝트를 선택하세요. 기존 자비스 작업 공간의 프로젝트 화면에서 등록할 수 있습니다.")
+                    Text("프로젝트를 선택하세요. 기존 DECHIVE 작업 공간의 프로젝트 화면에서 등록할 수 있습니다.")
                         .foregroundStyle(.secondary)
                 }
                 if work.busy { ProgressView("조회 중…") }

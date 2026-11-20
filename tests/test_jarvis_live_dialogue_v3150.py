@@ -17,7 +17,7 @@ class JarvisLiveDialogueContract(unittest.TestCase):
                       'self.transcript = self.assembled.receive('):
             self.assertIn(value, SPEECH)
         for value in ('listener.$transcript.sink', 'liveTranscript = String(partial.prefix(6000))',
-                      'lastPartialAt = Date()', 'YOU / LIVE TRANSCRIPT',
+                      'lastPartialAt = Date()', '주인님 / LIVE TRANSCRIPT',
                       '인식 중 · 아직 확정되지 않은 문장'):
             self.assertIn(value, CHAT + PANEL)
         self.assertNotIn('prediction =', PANEL)
@@ -30,8 +30,8 @@ class JarvisLiveDialogueContract(unittest.TestCase):
                       'self.completeUtterance()', 'silenceTask?.cancel()',
                       'func pauseMicrophone()', 'listener.cancel()'):
             self.assertIn(value, CHAT)
-        self.assertIn('Toggle(isOn: $dialogue.autoTurnEnabled)', PANEL)
-        self.assertIn('dialogue.pauseMicrophone()', PANEL)
+        self.assertNotIn('Toggle(isOn: $dialogue.autoTurnEnabled)', PANEL)
+        self.assertIn('func pauseMicrophone()', CHAT)
 
     def test_while_speaking_press_space_stops_audio_and_opens_mic(self):
         for value in ('if isThinking || isSpeaking {', 'interruptCurrentReply()',
@@ -42,13 +42,13 @@ class JarvisLiveDialogueContract(unittest.TestCase):
         self.assertIn('dialogue.toggleMicrophone()', OVERLAY)
         self.assertIn('self.dialogue?.toggleMicrophone()', OVERLAY)
         self.assertIn('dialogue.isSpeaking ? "끼어들기"', OVERLAY)
-        self.assertIn('응답 중단 · 내가 말하기', PANEL)
+        self.assertIn('Label(dialogue.isListening ? "질문 마치기"', OVERLAY)
         self.assertNotIn('.disabled(dialogue.isThinking || dialogue.isSpeaking)', OVERLAY)
 
     def test_session_context_and_core_dashboard_survive(self):
         for value in ('conversation.suffix(8)', 'conversation.count > 8',
                       'dialogueTurns.append(JarvisLiveDialogueTurn(role: "YOU"',
-                      'dialogueTurns.append(JarvisLiveDialogueTurn(role: "JARVIS"',
+                      'dialogueTurns.append(JarvisLiveDialogueTurn(role: "DECHIVE"',
                       'dialogueTurns.removeAll()', 'private let elevenLabs'):
             self.assertIn(value, CHAT)
         self.assertIn('JarvisLiveDialoguePanel(dialogue: dialogue)', OVERLAY)

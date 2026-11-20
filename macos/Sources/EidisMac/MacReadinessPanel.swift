@@ -98,13 +98,13 @@ final class MacReadinessDiagnostics: ObservableObject {
             guard let http = response as? HTTPURLResponse, http.statusCode == 200,
                   let result = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   result["scope"] as? String == "local_read_only" else {
-                append("server", "로컬 자비스 서버", "attention",
+                append("server", "로컬 DECHIVE 서버", "attention",
                        "진단 응답이 예상한 형식이 아닙니다. 앱과 서버 버전이 같은지 확인하세요.")
                 findings = rows
                 checkedAt = Date()
                 return
             }
-            append("server", "로컬 자비스 서버", "verified",
+            append("server", "로컬 DECHIVE 서버", "verified",
                    "127.0.0.1:8765에서 최신 읽기 전용 진단 응답을 받았습니다.")
             let database = result["database"] as? [String: Any] ?? [:]
             let databaseOK = (database["status"] as? String == "ok")
@@ -138,7 +138,7 @@ final class MacReadinessDiagnostics: ObservableObject {
                        "아직 기록된 도구 실행이 없습니다.")
             }
         } catch {
-            append("server", "로컬 자비스 서버", "attention",
+            append("server", "로컬 DECHIVE 서버", "attention",
                    "로컬 서버에 연결할 수 없습니다. START_JARVIS_MAC.command로 실행했는지 확인하세요.")
             append("database", "SQLite 데이터베이스", "manual",
                    "서버가 연결되지 않아 로컬 DB를 확인할 수 없었습니다.")
@@ -146,7 +146,7 @@ final class MacReadinessDiagnostics: ObservableObject {
                    "서버가 연결되지 않아 도구 등록 여부를 확인할 수 없었습니다.")
         }
 
-        append("voice_live", "실제 한국어 음성 → 자비스 응답", "manual",
+        append("voice_live", "실제 한국어 음성 → DECHIVE 응답", "manual",
                "아직 미검증 · 음성 탭에서 말하기 → 완료하고 명령 전달 → 한국어 응답 듣기를 직접 시험하세요.")
         append("github_live", "실제 GitHub 공개 API 조회", "manual",
                "아직 미검증 · 프로젝트에 공개 owner/repo를 등록하고 상태 확인을 직접 요청하세요. 자동 실행 없음.")
@@ -169,7 +169,7 @@ final class MacReadinessDiagnostics: ObservableObject {
         } else {
             commandEvidence = "\n로컬 텍스트 명령 왕복 점검 [manual]: 아직 사용자가 실제 JARVIS.app에서 점검을 시작하지 않았습니다."
         }
-        return "JARVIS Mac 로컬 진단 · \(moment)\n"
+        return "DECHIVE Mac 로컬 진단 · \(moment)\n"
             + "실제 실기기 확인에만 유효하며, 미검증 항목은 성공으로 표시하지 않습니다.\n"
             + details + commandEvidence
     }

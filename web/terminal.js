@@ -125,7 +125,7 @@
     connection.classList.toggle('offline', state !== 'connected');
     if (connected === state) return;
     connected = state;
-    push(state === 'connected' ? '로컬 자비스 서버 연결 확인' : '로컬 자비스 서버에 연결할 수 없습니다.',
+    push(state === 'connected' ? '로컬 DECHIVE 서버 연결 확인' : '로컬 DECHIVE 서버에 연결할 수 없습니다.',
       state === 'connected' ? 'info' : 'error');
   }
 
