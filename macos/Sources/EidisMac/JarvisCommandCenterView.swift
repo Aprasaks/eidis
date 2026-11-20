@@ -5,6 +5,7 @@ import SwiftUI
 /// fake analytics; all values come from live local APIs or bounded git scans.
 struct JarvisCommandCenterView: View {
     @ObservedObject var model: JarvisLiveDashboard
+    @ObservedObject var dialogue: JarvisOverlayConversation
     let close: () -> Void
     @State private var showInstagramTokenSheet = false
     @State private var instagramTokenInput = ""
@@ -94,8 +95,14 @@ struct JarvisCommandCenterView: View {
             }
             .foregroundStyle(amber)
             .frame(height: 20)
-            activityCard(scale: scale)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            VStack(spacing: 8) {
+                JarvisLiveDialoguePanel(dialogue: dialogue)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                activityCard(scale: scale)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: min(135, fullHeight * 0.16))
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .clipped()

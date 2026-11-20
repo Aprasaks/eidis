@@ -11,7 +11,7 @@ class CommandCenterContract(unittest.TestCase):
         for text in ('JarvisLoopingCore(videoURL: videoURL, compact: commandCenter)',
                      'AVPlayerLooper(player: player', 'videoGravity = compact ? .resizeAspectFill : .resizeAspect',
                      '.animation(reduceMotion ? nil : .easeInOut(duration: 0.72)',
-                     'JarvisCommandCenterView(model: liveDashboard)',
+                     'JarvisCommandCenterView(model: liveDashboard, dialogue: dialogue)',
                      'liveDashboard.mode == .overview', 'area.size.height * (wide ? 0.235 : 0.18)',
                      'dialogue?.cancel()', 'hotkey?.uninstallEscape()'):
             self.assertIn(text,OVERLAY)

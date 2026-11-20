@@ -1,7 +1,15 @@
 import AVFoundation
 import Foundation
 import Speech
+import Combine
 import SwiftUI
+
+struct JarvisLiveDialogueTurn: Identifiable {
+    let id = UUID()
+    let role: String
+    let content: String
+    var interrupted = false
+}
 
 /// An on-device-only conversation client. The Qwen model cannot execute tools,
 /// open files, change project data, or reach paid model APIs via this client.
@@ -17,6 +25,11 @@ final class JarvisOverlayConversation: ObservableObject {
     @Published private(set) var isThinking = false
     @Published private(set) var isSpeaking = false
     @Published private(set) var isActive = false
+    @Published private(set) var liveTranscript = ""
+    @Published private(set) var dialogueTurns: [JarvisLiveDialogueTurn] = []
+    @Published var autoTurnEnabled: Bool {
+        didSet { UserDefaults.standard.set(autoTurnEnabled, forKey: "jarvis.dialogue.autoTurn") }
+    }
     // Controlled by SwiftUI FocusState; do not intercept Space while typing.
     var textInputFocused = false
 
@@ -34,12 +47,22 @@ final class JarvisOverlayConversation: ObservableObject {
     private var generation = UUID()
     private var dialogueTask: Task<Void, Never>?
     private var listeningTask: Task<Void, Never>?
+    private var silenceTask: Task<Void, Never>?
+    private var transcriptObserver: AnyCancellable?
+    private var lastPartialAt: Date?
 
     init() {
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 55
         config.timeoutIntervalForResource = 65
         session = URLSession(configuration: config)
+        autoTurnEnabled = UserDefaults.standard.object(forKey: "jarvis.dialogue.autoTurn") as? Bool ?? true
+        transcriptObserver = listener.$transcript.sink { [weak self] partial in
+            guard let self else { return }
+            guard self.isListening, !partial.isEmpty else { return }
+            self.liveTranscript = String(partial.prefix(6000))
+            self.lastPartialAt = Date()
+        }
     }
 
     static var microphoneAlreadyAuthorized: Bool {
@@ -59,9 +82,48 @@ final class JarvisOverlayConversation: ObservableObject {
     func toggleMicrophone() {
         if isListening {
             completeUtterance()
-        } else if !isThinking && !isSpeaking {
-            activateListening()
+            return
         }
+        // Spoken interruption is initiated with Space/the mic button.
+        // Never allow the outgoing ElevenLabs audio to be mistaken for a new
+        // utterance by opening a second recognizer while it is playing.
+        if isThinking || isSpeaking {
+            interruptCurrentReply()
+        }
+        activateListening()
+    }
+
+    private func interruptCurrentReply() {
+        generation = UUID()
+        dialogueTask?.cancel()
+        listeningTask?.cancel()
+        silenceTask?.cancel()
+        dialogueTask = nil
+        listeningTask = nil
+        silenceTask = nil
+        listener.cancel()
+        elevenLabs.stopSpeakingNow()
+        macVoice.stop()
+        if isSpeaking, let index = dialogueTurns.indices.last,
+           dialogueTurns[index].role == "JARVIS" {
+            dialogueTurns[index].interrupted = true
+        }
+        isThinking = false
+        isSpeaking = false
+        status = "JARVIS 응답을 중단했습니다. 말씀하세요."
+    }
+
+    func pauseMicrophone() {
+        isActive = false
+        silenceTask?.cancel()
+        silenceTask = nil
+        listeningTask?.cancel()
+        listeningTask = nil
+        listener.cancel()
+        isListening = false
+        liveTranscript = ""
+        lastPartialAt = nil
+        status = "마이크 일시정지 · 대화 시작을 누르면 다시 듣습니다."
     }
 
     func activateListening() {
@@ -78,15 +140,42 @@ final class JarvisOverlayConversation: ObservableObject {
             }
             self.isListening = self.listener.isListening
             self.isActive = self.listener.isListening
+            if self.listener.isListening {
+                self.liveTranscript = ""
+                self.lastPartialAt = nil
+                self.startSilenceDetection(token: token)
+            }
             self.status = self.listener.isListening
-                ? "듣는 중 · 말한 뒤 Space를 눌러 질문을 마쳐주세요."
+                ? (self.autoTurnEnabled
+                   ? "실시간 받아쓰기 · 말을 멈추면 자동으로 질문합니다."
+                   : "실시간 받아쓰기 · Space로 질문을 마쳐주세요.")
                 : self.listener.status
             self.listeningTask = nil
         }
     }
 
+    private func startSilenceDetection(token: UUID) {
+        silenceTask?.cancel()
+        silenceTask = Task { [weak self] in
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .milliseconds(200)) }
+                catch { return }
+                guard let self, token == self.generation,
+                      self.isListening else { return }
+                guard self.autoTurnEnabled, !self.listener.transcript.isEmpty,
+                      let lastPartialAt = self.lastPartialAt else { continue }
+                if Date().timeIntervalSince(lastPartialAt) >= 2.0 {
+                    self.completeUtterance()
+                    return
+                }
+            }
+        }
+    }
+
     func completeUtterance() {
         guard isListening && !isThinking else { return }
+        silenceTask?.cancel()
+        silenceTask = nil
         isListening = false
         isThinking = true // blocks double-press while recognition finalizes
         let token = generation
@@ -97,6 +186,7 @@ final class JarvisOverlayConversation: ObservableObject {
             guard !Task.isCancelled && token == self.generation else { return }
             self.isThinking = false
             guard !utterance.isEmpty else {
+                self.liveTranscript = ""
                 self.status = "인식한 문장이 없습니다. Space를 눌러 다시 말씀해 주세요."
                 return
             }
@@ -107,7 +197,10 @@ final class JarvisOverlayConversation: ObservableObject {
     /// Text entry is optional accessibility/fallback input, not a separate chat window.
     func submitTyped(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty && !isThinking && !isSpeaking && !isListening else { return }
+        guard !trimmed.isEmpty && !isListening else { return }
+        if isThinking || isSpeaking {
+            interruptCurrentReply()
+        }
         let token = generation
         dialogueTask = Task { [weak self] in
             await self?.handleQuestion(trimmed, token: token)
@@ -118,6 +211,9 @@ final class JarvisOverlayConversation: ObservableObject {
         guard token == generation && !Task.isCancelled else { return }
         let prompt = String(text.prefix(6000))
         question = prompt
+        liveTranscript = ""
+        dialogueTurns.append(JarvisLiveDialogueTurn(role: "YOU", content: prompt))
+        if dialogueTurns.count > 12 { dialogueTurns.removeFirst(dialogueTurns.count - 12) }
         answer = ""
         sourceURL = nil
         sourceTitle = ""
@@ -130,6 +226,8 @@ final class JarvisOverlayConversation: ObservableObject {
             guard token == generation && !Task.isCancelled else { return }
             isThinking = false
             answer = response
+            dialogueTurns.append(JarvisLiveDialogueTurn(role: "JARVIS", content: response))
+            if dialogueTurns.count > 12 { dialogueTurns.removeFirst(dialogueTurns.count - 12) }
             if JarvisVaultIntent.parse(prompt) == nil && JarvisPersonalProfile.parse(prompt) == nil {
                 lastAssistantContent = response
             }
@@ -142,7 +240,7 @@ final class JarvisOverlayConversation: ObservableObject {
             await elevenLabs.waitForOutputToFinish(fallback: macVoice)
             guard token == generation && !Task.isCancelled else { return }
             isSpeaking = false
-            status = "대화 가능 · 다음 질문은 마이크에 말하고 Space로 마쳐주세요."
+            status = "대화 가능 · 다음 질문은 자동으로 듣습니다. Space로도 끼어들 수 있습니다."
             if isActive { activateListening() }
         } catch {
             guard token == generation && !Task.isCancelled else { return }
@@ -519,6 +617,8 @@ final class JarvisOverlayConversation: ObservableObject {
         generation = UUID()
         dialogueTask?.cancel()
         listeningTask?.cancel()
+        silenceTask?.cancel()
+        silenceTask = nil
         dialogueTask = nil
         listeningTask = nil
         listener.cancel()
@@ -526,6 +626,9 @@ final class JarvisOverlayConversation: ObservableObject {
         isThinking = false
         isSpeaking = false
         isActive = false
+        liveTranscript = ""
+        dialogueTurns.removeAll()
+        lastPartialAt = nil
         textInputFocused = false
         elevenLabs.stopSpeakingNow()
         macVoice.stop()

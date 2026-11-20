@@ -194,11 +194,12 @@ private struct JarvisSummonedView: View {
                             Button {
                                 dialogue.toggleMicrophone()
                             } label: {
-                                Label(dialogue.isListening ? "질문 마치기" : "대화 시작", systemImage: dialogue.isListening ? "stop.circle.fill" : "mic.fill")
+                                Label(dialogue.isListening ? "질문 마치기" :
+                                      (dialogue.isThinking || dialogue.isSpeaking ? "끼어들기" : "대화 시작"),
+                                      systemImage: dialogue.isListening ? "stop.circle.fill" : "mic.fill")
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(Color(red: 0.68, green: 0.37, blue: 0.06))
-                            .disabled(dialogue.isThinking || dialogue.isSpeaking)
                             .accessibilityIdentifier("jarvis-overlay-microphone")
                             TextField("텍스트로도 질문할 수 있어요", text: $typedText)
                                 .textFieldStyle(.roundedBorder)
@@ -208,12 +209,12 @@ private struct JarvisSummonedView: View {
                                     dialogue.textInputFocused = focused
                                 }
                                 .onSubmit { sendTyped() }
-                                .disabled(dialogue.isThinking || dialogue.isSpeaking || dialogue.isListening)
+                                .disabled(dialogue.isListening)
                                 .accessibilityIdentifier("jarvis-overlay-text-input")
                             Button("보내기") { sendTyped() }
                                 .buttonStyle(.bordered)
                                 .disabled(typedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                                          dialogue.isThinking || dialogue.isSpeaking || dialogue.isListening)
+                                          dialogue.isListening)
                                 .accessibilityIdentifier("jarvis-overlay-send")
                         }
                     }
@@ -294,10 +295,27 @@ private struct JarvisSummonedView: View {
                     .allowsHitTesting(false)
                 }
 
+                // Live dialogue remains a separate session-only panel beside
+                // the original core; never overlaps a focused dashboard.
+                if !commandCenter && !liveDashboard.isVisible &&
+                   !dashboard.isVisible && !browser.isVisible && !vault.isVisible {
+                    HStack {
+                        Spacer(minLength: 0)
+                        JarvisLiveDialoguePanel(dialogue: dialogue)
+                            .frame(width: min(370, max(295, area.size.width * 0.235)),
+                                   height: min(540, area.size.height * 0.64))
+                            .padding(.trailing, 24)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    .padding(.bottom, 55)
+                    .transition(.opacity.combined(with: .move(edge: .trailing)))
+                    .zIndex(3)
+                }
+
                 // A single immersive control room for the entire monitor.
                 // Core is still rendered by the original, continuous AVPlayer.
                 if commandCenter {
-                    JarvisCommandCenterView(model: liveDashboard) {
+                    JarvisCommandCenterView(model: liveDashboard, dialogue: dialogue) {
                         _ = liveDashboard.hide()
                     }
                     .transition(.opacity)
