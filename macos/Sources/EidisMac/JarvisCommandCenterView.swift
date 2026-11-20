@@ -6,6 +6,8 @@ import SwiftUI
 struct JarvisCommandCenterView: View {
     @ObservedObject var model: JarvisLiveDashboard
     let close: () -> Void
+    @State private var showInstagramTokenSheet = false
+    @State private var instagramTokenInput = ""
 
     private let amber = Color(red: 0.94, green: 0.67, blue: 0.30)
     private let muted = Color(red: 0.64, green: 0.66, blue: 0.68)
@@ -40,6 +42,39 @@ struct JarvisCommandCenterView: View {
             .frame(width: width, height: height, alignment: .top)
             .clipped()
             .accessibilityIdentifier("jarvis-command-center")
+        }
+        .sheet(isPresented: $showInstagramTokenSheet) {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("DECHIVE.WIKI Instagram 연결")
+                    .font(.headline)
+                Text("Meta 개발자 화면에서 발급한 계정 토큰을 입력하세요. 토큰은 확인 후 이 Mac의 Keychain에만 저장됩니다.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                SecureField("Meta 액세스 토큰", text: $instagramTokenInput)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("jarvis-instagram-token-secure-field")
+                Text("확인 계정: @dechive.wiki · Meta Graph API 읽기 전용 호출만 수행")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                HStack {
+                    Button("취소") {
+                        instagramTokenInput = ""
+                        showInstagramTokenSheet = false
+                    }
+                    Spacer()
+                    Button("계정 확인 후 저장") {
+                        let entered = instagramTokenInput
+                        instagramTokenInput = ""
+                        showInstagramTokenSheet = false
+                        Task { await model.connectInstagram(token: entered) }
+                    }
+                    .disabled(instagramTokenInput.isEmpty || model.instagramIsLoading)
+                    .keyboardShortcut(.defaultAction)
+                }
+            }
+            .padding(26)
+            .frame(minWidth: 450, idealWidth: 510)
+            .onDisappear { instagramTokenInput = "" }
         }
     }
 
@@ -335,9 +370,35 @@ struct JarvisCommandCenterView: View {
     }
 
     private func youtubeCard(scale: CGFloat) -> some View {
-        panel("YOUTUBE / 채널 분석", symbol: "play.rectangle", scale: scale) {
+        panel("SOCIAL / YouTube · Instagram", symbol: "play.rectangle", scale: scale) {
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: 7) {
+                    Text("INSTAGRAM / DECHIVE.WIKI")
+                        .font(.system(size: 10 * scale, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(mint)
+                    if let insta = model.instagramSnapshot, insta.connected {
+                        systemRow("계정", "@\(insta.username ?? "dechive.wiki")", scale: scale)
+                        systemRow("팔로워", insta.followersCount.map(String.init) ?? "API 미제공", scale: scale)
+                        systemRow("게시물", insta.mediaCount.map(String.init) ?? "API 미제공", scale: scale)
+                        Text("Meta API 확인 · \(insta.checkedAt.formatted(date: .omitted, time: .shortened))")
+                            .font(.system(size: 9 * scale)).foregroundStyle(muted)
+                    } else {
+                        status(model.instagramSnapshot?.error ??
+                               (model.instagramIsLoading ? "Meta 계정 조회 중…" : "Instagram API 토큰 등록 필요"), scale: scale)
+                    }
+                    Button("Meta 토큰 등록 / 교체") {
+                        showInstagramTokenSheet = true
+                    }
+                    .buttonStyle(.bordered)
+                    .font(.system(size: 10 * scale))
+                    .accessibilityIdentifier("jarvis-instagram-token-connect")
+                    if let message = model.instagramConnectMessage {
+                        status(message, scale: scale)
+                    }
+                    Rectangle().fill(amber.opacity(0.2)).frame(height: 1)
+                    Text("YOUTUBE / DECHIVE")
+                        .font(.system(size: 10 * scale, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(mint)
                     if let reply = model.youtubeSummary, reply.connected, let item = reply.data {
                         Text(item.channelTitle)
                             .font(.system(size: 13 * scale, weight: .semibold))

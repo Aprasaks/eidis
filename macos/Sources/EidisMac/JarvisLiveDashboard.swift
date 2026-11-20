@@ -47,7 +47,8 @@ enum JarvisLiveDashboardIntent: Equatable {
                              "vercel", "버셀"]
             .contains { text.contains($0) }
         let youtubeRequest = ["유튜브", "youtube"].contains { text.contains($0) }
-        if (githubRequest || youtubeRequest) &&
+        let instagramRequest = ["인스타", "instagram", "위키sns", "wiki인스타"].contains { text.contains($0) }
+        if (githubRequest || youtubeRequest || instagramRequest) &&
             ["보여", "열어", "띄워", "현황", "상태", "분석", "프로젝트", "전체", "통계"]
             .contains(where: { text.contains($0) }) {
             return .show(.overview)
@@ -179,6 +180,11 @@ final class JarvisLiveDashboard: ObservableObject {
     @Published private(set) var youtubeSummary: LiveYouTubeReply?
     @Published private(set) var youtubeConnectMessage: String?
     @Published private(set) var youtubeIsConnecting = false
+    @Published private(set) var instagramSnapshot: JarvisInstagramSnapshot?
+    @Published private(set) var instagramIsLoading = false
+    @Published private(set) var instagramConnectMessage: String?
+    private var instagramTask: Task<Void, Never>?
+    private var instagramLastCheckedAt: Date?
     @Published private(set) var vercelSnapshot: JarvisVercelSnapshot?
     @Published private(set) var vercelIsLoading = false
     private var vercelTask: Task<Void, Never>?
@@ -224,6 +230,8 @@ final class JarvisLiveDashboard: ObservableObject {
         githubTask = nil
         vercelTask?.cancel()
         vercelTask = nil
+        instagramTask?.cancel()
+        instagramTask = nil
         let id = UUID()
         revision = id
         isVisible = true
@@ -256,6 +264,10 @@ final class JarvisLiveDashboard: ObservableObject {
         youtubeSummary = nil
         youtubeConnectMessage = nil
         youtubeIsConnecting = false
+        instagramSnapshot = nil
+        instagramLastCheckedAt = nil
+        instagramIsLoading = false
+        instagramConnectMessage = nil
         let loaded = await refresh(id: id)
         guard isVisible && revision == id && !Task.isCancelled else { return "" }
         pollingTask = Task { [weak self] in
@@ -283,6 +295,7 @@ final class JarvisLiveDashboard: ObservableObject {
             startLocalGitScanIfNeeded(id: id)
             startGitHubScanIfNeeded(id: id)
             startVercelScanIfNeeded(id: id)
+            startInstagramScanIfNeeded(id: id)
         }
         var success = true
         if needsProjects {
@@ -459,6 +472,65 @@ final class JarvisLiveDashboard: ObservableObject {
         }
     }
 
+    private func startInstagramScanIfNeeded(id: UUID) {
+        guard instagramTask == nil,
+              instagramLastCheckedAt.map({ Date().timeIntervalSince($0) > 300 }) ?? true else { return }
+        instagramIsLoading = true
+        instagramLastCheckedAt = Date()
+        instagramTask = Task { [weak self] in
+            let worker = Task.detached(priority: .utility) {
+                await JarvisMetaInstagramService.scanSaved()
+            }
+            let snapshot = await withTaskCancellationHandler {
+                await worker.value
+            } onCancel: {
+                worker.cancel()
+            }
+            guard let self, !Task.isCancelled, self.isVisible, self.revision == id else { return }
+            self.instagramSnapshot = snapshot
+            self.instagramIsLoading = false
+            self.instagramTask = nil
+            if snapshot.connected {
+                self.recordCheck("Instagram / DECHIVE.WIKI", success: true,
+                                 detail: "실제 계정 조회 · \(snapshot.username ?? "미확인")")
+            } else if let message = snapshot.error {
+                self.recordCheck("Instagram / DECHIVE.WIKI", success: false,
+                                 detail: message)
+            }
+        }
+    }
+
+    func connectInstagram(token: String) async {
+        guard !instagramIsLoading else {
+            instagramConnectMessage = "이전 검증이 끝난 뒤 다시 시도해 주세요."
+            return
+        }
+        instagramIsLoading = true
+        instagramConnectMessage = "Meta Graph API에서 계정 일치 여부를 확인 중입니다."
+        let checked = await Task.detached(priority: .utility) {
+            await JarvisMetaInstagramService.verify(token: token)
+        }.value
+        guard checked.connected else {
+            instagramSnapshot = checked
+            instagramConnectMessage = checked.error ?? "Instagram 인증 실패"
+            instagramIsLoading = false
+            return
+        }
+        let persisted = await Task.detached(priority: .utility) {
+            JarvisMetaInstagramService.saveVerifiedToken(token)
+        }.value
+        instagramIsLoading = false
+        if persisted {
+            instagramSnapshot = checked
+            instagramLastCheckedAt = Date()
+            instagramConnectMessage = "계정 확인 완료 · Mac Keychain에 토큰 저장됨"
+            recordCheck("Instagram / DECHIVE.WIKI", success: true,
+                        detail: "Meta Graph API 읽기 성공 · Keychain 저장")
+        } else {
+            instagramConnectMessage = "계정은 확인했지만 Mac Keychain 저장에 실패했습니다."
+        }
+    }
+
     /// The user selects the OAuth client file locally; it is never transferred
     /// through JARVIS chat or Git. Authentication tokens use macOS Keychain.
     func importYouTubeClient() {
@@ -548,6 +620,9 @@ final class JarvisLiveDashboard: ObservableObject {
         vercelTask?.cancel()
         vercelTask = nil
         vercelIsLoading = false
+        instagramTask?.cancel()
+        instagramTask = nil
+        instagramIsLoading = false
         isVisible = false
         isLoading = false
         isRefreshing = false
