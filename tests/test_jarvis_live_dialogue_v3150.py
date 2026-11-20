@@ -26,7 +26,7 @@ class JarvisLiveDialogueContract(unittest.TestCase):
     def test_auto_finish_is_bounded_and_can_be_turned_off(self):
         for value in ('startSilenceDetection(token: token)',
                       'self.autoTurnEnabled',
-                      'Date().timeIntervalSince(lastPartialAt) >= 2.0',
+                      'Date().timeIntervalSince(lastPartialAt) >= self.silenceWaitSeconds',
                       'self.completeUtterance()', 'silenceTask?.cancel()',
                       'func pauseMicrophone()', 'listener.cancel()'):
             self.assertIn(value, CHAT)

@@ -27,12 +27,21 @@ final class ElevenLabsVoiceService: ObservableObject {
     private static let voiceKey = "jarvis.elevenlabs.voiceID"
     private static let modelKey = "jarvis.elevenlabs.modelID"
     private static let maxCharacters = 600
+    private static let responseSpeedKey = "jarvis.elevenlabs.responseSpeed"
 
     @Published var voiceID: String {
         didSet { defaults.set(voiceID, forKey: Self.voiceKey) }
     }
     @Published var modelID: String {
         didSet { defaults.set(modelID, forKey: Self.modelKey) }
+    }
+    /// Deliberately slower than the provider default while staying within
+    /// the officially supported speed range. Configurable on-device.
+    @Published var responseSpeed: Double {
+        didSet {
+            responseSpeed = min(max(responseSpeed, 0.8), 1.05)
+            defaults.set(responseSpeed, forKey: Self.responseSpeedKey)
+        }
     }
     @Published var enabled: Bool {
         didSet {
@@ -65,6 +74,8 @@ final class ElevenLabsVoiceService: ObservableObject {
         self.defaults = defaults
         self.voiceID = defaults.string(forKey: Self.voiceKey) ?? Self.suggestedVoiceID
         self.modelID = defaults.string(forKey: Self.modelKey) ?? "eleven_flash_v2_5"
+        let savedResponseSpeed = defaults.object(forKey: Self.responseSpeedKey) as? Double
+        self.responseSpeed = min(max(savedResponseSpeed ?? 0.90, 0.8), 1.05)
         // Do NOT synchronously access the macOS Keychain on the SwiftUI
         // main thread during app launch. It can wait for a locked keychain,
         // preventing the entire JARVIS window and bundled server from opening.
@@ -466,7 +477,8 @@ final class ElevenLabsVoiceService: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("audio/mpeg", forHTTPHeaderField: "Accept")
         request.httpBody = try? JSONSerialization.data(withJSONObject: [
-            "text": phrase, "model_id": modelID
+            "text": phrase, "model_id": modelID,
+            "voice_settings": ["speed": isSummonGreeting ? 1.0 : responseSpeed]
         ])
         do {
             let (data, response) = try await session.data(for: request)

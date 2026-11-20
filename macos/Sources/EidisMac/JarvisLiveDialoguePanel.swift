@@ -5,6 +5,7 @@ import SwiftUI
 /// not an AI guess of what the person will say next.
 struct JarvisLiveDialoguePanel: View {
     @ObservedObject var dialogue: JarvisOverlayConversation
+    @ObservedObject private var speech = ElevenLabsVoiceService.shared
 
     private let amber = Color(red: 0.94, green: 0.67, blue: 0.30)
     private let muted = Color(red: 0.65, green: 0.69, blue: 0.72)
@@ -90,6 +91,26 @@ struct JarvisLiveDialoguePanel: View {
                     .foregroundStyle(muted)
             }
             .toggleStyle(.checkbox)
+            if dialogue.autoTurnEnabled {
+                HStack {
+                    Text("말 끝 대기")
+                        .font(.system(size: 10)).foregroundStyle(muted)
+                    Slider(value: $dialogue.silenceWaitSeconds, in: 2.5...5.0, step: 0.5)
+                        .accessibilityIdentifier("jarvis-live-dialogue-pause-length")
+                    Text(String(format: "%.1f초", dialogue.silenceWaitSeconds))
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(amber)
+                }
+            }
+            HStack {
+                Text("ElevenLabs 말하기 속도")
+                    .font(.system(size: 10)).foregroundStyle(muted)
+                Slider(value: $speech.responseSpeed, in: 0.8...1.05, step: 0.05)
+                    .accessibilityIdentifier("jarvis-live-dialogue-voice-speed")
+                Text(String(format: "%.2f", speech.responseSpeed))
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(amber)
+            }
             Button {
                 dialogue.toggleMicrophone()
             } label: {

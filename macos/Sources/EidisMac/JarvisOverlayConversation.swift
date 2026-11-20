@@ -30,6 +30,12 @@ final class JarvisOverlayConversation: ObservableObject {
     @Published var autoTurnEnabled: Bool {
         didSet { UserDefaults.standard.set(autoTurnEnabled, forKey: "jarvis.dialogue.autoTurn") }
     }
+    @Published var silenceWaitSeconds: Double {
+        didSet {
+            silenceWaitSeconds = min(max(silenceWaitSeconds, 2.5), 5.0)
+            UserDefaults.standard.set(silenceWaitSeconds, forKey: "jarvis.dialogue.silenceWaitSeconds")
+        }
+    }
     // Controlled by SwiftUI FocusState; do not intercept Space while typing.
     var textInputFocused = false
 
@@ -57,6 +63,8 @@ final class JarvisOverlayConversation: ObservableObject {
         config.timeoutIntervalForResource = 65
         session = URLSession(configuration: config)
         autoTurnEnabled = UserDefaults.standard.object(forKey: "jarvis.dialogue.autoTurn") as? Bool ?? true
+        let savedPause = UserDefaults.standard.object(forKey: "jarvis.dialogue.silenceWaitSeconds") as? Double
+        silenceWaitSeconds = min(max(savedPause ?? 3.5, 2.5), 5.0)
         transcriptObserver = listener.$transcript.sink { [weak self] partial in
             guard let self else { return }
             guard self.isListening, !partial.isEmpty else { return }
@@ -164,7 +172,7 @@ final class JarvisOverlayConversation: ObservableObject {
                       self.isListening else { return }
                 guard self.autoTurnEnabled, !self.listener.transcript.isEmpty,
                       let lastPartialAt = self.lastPartialAt else { continue }
-                if Date().timeIntervalSince(lastPartialAt) >= 2.0 {
+                if Date().timeIntervalSince(lastPartialAt) >= self.silenceWaitSeconds {
                     self.completeUtterance()
                     return
                 }
