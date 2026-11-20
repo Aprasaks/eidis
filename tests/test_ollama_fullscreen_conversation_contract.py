@@ -11,7 +11,8 @@ PLIST = (ROOT / 'macos/Resources/Info.plist').read_text()
 class OllamaFullscreenConversationContract(unittest.TestCase):
     def test_local_model_only_not_remote_brain(self):
         for needle in ['http://127.0.0.1:11434/api/chat', 'qwen3.5:9b-q4_K_M',
-                       '"think": false', '"stream": false', '"num_predict": 260',
+                       '"think": false', '"stream": false',
+                       '"num_predict": thinkingMode == .deliberate ? 380 : 260',
                        'URLSessionConfiguration.ephemeral', 'conversation.suffix(8)',
                        'conversation.removeAll()', 'conversation.count > 8']:
             self.assertIn(needle, CHAT)

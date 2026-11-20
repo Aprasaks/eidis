@@ -121,6 +121,25 @@ class MemoryStore:
         self.db.execute("CREATE INDEX IF NOT EXISTS vault_category_idx ON vault_items(archived,category,id DESC)")
         self.db.execute("CREATE INDEX IF NOT EXISTS vault_project_idx ON vault_items(archived,project,id DESC)")
         self.db.execute("CREATE UNIQUE INDEX IF NOT EXISTS vault_active_fingerprint_idx ON vault_items(fingerprint) WHERE archived=0")
+        # Additive, local-only thought ledger. Hypotheses are never facts.
+        self.db.execute("""
+            CREATE TABLE IF NOT EXISTS thought_records (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                topic TEXT NOT NULL,
+                hypothesis TEXT NOT NULL,
+                source TEXT NOT NULL DEFAULT 'assistant_response'
+                    CHECK(source = 'assistant_response'),
+                status TEXT NOT NULL DEFAULT 'hypothesis'
+                    CHECK(status IN ('hypothesis','user_reviewed','rejected')),
+                review_note TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
+        self.db.execute(
+            "CREATE INDEX IF NOT EXISTS thought_records_recent_idx "
+            "ON thought_records(updated_at DESC)"
+        )
         self.db.commit()
 
     VAULT_CATEGORIES = frozenset({'ideas','research','projects','references','notes','tasks'})
@@ -317,6 +336,66 @@ class MemoryStore:
         with self.db:
             removed = self.db.execute("DELETE FROM personal_profile WHERE key=?", (key,))
         return removed.rowcount == 1
+
+    @staticmethod
+    def _thought_text(value: object, label: str, maximum: int) -> str:
+        if not isinstance(value, str) or not 1 <= len(value.strip()) <= maximum:
+            raise ValueError(f"{label}은(는) 1~{maximum}자로 작성해 주세요.")
+        text = value.strip()
+        forbidden = ("비밀번호:", "password:", "api key:", "api키:", "access token:",
+                     "secret key:", "주민등록번호:", "private key:")
+        if any(term in text.lower() for term in forbidden) or re.search(
+            r"(?:sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9_]{24,})", text
+        ):
+            raise ValueError("비밀번호나 API 인증정보는 사고 기록에 저장하지 않습니다.")
+        return text
+
+    def create_thought(self, topic: object, hypothesis: object) -> dict:
+        """Explicit user-approved save only; never invoked by model inference."""
+        topic = self._thought_text(topic, "주제", 300)
+        hypothesis = self._thought_text(hypothesis, "판단", 1500)
+        now = iso_now()
+        with self.db:
+            row = self.db.execute(
+                "INSERT INTO thought_records(topic,hypothesis,source,status,created_at,updated_at) "
+                "VALUES (?,?,'assistant_response','hypothesis',?,?)",
+                (topic, hypothesis, now, now)
+            )
+        return self.get_thought(row.lastrowid)
+
+    def get_thought(self, thought_id: object) -> dict:
+        thought_id = self._valid_id(thought_id)
+        row = self.db.execute(
+            "SELECT id,topic,hypothesis,source,status,review_note,created_at,updated_at "
+            "FROM thought_records WHERE id=?", (thought_id,)
+        ).fetchone()
+        if row is None:
+            raise ValueError("사고 기록을 찾을 수 없습니다.")
+        return dict(row)
+
+    def list_thoughts(self, limit: int = 12) -> list[dict]:
+        if type(limit) is not int:
+            raise ValueError("조회 개수가 올바르지 않습니다.")
+        return [dict(row) for row in self.db.execute(
+            "SELECT id,topic,hypothesis,source,status,review_note,created_at,updated_at "
+            "FROM thought_records ORDER BY id DESC LIMIT ?",
+            (min(max(limit, 1), 25),)
+        )]
+
+    def review_thought(self, thought_id: object, status: object, note: object) -> dict:
+        """Only an explicit user API action may mark/reject a thought."""
+        thought_id = self._valid_id(thought_id)
+        if status not in ("user_reviewed", "rejected", "hypothesis"):
+            raise ValueError("검토 상태는 hypothesis/user_reviewed/rejected 중 하나여야 합니다.")
+        note = self._thought_text(note, "검토 이유", 600)
+        with self.db:
+            updated = self.db.execute(
+                "UPDATE thought_records SET status=?,review_note=?,updated_at=? WHERE id=?",
+                (status, note, iso_now(), thought_id)
+            )
+        if updated.rowcount != 1:
+            raise ValueError("사고 기록을 찾을 수 없습니다.")
+        return self.get_thought(thought_id)
 
     def count_memories(self) -> int:
         return self.db.execute("SELECT COUNT(*) FROM memories").fetchone()[0]

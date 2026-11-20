@@ -45,11 +45,13 @@ final class JarvisOverlayConversation: ObservableObject {
     let browser = JarvisOverlayBrowser()
     let personalProfile = JarvisPersonalProfile()
     let vault = JarvisKnowledgeVault()
+    private let thinkingCore = JarvisThinkingCore()
     let liveDashboard = JarvisLiveDashboard()
     private let elevenLabs = ElevenLabsVoiceService.shared
     private let session: URLSession
     private var conversation: [[String: String]] = []
     private var lastAssistantContent = ""
+    private var lastDiscussionTopic = ""
     private var generation = UUID()
     private var dialogueTask: Task<Void, Never>?
     private var listeningTask: Task<Void, Never>?
@@ -238,8 +240,11 @@ final class JarvisOverlayConversation: ObservableObject {
             answer = response
             dialogueTurns.append(JarvisLiveDialogueTurn(role: "DECHIVE", content: response))
             if dialogueTurns.count > 12 { dialogueTurns.removeFirst(dialogueTurns.count - 12) }
-            if JarvisVaultIntent.parse(prompt) == nil && JarvisPersonalProfile.parse(prompt) == nil {
+            if JarvisVaultIntent.parse(prompt) == nil &&
+               JarvisPersonalProfile.parse(prompt) == nil &&
+               JarvisThoughtIntent.parse(prompt) == nil {
                 lastAssistantContent = response
+                lastDiscussionTopic = prompt
             }
             status = "답변 읽는 중… Esc로 즉시 종료할 수 있습니다."
             isSpeaking = true
@@ -277,6 +282,27 @@ final class JarvisOverlayConversation: ObservableObject {
             case .forget(let key): outcome = await personalProfile.forget(key)
             }
             guard !Task.isCancelled, token == generation else { return "" }
+            conversation.append(["role": "user", "content": prompt])
+            conversation.append(["role": "assistant", "content": outcome])
+            if conversation.count > 8 { conversation.removeFirst(conversation.count - 8) }
+            return outcome
+        }
+        // Record a hypothesis only after the user explicitly asks. This
+        // branch precedes generic vault commands, which also match "기록해줘".
+        if let thoughtIntent = JarvisThoughtIntent.parse(prompt) {
+            let outcome: String
+            switch thoughtIntent {
+            case .savePrevious:
+                outcome = await thinkingCore.savePriorThought(
+                    topic: lastDiscussionTopic, hypothesis: lastAssistantContent)
+            case .list:
+                outcome = await thinkingCore.listSavedThoughts()
+            case .reject(let id, let reason):
+                outcome = await thinkingCore.reviewThought(id: id, status: "rejected", note: reason)
+            case .userReviewed(let id, let note):
+                outcome = await thinkingCore.reviewThought(id: id, status: "user_reviewed", note: note)
+            }
+            guard !Task.isCancelled && token == generation else { return "" }
             conversation.append(["role": "user", "content": prompt])
             conversation.append(["role": "assistant", "content": outcome])
             if conversation.count > 8 { conversation.removeFirst(conversation.count - 8) }
@@ -356,22 +382,44 @@ final class JarvisOverlayConversation: ObservableObject {
             "실시간 대시보드=\(liveDashboard.isVisible ? "열림" : "닫힘"). " +
             "사용자가 '그거'나 '이 창'을 닫으라고 하면 현재 열린 패널을 close_panel로 닫으세요. " +
             "브라우저가 열렸을 때 검색어는 '한 번에 한 패널' 원칙으로 처리하세요."
-        // Read the live, confirmed profile on every conversational turn. If
-        // local memory is unavailable, never substitute guessed facts.
+        // Tool intents were already handled above. Select retrieval cost
+        // deterministically: casual greetings never trigger an extra request.
+        let thinkingMode = JarvisThinkingRoute.mode(for: prompt)
+        let contextStarted = Date()
         let profileContext = await personalProfile.contextForQwen()
         guard !Task.isCancelled, token == generation else { return "" }
-        var messages = [["role": "system", "content": JarvisCommand.systemInstructions + "\n" + panelContext +
-                        (profileContext.isEmpty ? "" : "\n" + profileContext)]]
+        let recalledContext = await thinkingCore.context(for: prompt, mode: thinkingMode)
+        guard !Task.isCancelled, token == generation else { return "" }
+        // Log elapsed time, never utterances, project text or private memories.
+        NSLog("DECHIVE thinking retrieval duration_ms=%.1f", Date().timeIntervalSince(contextStarted) * 1000)
+        let reasoningGuidance: String
+        switch thinkingMode {
+        case .fast:
+            reasoningGuidance = "가벼운 대화는 즉시 짧고 자연스럽게 답하세요."
+        case .contextual:
+            reasoningGuidance = "관련 기록이 있다면 출처 상태를 구분해 참고하고, 없다면 과거에 알고 있었다는 주장을 하지 마세요. 확실치 않은 부분은 짧게 확인하세요."
+        case .deliberate:
+            reasoningGuidance = "주인님의 고민에 무조건 동의하지 마세요. 관찰된 사실, 추정, 검증할 질문을 구분하고 현실적인 대안이나 반론을 제시하세요. 말은 간결하게 하세요."
+        }
+        var messages = [["role": "system", "content": JarvisCommand.systemInstructions + "\n" +
+                        reasoningGuidance + "\n" + panelContext +
+                        (profileContext.isEmpty ? "" : "\n" + profileContext) +
+                        (recalledContext.isEmpty ? "" : "\n" + recalledContext)]]
         messages.append(contentsOf: conversation.suffix(8))
         messages.append(["role": "user", "content": String(prompt.prefix(900))])
         let body: [String: Any] = [
             "model": "qwen3.5:9b-q4_K_M",
             "messages": messages,
             "tools": JarvisCommand.tools,
+            // Local measurement: forced think=true with a tight token
+            // budget returned only hidden reasoning and no spoken answer.
+            // Keep usable answers until a larger-budget mode is benchmarked.
             "think": false,
             "stream": false,
             "keep_alive": "10m",
-            "options": ["num_ctx": 4096, "num_predict": 260, "temperature": 0.1]
+            "options": ["num_ctx": thinkingMode == .fast ? 4096 : 6144,
+                        "num_predict": thinkingMode == .deliberate ? 380 : 260,
+                        "temperature": 0.1]
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         let data: Data
@@ -653,7 +701,9 @@ final class JarvisOverlayConversation: ObservableObject {
         vault.cancel()
         liveDashboard.cancel()
         personalProfile.cancel()
+        thinkingCore.cancel()
         lastAssistantContent = ""
+        lastDiscussionTopic = ""
         status = "DECHIVE 대화 종료"
         session.invalidateAndCancel()
     }

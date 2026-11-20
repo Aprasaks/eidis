@@ -13,6 +13,7 @@ from .brain import JarvisBrain, BrainError, BrainProviderError, brain_ready, MAX
 from .design import DesignError, RemoteDesignError, remote_ready, suggest_designs
 from .vision import VisionError, VisionRemoteError, vision_ready, analyze_screen, validate_image
 from .storage import MemoryStore
+from .thinking import related_context
 from .projects import ProjectCheckError, verify_public_github
 from .tools import ToolRunner, ToolDenied, ToolExecutionError
 from .google_youtube import GoogleYouTubeConnection, YouTubeConnectionError
@@ -118,6 +119,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
             return self._json(200, {"items": self.store.list_profile()})
         if path == "/api/memories":
             return self._json(200, {"items": self.store.recent_memories()})
+        if path == "/api/thoughts":
+            return self._json(200, {"items": self.store.list_thoughts()})
         if path == "/api/projects":
             return self._json(200, {"items": self.store.list_projects()})
         if path == "/api/projects/history":
@@ -155,7 +158,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
                          "/api/projects", "/api/projects/task", "/api/projects/status",
                          "/api/projects/github/check", "/api/profile", "/api/profile/forget",
                          "/api/vault", "/api/vault/archive", "/api/vault/restore",
-                         "/api/youtube/connect"):
+                         "/api/youtube/connect", "/api/thinking/context",
+                         "/api/thoughts", "/api/thoughts/review"):
             return self._json(404, {"error": "알 수 없는 경로"})
         if not self._same_origin():
             return self._json(403, {"error": "로컬 앱에서만 요청할 수 있습니다."})
@@ -170,6 +174,17 @@ class JarvisHandler(BaseHTTPRequestHandler):
                 raise ValueError("JSON 객체로 요청해야 합니다.")
             if path == "/api/youtube/connect":
                 return self._json(200, self.youtube.begin(self.server.server_port))
+            if path == "/api/thinking/context":
+                # Read only: contextual sources remain local; no model/API call.
+                return self._json(200, {"items": related_context(
+                    self.store, data.get("query"), data.get("limit", 5))})
+            if path == "/api/thoughts":
+                # This endpoint is only called following an explicit save.
+                return self._json(200, {"thought": self.store.create_thought(
+                    data.get("topic"), data.get("hypothesis"))})
+            if path == "/api/thoughts/review":
+                return self._json(200, {"thought": self.store.review_thought(
+                    data.get("id"), data.get("status"), data.get("note"))})
             if path == "/api/vault":
                 item = self.store.save_vault(
                     title=data.get("title"), content=data.get("content"),

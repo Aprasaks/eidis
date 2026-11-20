@@ -71,6 +71,10 @@ jobs:
         run: |
           swiftc -o /tmp/jarvis-voice-decision macos/tests/voice/main.swift macos/Sources/EidisMac/LocalSpeechDecision.swift
           /tmp/jarvis-voice-decision
+      - name: Test DECHIVE selective thinking and explicit thought memory (no mic)
+        run: |
+          swiftc -parse-as-library -o /tmp/dechive-thinking-smoke macos/tests/thinking/main.swift macos/Sources/EidisMac/JarvisThinkingCore.swift
+          /tmp/dechive-thinking-smoke
       - name: Test fixed-command local Git reader
         run: |
           swiftc -o /tmp/jarvis-local-git-test macos/tests/git/main.swift macos/Sources/EidisMac/LocalGitInspector.swift
