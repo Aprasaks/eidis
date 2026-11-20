@@ -4,7 +4,7 @@ import SwiftUI
 /// Never enables paid TTS or exposes the API key.
 struct JarvisElevenLabsLibraryView: View {
     @ObservedObject private var elevenLabs = ElevenLabsVoiceService.shared
-    @State private var femalesOnly = true
+    @State private var femalesOnly = false
     @State private var searchText = ""
     @State private var manualVoiceID = ""
     @State private var manualStatus = ""
