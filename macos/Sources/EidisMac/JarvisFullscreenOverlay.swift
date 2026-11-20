@@ -125,6 +125,7 @@ private struct JarvisSummonedView: View {
     @ObservedObject var dashboard: JarvisOverlayDashboard
     @ObservedObject var browser: JarvisOverlayBrowser
     @ObservedObject var vault: JarvisKnowledgeVault
+    @ObservedObject var liveDashboard: JarvisLiveDashboard
     @State private var typedText = ""
     @FocusState private var isInputFocused: Bool
     @State private var appeared = false
@@ -247,7 +248,17 @@ private struct JarvisSummonedView: View {
 
                 // Dashboard is summoned on an explicit command only; the gold
                 // core artwork/video remains unchanged and visible beneath it.
-                if browser.isVisible, let url = browser.currentURL {
+                if liveDashboard.isVisible {
+                    HStack {
+                        Spacer(minLength: 0)
+                        liveDashboardPanel
+                            .frame(width: min(520, max(340, area.size.width * 0.30)),
+                                   height: min(830, max(440, area.size.height - 120)))
+                            .padding(.trailing, 24)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    .transition(.opacity.combined(with: .move(edge: .trailing)))
+                } else if browser.isVisible, let url = browser.currentURL {
                     HStack {
                         Spacer(minLength: 0)
                         embeddedBrowserPanel(url: url)
@@ -287,7 +298,8 @@ private struct JarvisSummonedView: View {
                     .onEnded { value in
                         // Browsing gestures inside the right-side panel must
                         // navigate that page, not move JARVIS to another monitor.
-                        if (browser.isVisible || vault.isVisible) && value.startLocation.x > area.size.width * 0.54 { return }
+                        if (browser.isVisible || vault.isVisible || liveDashboard.isVisible) &&
+                           value.startLocation.x > area.size.width * 0.54 { return }
                         if abs(value.translation.width) > 100 &&
                            abs(value.translation.width) > abs(value.translation.height) * 1.25 {
                             moveToAdjacentScreen(value.translation.width < 0 ? 1 : -1)
@@ -500,6 +512,237 @@ private struct JarvisSummonedView: View {
             .stroke(.white.opacity(0.10), lineWidth: 1))
     }
 
+    /// Live data panels appear only in response to the corresponding spoken
+    /// request; the original fullscreen gold core stays untouched.
+    private var liveDashboardPanel: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 9) {
+                Image(systemName: "waveform.path.ecg.rectangle")
+                    .foregroundStyle(.orange)
+                Text("JARVIS / \(liveDashboard.mode.title)")
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .tracking(0.6)
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                Button { _ = liveDashboard.hide() } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.7))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("jarvis-live-dashboard-close")
+            }
+            .padding(16)
+            Rectangle().fill(.orange.opacity(0.4)).frame(height: 1)
+            HStack(spacing: 7) {
+                Circle()
+                    .fill(liveDashboard.errorText == nil ? Color.green : Color.orange)
+                    .frame(width: 6, height: 6)
+                Text(liveDashboard.errorText == nil ? "LIVE · 로컬 자료" : "부분 연결 실패")
+                Spacer()
+                Text("7초 간격 자동 갱신")
+                if liveDashboard.isRefreshing { ProgressView().controlSize(.mini).tint(.orange) }
+            }
+            .font(.system(size: 10, design: .monospaced))
+            .foregroundStyle(.white.opacity(0.7))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            ScrollView(.vertical) {
+                VStack(alignment: .leading, spacing: 14) {
+                    if liveDashboard.isLoading {
+                        ProgressView("실제 데이터 읽는 중…")
+                            .tint(.orange)
+                            .foregroundStyle(.white)
+                            .padding(.vertical, 25)
+                    } else {
+                        if let warning = liveDashboard.errorText {
+                            Text(warning)
+                                .font(.system(size: 11))
+                                .foregroundStyle(.orange)
+                        }
+                        if liveDashboard.mode == .overview || liveDashboard.mode == .projects {
+                            liveProjectSection
+                        }
+                        if liveDashboard.mode == .overview || liveDashboard.mode == .knowledge {
+                            liveKnowledgeSection
+                        }
+                        if liveDashboard.mode == .overview || liveDashboard.mode == .system {
+                            liveSystemSection
+                        }
+                        if let date = liveDashboard.refreshedAt {
+                            Text("마지막 데이터 확인: \(date.formatted(date: .abbreviated, time: .standard))")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.white.opacity(0.54))
+                                .padding(.top, 7)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(15)
+            }
+            .scrollIndicators(.visible)
+        }
+        .background(Color(red: 0.038, green: 0.035, blue: 0.035).opacity(0.97),
+                    in: RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(.orange.opacity(0.32), lineWidth: 1))
+        .shadow(color: .black.opacity(0.57), radius: 25)
+        .accessibilityIdentifier("jarvis-live-dashboard-panel")
+    }
+
+    private var liveProjectSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            liveSectionHeader("PROJECTS · 로컬 프로젝트 원장")
+            if !liveDashboard.projectsReady {
+                Text("프로젝트 원장 연결 실패 · 실제 값 확인 필요")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.orange)
+            } else {
+            HStack(spacing: 8) {
+                liveStat("프로젝트", (liveDashboard.projects.count))
+                liveStat("전체 작업", (liveDashboard.taskTotal))
+                liveStat("완료", (liveDashboard.done))
+            }
+            HStack(spacing: 8) {
+                liveStat("예정", (liveDashboard.todo))
+                liveStat("진행", (liveDashboard.doing))
+                liveStat("막힘", (liveDashboard.blocked))
+            }
+            if liveDashboard.projects.isEmpty {
+                Text("등록된 프로젝트가 없거나 프로젝트 자료를 가져오지 못했습니다.")
+                    .foregroundStyle(.white.opacity(0.65))
+                    .font(.system(size: 11))
+            }
+            ForEach(liveDashboard.projects) { project in
+                VStack(alignment: .leading, spacing: 7) {
+                    HStack {
+                        Text(project.name).font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.white)
+                        Spacer()
+                        Text("완료 \(project.taskCounts.done)/\(project.tasks.count)")
+                            .font(.system(size: 10)).foregroundStyle(.white.opacity(0.65))
+                    }
+                    liveProgress(project.taskCounts.done, total: project.tasks.count)
+                    if let next = project.nextTasks.first {
+                        Text("다음 기록: \(next.title)")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.white.opacity(0.64))
+                            .lineLimit(2)
+                    }
+                }
+                .padding(11)
+                .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
+            }
+            }
+        }
+    }
+
+    private var liveKnowledgeSection: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            liveSectionHeader("KNOWLEDGE · 로컬 자료 보관함")
+            if let total = liveDashboard.vaultTotal {
+                HStack(spacing: 8) {
+                    liveStat("활성 자료", (total))
+                    liveStat("분류 수", (liveDashboard.vaultCounts.count))
+                }
+                if total == 0 {
+                    Text("현재 활성 보관함에 저장된 자료가 없습니다.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.65))
+                } else {
+                    ForEach(JarvisKnowledgeVault.categoryOrder, id: \.self) { kind in
+                        if let count = liveDashboard.vaultCounts[kind], count > 0 {
+                            VStack(alignment: .leading, spacing: 5) {
+                                HStack {
+                                    Text(JarvisKnowledgeVault.labels[kind] ?? kind)
+                                    Spacer()
+                                    Text(String(count))
+                                }
+                                .font(.system(size: 11))
+                                .foregroundStyle(.white.opacity(0.82))
+                                liveProgress(count, total: total)
+                            }
+                        }
+                    }
+                    liveSectionHeader("최근 저장 자료")
+                    ForEach(liveDashboard.recentItems) { item in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("#\(item.id) · \(item.title)")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(.white)
+                                .lineLimit(2)
+                            Text("\(item.categoryLabel) · \(item.evidenceLabel)")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.orange.opacity(0.8))
+                        }
+                    }
+                }
+            } else {
+                Text("보관함 데이터 연결 실패 · 실제 값 확인 필요")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.orange)
+            }
+        }
+    }
+
+    private var liveSystemSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            liveSectionHeader("SYSTEM · 로컬 시스템 진단")
+            liveSystemRow("SQLite 데이터베이스", liveDashboard.databaseStatus == nil
+                ? "확인 불가" : (liveDashboard.databaseStatus == "ok" ? "정상 확인" : "주의 · \(liveDashboard.databaseStatus!)"))
+            liveSystemRow("Qwen 서비스 / Ollama", liveDashboard.ollamaChecked
+                ? (liveDashboard.ollamaVersion.map { "연결됨 · \($0)" } ?? "연결 안 됨") : "확인 중")
+            liveSystemRow("확정 사용자 프로필", liveDashboard.profileCount.map { "\($0)개" } ?? "확인 불가")
+            Text("서버 진단 및 설치된 Ollama API 응답을 읽은 결과입니다. GPU·메모리 사용량은 측정하지 않았습니다.")
+                .font(.system(size: 10))
+                .foregroundStyle(.white.opacity(0.5))
+        }
+    }
+
+    private func liveSystemRow(_ label: String, _ value: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(label).foregroundStyle(.white.opacity(0.7))
+            Spacer(minLength: 12)
+            Text(value).foregroundStyle(.white).multilineTextAlignment(.trailing)
+        }
+        .font(.system(size: 11))
+        .padding(10)
+        .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func liveSectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+            .tracking(0.8)
+            .foregroundStyle(.orange)
+            .padding(.bottom, 2)
+    }
+
+    private func liveStat(_ name: String, _ count: Int) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(String(count))
+                .font(.system(size: 21, weight: .light, design: .rounded))
+                .foregroundStyle(.white)
+                .monospacedDigit()
+            Text(name).font(.system(size: 10)).foregroundStyle(.white.opacity(0.56))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(11)
+        .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    private func liveProgress(_ value: Int, total: Int) -> some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(.white.opacity(0.10))
+                Capsule().fill(.orange.opacity(0.86))
+                    .frame(width: geo.size.width * CGFloat(value) / CGFloat(max(total, 1)))
+            }
+        }
+        .frame(height: 5)
+        .accessibilityLabel("\(value) / \(total)")
+    }
+
     private var dashboardPanel: some View {
         VStack(spacing: 0) {
             HStack(spacing: 9) {
@@ -696,7 +939,8 @@ final class JarvisFullscreenOverlay {
             dialogue: dialogue,
             dashboard: dialogue.dashboard,
             browser: dialogue.browser,
-            vault: dialogue.vault))
+            vault: dialogue.vault,
+            liveDashboard: dialogue.liveDashboard))
         // Do not show the old JARVIS dashboard behind the cinematic veil.
         // orderOut keeps its state and project data intact; the Dock can reopen it.
         hiddenAppWindows = NSApp.windows.filter { $0 !== window && $0.isVisible }

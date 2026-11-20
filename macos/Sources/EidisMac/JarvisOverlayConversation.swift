@@ -26,6 +26,7 @@ final class JarvisOverlayConversation: ObservableObject {
     let browser = JarvisOverlayBrowser()
     let personalProfile = JarvisPersonalProfile()
     let vault = JarvisKnowledgeVault()
+    let liveDashboard = JarvisLiveDashboard()
     private let elevenLabs = ElevenLabsVoiceService.shared
     private let session: URLSession
     private var conversation: [[String: String]] = []
@@ -184,6 +185,36 @@ final class JarvisOverlayConversation: ObservableObject {
         if profileIntent == .needsField {
             return "기억할 사용자 프로필 항목을 구체적으로 알려주세요. 일반 메모는 내용 뒤에 저장해 줘라고 말씀하시면 보관함에 정리합니다."
         }
+        // Route connected, grounded dashboard requests BEFORE Qwen can choose
+        // the generic internet browser. No synthetic numbers or external APIs.
+        if liveDashboard.isVisible && Self.isGenericPanelClose(prompt) {
+            let result = liveDashboard.hide()
+            conversation.append(["role": "user", "content": prompt])
+            conversation.append(["role": "assistant", "content": result])
+            if conversation.count > 8 { conversation.removeFirst(conversation.count - 8) }
+            return result
+        }
+        if let liveIntent = JarvisLiveDashboardIntent.parse(prompt) {
+            let outcome: String
+            switch liveIntent {
+            case .show(let mode):
+                _ = browser.hide()
+                _ = dashboard.hide()
+                _ = vault.hide()
+                status = "실제 데이터를 조회해 \(mode.koreanName) 구성 중…"
+                outcome = await liveDashboard.show(mode)
+            case .hide:
+                outcome = liveDashboard.hide()
+            case .unavailable:
+                _ = liveDashboard.hide()  // Never leave stale unrelated numbers visible.
+                outcome = "그 대시보드의 실제 데이터 소스는 아직 연결되지 않았습니다. 프로젝트, 저장 자료, 자비스 시스템 현황은 지금 보여드릴 수 있습니다."
+            }
+            guard !Task.isCancelled && token == generation else { return "" }
+            conversation.append(["role": "user", "content": String(prompt.prefix(500))])
+            conversation.append(["role": "assistant", "content": outcome])
+            if conversation.count > 8 { conversation.removeFirst(conversation.count - 8) }
+            return outcome
+        }
         // Unsupported integrations never get misrepresented as completed work.
         // Explicit public web searches about those topics remain supported.
         if let unsupported = Self.notYetConnectedResponse(for: prompt),
@@ -213,7 +244,8 @@ final class JarvisOverlayConversation: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let panelContext = "현재 자비스 화면: 웹 브라우저=\(browser.isVisible ? "열림" : "닫힘"), " +
-            "작업 대시보드=\(dashboard.isVisible ? "열림" : "닫힘"). " +
+            "작업 대시보드=\(dashboard.isVisible ? "열림" : "닫힘"), " +
+            "실시간 대시보드=\(liveDashboard.isVisible ? "열림" : "닫힘"). " +
             "사용자가 '그거'나 '이 창'을 닫으라고 하면 현재 열린 패널을 close_panel로 닫으세요. " +
             "브라우저가 열렸을 때 검색어는 '한 번에 한 패널' 원칙으로 처리하세요."
         // Read the live, confirmed profile on every conversational turn. If
@@ -349,9 +381,11 @@ final class JarvisOverlayConversation: ObservableObject {
             let result: String
             switch action {
             case .openBrowser(let engine):
+                _ = liveDashboard.hide()
                 _ = dashboard.hide()
                 result = browser.openHome(engine: engine)
             case .searchWeb(let query, let engine):
+                _ = liveDashboard.hide()
                 guard JarvisCommand.isSafePublicSearch(question, query: query) else {
                     outcomes.append("비공개 자료를 외부 검색어로 보내지 않았습니다.")
                     continue
@@ -359,6 +393,7 @@ final class JarvisOverlayConversation: ObservableObject {
                 _ = dashboard.hide()
                 result = browser.search(query, engine: engine)
             case .showDashboard:
+                _ = liveDashboard.hide()
                 _ = browser.hide()
                 result = await dashboard.show()
             case .summarizePage:
@@ -436,6 +471,13 @@ final class JarvisOverlayConversation: ObservableObject {
 
     /// Follow-up like “그거 닫아” must close the visible panel, rather than
     /// allowing Qwen to claim it is closed without an actual tool call.
+    private static func isGenericPanelClose(_ phrase: String) -> Bool {
+        let s = phrase.lowercased().filter { !$0.isWhitespace && !$0.isNewline }
+        let reference = ["그거", "이거", "그창", "이창", "이화면", "그화면", "패널", "대시보드"].contains { s.contains($0) }
+        let closing = ["닫아", "꺼줘", "치워", "숨겨", "접어", "내려"].contains { s.contains($0) }
+        return reference && closing
+    }
+
     private func contextualPanelFallback(for phrase: String) -> [JarvisCommand]? {
         let s = phrase.lowercased().replacingOccurrences(of: " ", with: "")
         let referent = ["그거", "이거", "그창", "이창", "화면", "패널"].contains { s.contains($0) }
@@ -496,6 +538,7 @@ final class JarvisOverlayConversation: ObservableObject {
         dashboard.cancel()
         browser.cancel()
         vault.cancel()
+        liveDashboard.cancel()
         personalProfile.cancel()
         lastAssistantContent = ""
         status = "자비스 대화 종료"
