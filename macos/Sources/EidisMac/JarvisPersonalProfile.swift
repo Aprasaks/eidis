@@ -95,6 +95,18 @@ final class JarvisPersonalProfile {
         }
     }
 
+    func address() async -> String {
+        do {
+            let facts = try await read()
+            guard let name = facts.first(where: { $0.key == "display_name" })?.value else {
+                return "데카이브의 호칭 정보를 아직 확인하지 못했습니다."
+            }
+            return "\(name)라고 부르겠습니다."
+        } catch {
+            return "호칭 정보를 현재 확인하지 못했습니다."
+        }
+    }
+
     func set(_ key: String, value: String) async -> String {
         guard let label = Self.labels[key] else { return "프로필 항목을 정확히 지정해 주세요." }
         let content = value.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -131,6 +143,11 @@ final class JarvisPersonalProfile {
         if s.hasPrefix("자비스,") { s = String(s.dropFirst(4)).trimmingCharacters(in: .whitespaces) }
         else if s.hasPrefix("자비스") { s = String(s.dropFirst(3)).trimmingCharacters(in: .whitespaces) }
         let compact = s.replacingOccurrences(of: " ", with: "")
+        let explicitAddress = ["나를뭐라고불러", "나를어떻게불러", "내호칭뭐야",
+                               "내이름뭐야", "나를뭐라고불러야", "내호칭알려줘"].contains {
+            compact.contains($0)
+        }
+        if explicitAddress { return .address }
         let profileObject = ["나에대해", "나를", "내프로필", "내기억", "내정보", "내가어떤사람", "나라는사람"]
             .contains { compact.contains($0) }
         let memoryWord = ["기억", "프로필"].contains { compact.contains($0) }
@@ -185,6 +202,7 @@ final class JarvisPersonalProfile {
     }
 
     enum Intent: Equatable {
+        case address
         case needsField
         case recall
         case set(String, String)

@@ -124,6 +124,7 @@ private struct JarvisSummonedView: View {
     @ObservedObject var dialogue: JarvisOverlayConversation
     @ObservedObject var dashboard: JarvisOverlayDashboard
     @ObservedObject var browser: JarvisOverlayBrowser
+    @ObservedObject var vault: JarvisKnowledgeVault
     @State private var typedText = ""
     @FocusState private var isInputFocused: Bool
     @State private var appeared = false
@@ -256,6 +257,16 @@ private struct JarvisSummonedView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                     .transition(.opacity.combined(with: .move(edge: .trailing)))
+                } else if vault.isVisible {
+                    HStack {
+                        Spacer(minLength: 0)
+                        knowledgeVaultPanel
+                            .frame(width: min(540, max(340, area.size.width * 0.31)),
+                                   height: min(860, max(450, area.size.height - 115)))
+                            .padding(.trailing, 22)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    .transition(.opacity.combined(with: .move(edge: .trailing)))
                 } else if dashboard.isVisible {
                     HStack {
                         Spacer(minLength: 0)
@@ -276,7 +287,7 @@ private struct JarvisSummonedView: View {
                     .onEnded { value in
                         // Browsing gestures inside the right-side panel must
                         // navigate that page, not move JARVIS to another monitor.
-                        if browser.isVisible && value.startLocation.x > area.size.width * 0.54 { return }
+                        if (browser.isVisible || vault.isVisible) && value.startLocation.x > area.size.width * 0.54 { return }
                         if abs(value.translation.width) > 100 &&
                            abs(value.translation.width) > abs(value.translation.height) * 1.25 {
                             moveToAdjacentScreen(value.translation.width < 0 ? 1 : -1)
@@ -342,6 +353,151 @@ private struct JarvisSummonedView: View {
             .stroke(Color.orange.opacity(0.34), lineWidth: 1))
         .shadow(color: .black.opacity(0.55), radius: 25)
         .accessibilityIdentifier("jarvis-internal-web-browser")
+    }
+
+    /// A request-driven library next to the unchanged golden core, not a new
+    /// permanent dashboard or an extra home screen.
+    private var knowledgeVaultPanel: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 9) {
+                Image(systemName: "books.vertical")
+                    .foregroundStyle(Color.orange)
+                Text("JARVIS · 보관함")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white)
+                Spacer()
+                Button { _ = vault.hide() } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white.opacity(0.8))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("jarvis-vault-close")
+            }
+            .padding(16)
+            Rectangle().fill(.orange.opacity(0.3)).frame(height: 1)
+            VStack(alignment: .leading, spacing: 8) {
+                Text(vault.searchLabel)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.85))
+                Text("검색 결과 \(vault.total)건 · 이 Mac에만 저장 · 실제 자료 목록")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.white.opacity(0.62))
+                if !vault.counts.isEmpty {
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 6) {
+                        ForEach(JarvisKnowledgeVault.categoryOrder, id: \.self) { category in
+                            if let count = vault.counts[category], count > 0 {
+                                Text("\(JarvisKnowledgeVault.labels[category] ?? category) \(count)")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.orange.opacity(0.9))
+                                    .padding(.horizontal, 7).padding(.vertical, 4)
+                                    .background(.white.opacity(0.065), in: Capsule())
+                            }
+                        }
+                        }
+                    }
+                    .scrollIndicators(.hidden)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 15)
+            .padding(.vertical, 12)
+            Rectangle().fill(.white.opacity(0.12)).frame(height: 1)
+            ScrollView(.vertical) {
+                VStack(alignment: .leading, spacing: 11) {
+                    if vault.isLoading {
+                        ProgressView("로컬 자료 조회 중…")
+                            .tint(.orange)
+                            .foregroundStyle(.white)
+                    } else if let error = vault.errorText {
+                        Text(error).foregroundStyle(.white)
+                    } else if let item = vault.selectedItem {
+                        vaultItemCard(item, full: true)
+                    } else if vault.items.isEmpty {
+                        Text("아직 저장된 자료가 없습니다. 자료 내용을 말씀하고 '저장해 줘'라고 해보세요.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.76))
+                    } else {
+                        ForEach(JarvisKnowledgeVault.categoryOrder, id: \.self) { category in
+                            let found = vault.items.filter { $0.category == category }
+                            if !found.isEmpty {
+                                HStack {
+                                    Text(JarvisKnowledgeVault.labels[category] ?? category)
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundStyle(.orange)
+                                    Spacer()
+                                    Text("\(found.count)건")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.white.opacity(0.5))
+                                }
+                                .padding(.top, 8)
+                                ForEach(found) { item in
+                                    vaultItemCard(item, full: false)
+                                }
+                            }
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(15)
+            }
+            .scrollIndicators(.visible)
+        }
+        .background(Color(red: 0.035, green: 0.035, blue: 0.036).opacity(0.97),
+                    in: RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18)
+            .stroke(Color.orange.opacity(0.34), lineWidth: 1))
+        .shadow(color: .black.opacity(0.6), radius: 24)
+        .accessibilityIdentifier("jarvis-vault-panel")
+    }
+
+    private func vaultItemCard(_ item: JarvisVaultItem, full: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("#\(item.id) · \(item.categoryLabel)")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.orange.opacity(0.86))
+                Spacer()
+                if !item.project.isEmpty {
+                    Text(item.project).font(.system(size: 10)).foregroundStyle(.white.opacity(0.6))
+                }
+            }
+            Text(item.title)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.white)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(full ? item.content : String(item.content.prefix(190)))
+                .font(.system(size: 12))
+                .foregroundStyle(.white.opacity(0.86))
+                .fixedSize(horizontal: false, vertical: true)
+                .lineLimit(full ? nil : 5)
+                .textSelection(.enabled)
+            HStack(spacing: 8) {
+                Text(item.evidenceLabel)
+                Text(item.createdAt.prefix(10))
+            }
+            .font(.system(size: 10))
+            .foregroundStyle(.white.opacity(0.5))
+            if !item.tags.isEmpty {
+                Text(item.tags.map { "#" + $0 }.joined(separator: "  "))
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color.orange.opacity(0.68))
+                    .lineLimit(2)
+            }
+            if !item.sourceUrl.isEmpty {
+                Text("출처: \(item.sourceUrl)")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.white.opacity(0.64))
+                    .lineLimit(full ? nil : 2)
+                    .textSelection(.enabled)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12)
+            .stroke(.white.opacity(0.10), lineWidth: 1))
     }
 
     private var dashboardPanel: some View {
@@ -539,7 +695,8 @@ final class JarvisFullscreenOverlay {
             moveToAdjacentScreen: { [weak self] direction in self?.moveToAdjacentScreen(direction) },
             dialogue: dialogue,
             dashboard: dialogue.dashboard,
-            browser: dialogue.browser))
+            browser: dialogue.browser,
+            vault: dialogue.vault))
         // Do not show the old JARVIS dashboard behind the cinematic veil.
         // orderOut keeps its state and project data intact; the Dock can reopen it.
         hiddenAppWindows = NSApp.windows.filter { $0 !== window && $0.isVisible }

@@ -83,6 +83,21 @@ class JarvisHandler(BaseHTTPRequestHandler):
                     "aws_deployment", "paid_ai_provider"
                 ]
             })
+        if path == "/api/vault/item":
+            try:
+                values = parse_qs(urlsplit(self.path).query)
+                item_id = int(values.get("id", [""])[0])
+                return self._json(200, {"item": self.store.get_vault(item_id)})
+            except (ValueError, IndexError) as exc:
+                return self._json(400, {"error": str(exc)})
+        if path == "/api/vault":
+            try:
+                values = parse_qs(urlsplit(self.path).query)
+                return self._json(200, self.store.search_vault(
+                    values.get("query", [""])[0], values.get("category", [""])[0],
+                    int(values.get("limit", [30])[0])))
+            except (ValueError, IndexError) as exc:
+                return self._json(400, {"error": str(exc)})
         if path == "/api/profile":
             return self._json(200, {"items": self.store.list_profile()})
         if path == "/api/memories":
@@ -122,7 +137,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         if path not in ("/api/command", "/api/chat", "/api/design/suggest", "/api/vision/analyze",
                          "/api/projects", "/api/projects/task", "/api/projects/status",
-                         "/api/projects/github/check", "/api/profile", "/api/profile/forget"):
+                         "/api/projects/github/check", "/api/profile", "/api/profile/forget",
+                         "/api/vault", "/api/vault/archive", "/api/vault/restore"):
             return self._json(404, {"error": "알 수 없는 경로"})
         if not self._same_origin():
             return self._json(403, {"error": "로컬 앱에서만 요청할 수 있습니다."})
@@ -135,6 +151,26 @@ class JarvisHandler(BaseHTTPRequestHandler):
             data = json.loads(self.rfile.read(size))
             if not isinstance(data, dict):
                 raise ValueError("JSON 객체로 요청해야 합니다.")
+            if path == "/api/vault":
+                item = self.store.save_vault(
+                    title=data.get("title"), content=data.get("content"),
+                    category=data.get("category") or self.store.classify_vault(
+                        str(data.get("title", ""))+" "+str(data.get("content", "")))
+                        if data.get("source_type", "user_text") != "web_page"
+                        else data.get("category", "references"),
+                    project=data.get("project") or self.store.vault_project(
+                        str(data.get("title", ""))+" "+str(data.get("content", ""))),
+                    source_type=data.get("source_type", "user_text"),
+                    source_url=data.get("source_url", ""))
+                return self._json(200, {"item": item})
+            if path == "/api/vault/archive":
+                if type(data.get("id")) is not int:
+                    raise ValueError("보관 번호를 정확히 지정해 주세요.")
+                return self._json(200, {"archived": self.store.archive_vault(data["id"])})
+            if path == "/api/vault/restore":
+                if type(data.get("id")) is not int:
+                    raise ValueError("복원 번호를 정확히 지정해 주세요.")
+                return self._json(200, {"restored": self.store.restore_vault(data["id"])})
             if path == "/api/profile":
                 entry = self.store.upsert_profile(data.get("key"), data.get("value"),
                                                   source="user_direct", confirmed=True)

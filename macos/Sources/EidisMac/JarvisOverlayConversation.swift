@@ -25,9 +25,11 @@ final class JarvisOverlayConversation: ObservableObject {
     let dashboard = JarvisOverlayDashboard()
     let browser = JarvisOverlayBrowser()
     let personalProfile = JarvisPersonalProfile()
+    let vault = JarvisKnowledgeVault()
     private let elevenLabs = ElevenLabsVoiceService.shared
     private let session: URLSession
     private var conversation: [[String: String]] = []
+    private var lastAssistantContent = ""
     private var generation = UUID()
     private var dialogueTask: Task<Void, Never>?
     private var listeningTask: Task<Void, Never>?
@@ -113,7 +115,7 @@ final class JarvisOverlayConversation: ObservableObject {
 
     private func handleQuestion(_ text: String, token: UUID) async {
         guard token == generation && !Task.isCancelled else { return }
-        let prompt = String(text.prefix(900))
+        let prompt = String(text.prefix(6000))
         question = prompt
         answer = ""
         sourceURL = nil
@@ -127,9 +129,14 @@ final class JarvisOverlayConversation: ObservableObject {
             guard token == generation && !Task.isCancelled else { return }
             isThinking = false
             answer = response
+            if JarvisVaultIntent.parse(prompt) == nil && JarvisPersonalProfile.parse(prompt) == nil {
+                lastAssistantContent = response
+            }
             status = "답변 읽는 중… Esc로 즉시 종료할 수 있습니다."
             isSpeaking = true
-            await elevenLabs.speak(response, fallback: macVoice)
+            // Pronunciation rule: DECHIVE is addressed as 데카이브 in speech.
+            let spoken = response.replacingOccurrences(of: "DECHIVE", with: "데카이브", options: .caseInsensitive)
+            await elevenLabs.speak(spoken, fallback: macVoice)
             guard token == generation && !Task.isCancelled else { return }
             await elevenLabs.waitForOutputToFinish(fallback: macVoice)
             guard token == generation && !Task.isCancelled else { return }
@@ -149,9 +156,11 @@ final class JarvisOverlayConversation: ObservableObject {
     private func planAndRespond(_ prompt: String, token: UUID) async throws -> String {
         // Personal memories require an explicit user instruction. This path
         // never asks Qwen to invent or infer facts and persists no transcripts.
-        if let intent = JarvisPersonalProfile.parse(prompt) {
+        let profileIntent = JarvisPersonalProfile.parse(prompt)
+        if let intent = profileIntent, intent != .needsField {
             let outcome: String
             switch intent {
+            case .address: outcome = await personalProfile.address()
             case .needsField:
                 outcome = "기억할 프로필 항목을 구체적으로 알려주세요. 예를 들면 '내 작업 방식은 검증을 우선한다 기억해줘'라고 말씀하시면 됩니다."
             case .recall: outcome = await personalProfile.recall()
@@ -163,6 +172,17 @@ final class JarvisOverlayConversation: ObservableObject {
             conversation.append(["role": "assistant", "content": outcome])
             if conversation.count > 8 { conversation.removeFirst(conversation.count - 8) }
             return outcome
+        }
+        if let storageIntent = JarvisVaultIntent.parse(prompt) {
+            let outcome = await handleVault(storageIntent, token: token)
+            guard !Task.isCancelled && token == generation else { return "" }
+            conversation.append(["role": "user", "content": String(prompt.prefix(500))])
+            conversation.append(["role": "assistant", "content": outcome])
+            if conversation.count > 8 { conversation.removeFirst(conversation.count - 8) }
+            return outcome
+        }
+        if profileIntent == .needsField {
+            return "기억할 사용자 프로필 항목을 구체적으로 알려주세요. 일반 메모는 내용 뒤에 저장해 줘라고 말씀하시면 보관함에 정리합니다."
         }
         // Unsupported integrations never get misrepresented as completed work.
         // Explicit public web searches about those topics remain supported.
@@ -203,7 +223,7 @@ final class JarvisOverlayConversation: ObservableObject {
         var messages = [["role": "system", "content": JarvisCommand.systemInstructions + "\n" + panelContext +
                         (profileContext.isEmpty ? "" : "\n" + profileContext)]]
         messages.append(contentsOf: conversation.suffix(8))
-        messages.append(["role": "user", "content": prompt])
+        messages.append(["role": "user", "content": String(prompt.prefix(900))])
         let body: [String: Any] = [
             "model": "qwen3.5:9b-q4_K_M",
             "messages": messages,
@@ -271,6 +291,55 @@ final class JarvisOverlayConversation: ObservableObject {
         conversation.append(["role": "assistant", "content": output])
         if conversation.count > 8 { conversation.removeFirst(conversation.count - 8) }
         return output
+    }
+
+    /// Save/show results are grounded in the actual local SQLite receipt.
+    /// Never hand arbitrary user text to a public web search provider.
+    private func handleVault(_ intent: JarvisVaultIntent, token: UUID) async -> String {
+        guard !Task.isCancelled && generation == token else { return "" }
+        switch intent {
+        case .saveText(let text):
+            status = "로컬 자료 보관함에 정리하는 중…"
+            let title = String(text.split(separator: "\n", maxSplits: 1).first.map(String.init)?.prefix(90) ?? text.prefix(90))
+            let result = await vault.save(title: title, content: text)
+            if result.contains("저장했습니다") || result.contains("이미 저장된") {
+                _ = browser.hide(); _ = dashboard.hide()
+            }
+            return result
+        case .saveCurrent:
+            guard browser.isVisible else { return "현재 열린 웹페이지가 없습니다. 먼저 페이지를 열어 주세요." }
+            status = "현재 페이지 원문을 로컬에 보관하는 중…"
+            do {
+                let page = try await browser.snapshotVisiblePage()
+                guard !Task.isCancelled && generation == token else { return "" }
+                let result = await vault.save(title: page.title, content: String(page.text.prefix(6000)),
+                                              sourceType: "web_page", sourceURL: page.url.absoluteString)
+                if result.contains("저장했습니다") { _ = browser.hide(); _ = dashboard.hide() }
+                return result
+            } catch {
+                return "현재 페이지의 본문을 읽지 못했습니다. 저장했다고 표시하지 않았습니다."
+            }
+        case .saveContext:
+            if browser.isVisible { return await handleVault(.saveCurrent, token: token) }
+            let saved = lastAssistantContent.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !saved.isEmpty else { return "현재 저장할 페이지나 직전 답변이 없습니다. 저장할 내용을 말씀해 주세요." }
+            status = "직전 답변을 출처 구분해서 저장하는 중…"
+            let result = await vault.save(title: String(saved.prefix(80)), content: String(saved.prefix(6000)),
+                                          sourceType: "assistant_response")
+            if result.contains("저장했습니다") { _ = dashboard.hide() }
+            return result
+        case .show(let query, let category, let itemId):
+            _ = browser.hide(); _ = dashboard.hide()
+            return await vault.show(query: query, category: category, itemId: itemId)
+        case .hide:
+            return vault.hide()
+        case .archive(let id):
+            return await vault.archive(id: id)
+        case .restore(let id):
+            return await vault.restore(id: id)
+        case .needsContent:
+            return "저장할 내용을 말해 주세요. 예를 들어 '블로그 아이디어, AI 검증 사례 정리 저장해 줘'라고 말씀하시면 됩니다."
+        }
     }
 
     private func execute(_ actions: [JarvisCommand], token: UUID) async -> String {
@@ -426,7 +495,9 @@ final class JarvisOverlayConversation: ObservableObject {
         conversation.removeAll()
         dashboard.cancel()
         browser.cancel()
+        vault.cancel()
         personalProfile.cancel()
+        lastAssistantContent = ""
         status = "자비스 대화 종료"
         session.invalidateAndCancel()
     }
