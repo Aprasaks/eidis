@@ -87,6 +87,10 @@ jobs:
         run: |
           swiftc -parse-as-library -o /tmp/dechive-verification-smoke macos/tests/research/verification-smoke.swift macos/Sources/EidisMac/JarvisResearchVerification.swift macos/Sources/EidisMac/JarvisThinkingCore.swift
           /tmp/dechive-verification-smoke
+      - name: Test Browser Control 1.0 intent and safe navigation policy
+        run: |
+          swiftc -parse-as-library -o /tmp/dechive-browser-policy-smoke macos/tests/browser/main.swift macos/Sources/EidisMac/JarvisBrowserControlPolicy.swift
+          /tmp/dechive-browser-policy-smoke
       - name: Test fixed-command local Git reader
         run: |
           swiftc -o /tmp/jarvis-local-git-test macos/tests/git/main.swift macos/Sources/EidisMac/LocalGitInspector.swift

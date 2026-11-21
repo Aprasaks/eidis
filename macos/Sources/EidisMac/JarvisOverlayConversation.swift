@@ -314,7 +314,8 @@ final class JarvisOverlayConversation: ObservableObject {
                JarvisStudyIntent.parse(prompt) == nil &&
                JarvisActionIntent.parse(prompt) == nil &&
                JarvisResearchIntent.parse(prompt) == nil &&
-               JarvisVerificationIntent.parse(prompt) == nil {
+               JarvisVerificationIntent.parse(prompt) == nil &&
+               JarvisBrowserControlIntent.parse(prompt) == nil {
                 lastAssistantContent = response
                 lastDiscussionTopic = prompt
             }
@@ -324,7 +325,8 @@ final class JarvisOverlayConversation: ObservableObject {
             let speechText: String
             if (JarvisActionIntent.parse(prompt) != nil ||
                 JarvisResearchIntent.parse(prompt) != nil ||
-                JarvisVerificationIntent.parse(prompt) != nil) && response.count > 650 {
+                JarvisVerificationIntent.parse(prompt) != nil ||
+                JarvisBrowserControlIntent.parse(prompt) != nil) && response.count > 650 {
                 speechText = String(response.prefix(550)) + ". 자세한 보고서는 화면에서 확인하실 수 있습니다."
             } else { speechText = response }
             let spoken = speechText.replacingOccurrences(of: "DECHIVE", with: "데카이브", options: .caseInsensitive)
@@ -346,6 +348,19 @@ final class JarvisOverlayConversation: ObservableObject {
     /// Qwen selects tools through the local Ollama API. This client only runs
     /// audited, read-only actions from JarvisCommand, never generated code.
     private func planAndRespond(_ prompt: String, token: UUID) async throws -> String {
+        if let intent = JarvisBrowserControlIntent.parse(prompt) {
+            if case .open = intent {
+                _ = liveDashboard.hide()
+                _ = dashboard.hide()
+                _ = vault.hide()
+            }
+            let outcome = await browser.control(intent)
+            guard !Task.isCancelled && token == generation else { return "" }
+            conversation.append(["role": "user", "content": String(prompt.prefix(500))])
+            conversation.append(["role": "assistant", "content": String(outcome.prefix(1800))])
+            if conversation.count > 8 { conversation.removeFirst(conversation.count - 8) }
+            return outcome
+        }
         if let intent = JarvisVerificationIntent.parse(prompt) {
             let outcome = await verificationClient.handle(intent)
             guard !Task.isCancelled && token == generation else { return "" }

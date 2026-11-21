@@ -419,6 +419,31 @@ private struct JarvisSummonedView: View {
             .padding(.horizontal, 14)
             .frame(height: 30)
             Rectangle().fill(.orange.opacity(0.3)).frame(height: 1)
+            if !browser.lastControlReceipt.isEmpty {
+                VStack(alignment: .leading,spacing: 4) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "cursorarrow.click.2")
+                        Text("BROWSER CONTROL / 실제 동작 확인")
+                            .fontWeight(.semibold)
+                        Spacer(minLength: 0)
+                    }
+                    Text(browser.lastControlReceipt)
+                        .lineLimit(2)
+                    if !browser.observedLinks.isEmpty {
+                        Text(browser.observedLinks.prefix(4).map {
+                            "\($0.number). \($0.title)"
+                        }.joined(separator: "  ·  "))
+                            .lineLimit(2)
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
+                }
+                .font(.system(size: 9,design: .monospaced))
+                .foregroundStyle(.orange.opacity(0.87))
+                .padding(.horizontal, 13)
+                .padding(.vertical, 6)
+                .frame(maxWidth:.infinity,alignment:.leading)
+                .accessibilityIdentifier("dechive-browser-control-receipt")
+            }
             if let error = browser.errorText {
                 Text(error)
                     .font(.system(size: 12))

@@ -26,7 +26,8 @@ class JarvisEmbeddedBrowserContract(unittest.TestCase):
     def test_real_webview_with_no_page_to_command_bridge(self):
         for token in ['WKWebView', 'WKNavigationDelegate', 'WKUIDelegate',
                       'configuration.websiteDataStore = .nonPersistent()',
-                      'url.scheme == "https"', 'scheme == "https" || scheme == "about"',
+                      'url.scheme == "https"', 'JarvisBrowserControlPolicy.safePublicURL(url)',
+                      'url.absoluteString == "about:blank"',
                       'decisionHandler(.cancel)', 'webView.load(URLRequest(url: url))',
                       'view.stopLoading()', 'view.allowsBackForwardNavigationGestures = true']:
             self.assertIn(token, WEB)
