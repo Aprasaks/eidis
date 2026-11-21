@@ -150,6 +150,8 @@ class MemoryStore:
         init_research_schema(self.db)
         from .verification import init_schema as init_verification_schema
         init_verification_schema(self.db)
+        from .briefing import init_schema as init_briefing_schema
+        init_briefing_schema(self.db)
         self.db.commit()
 
     VAULT_CATEGORIES = frozenset({'ideas','research','projects','references','notes','tasks'})

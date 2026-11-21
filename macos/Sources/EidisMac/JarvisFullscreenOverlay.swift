@@ -266,7 +266,7 @@ private struct JarvisSummonedView: View {
         GeometryReader { area in
             let commandCenter = liveDashboard.isVisible && liveDashboard.mode == .overview
             let workspaceActive = !commandCenter && (browser.isVisible ||
-                vault.isVisible || liveDashboard.isVisible || dashboard.isVisible)
+                vault.isVisible || liveDashboard.isVisible || dashboard.isVisible || dialogue.briefingVisible)
             let compactCore = commandCenter || workspaceActive
             let conversationWidth = min(max(area.size.width * 0.30, 255), 470)
             let wide = area.size.width >= 1120
@@ -485,7 +485,10 @@ private struct JarvisSummonedView: View {
                             .frame(width: conversationWidth)
                             .frame(maxHeight: .infinity)
                         Group {
-                            if browser.isVisible, let url = browser.currentURL {
+                            if dialogue.briefingVisible {
+                                JarvisMorningBriefingView(job:dialogue.briefingJob,
+                                    notice:dialogue.briefingNotice) { dialogue.hideBriefing() }
+                            } else if browser.isVisible, let url = browser.currentURL {
                                 embeddedBrowserPanel(url: url)
                             } else if liveDashboard.isVisible {
                                 liveDashboardPanel

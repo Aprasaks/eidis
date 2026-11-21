@@ -17,7 +17,7 @@ from .vision import VisionError, VisionRemoteError, vision_ready, analyze_screen
 from .storage import MemoryStore
 from .thinking import related_context
 from .continuity import scan, snapshot, acknowledge, SCAN_INTERVAL
-from . import study, action, research, verification
+from . import study, action, research, verification, briefing
 from .projects import ProjectCheckError, verify_public_github
 from .tools import ToolRunner, ToolDenied, ToolExecutionError
 from .google_youtube import GoogleYouTubeConnection, YouTubeConnectionError
@@ -123,6 +123,12 @@ class JarvisHandler(BaseHTTPRequestHandler):
             return self._json(200, {"items": self.store.list_profile()})
         if path == "/api/memories":
             return self._json(200, {"items": self.store.recent_memories()})
+        if path == "/api/briefing/job":
+            try:
+                values=parse_qs(urlsplit(self.path).query)
+                return self._json(200,briefing.get_job(self.store,int(values.get("id",[""])[0])))
+            except (ValueError, IndexError) as exc:
+                return self._json(400,{"error":str(exc)})
         if path == "/api/research/verification":
             try:
                 data = parse_qs(urlsplit(self.path).query)
@@ -201,7 +207,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
                          "/api/thoughts", "/api/thoughts/review", "/api/continuity/acknowledge",
                          "/api/study/topic", "/api/study/stop", "/api/study/enabled",
                          "/api/study/claim", "/api/study/finish", "/api/action/submit", "/api/action/cancel",
-                         "/api/research/submit", "/api/research/cancel",
+                         "/api/research/submit", "/api/research/cancel", "/api/briefing/submit",
                          "/api/research/verification/submit",
                          "/api/research/verification/cancel",
                          "/api/research/verification/claim",
@@ -237,6 +243,9 @@ class JarvisHandler(BaseHTTPRequestHandler):
                     raise ValueError("검증 실행 결과의 필드가 잘못되었습니다.")
                 return self._json(200, {"accepted": verification.finish(
                     self.store, data["id"], data["lease"],data["outcome"],data["output"])})
+            if path == "/api/briefing/submit":
+                if data: raise ValueError("브리핑 요청에는 개인정보나 추가 입력이 필요하지 않습니다.")
+                return self._json(200,briefing.submit(self.store))
             if path == "/api/research/submit":
                 if set(data) != {"query"}:
                     raise ValueError("조사 질문만 전송해 주세요.")
@@ -398,6 +407,10 @@ class ContinuityServer(HTTPServer):
             self.research_runner.tick()
         except Exception:
             logging.warning("DECHIVE research queue tick failed")
+        try:
+            self.briefing_runner.tick()
+        except Exception:
+            logging.warning("DECHIVE briefing queue tick failed")
         now = time.monotonic()
         if now - self._last_scan < self.continuity_interval:
             return
@@ -425,6 +438,7 @@ def make_server(host: str = "127.0.0.1", port: int = 8765, db_path: Path | None 
     server.vision_calls = 0
     server.action_runner = action.ActionRunner(store, youtube)
     server.research_runner = research.ResearchRunner(store)
+    server.briefing_runner = briefing.BriefingRunner(store)
     # Complete the initial check before accepting requests. Diagnostics and
     # other read-only requests do not themselves cause database writes.
     server.service_actions()

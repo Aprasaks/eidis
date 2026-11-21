@@ -28,6 +28,15 @@ final class JarvisOverlayConversation: ObservableObject {
     @Published private(set) var continuityNotice = ""
     @Published private(set) var studyNotice = ""
     @Published private(set) var actionNotice = ""
+    @Published private(set) var briefingVisible = false
+    @Published private(set) var briefingJob: JarvisBriefingJob?
+    @Published private(set) var briefingNotice = ""
+    private let briefingClient = JarvisBriefingClient()
+
+    func hideBriefing() {
+        briefingVisible = false
+    }
+
     @Published private(set) var researchNotice = ""
     @Published private(set) var researchSources: [JarvisResearchSource] = []
     @Published private(set) var verificationNotice = ""
@@ -388,7 +397,8 @@ final class JarvisOverlayConversation: ObservableObject {
                JarvisActionIntent.parse(prompt) == nil &&
                JarvisResearchIntent.parse(prompt) == nil &&
                JarvisVerificationIntent.parse(prompt) == nil &&
-               JarvisBrowserControlIntent.parse(prompt) == nil {
+               JarvisBrowserControlIntent.parse(prompt) == nil &&
+               JarvisBriefingIntent.parse(prompt) == nil {
                 lastAssistantContent = response
                 lastDiscussionTopic = prompt
             }
@@ -431,6 +441,41 @@ final class JarvisOverlayConversation: ObservableObject {
     /// Qwen selects tools through the local Ollama API. This client only runs
     /// audited, read-only actions from JarvisCommand, never generated code.
     private func planAndRespond(_ prompt: String, token: UUID) async throws -> String {
+        if briefingVisible && Self.isGenericPanelClose(prompt) {
+            hideBriefing()
+            return "주인님, 뉴스 브리핑 화면을 닫았습니다."
+        }
+        if let intent = JarvisBriefingIntent.parse(prompt) {
+            if intent == .hide {
+                hideBriefing()
+                return "주인님, 뉴스 브리핑 화면을 닫았습니다."
+            }
+            _ = browser.hide()
+            _ = liveDashboard.hide()
+            _ = dashboard.hide()
+            _ = vault.hide()
+            onWorkspaceRequested?()
+            briefingVisible = true
+            briefingJob = nil
+            briefingNotice = "실제 발행처 RSS 조회 요청 중…"
+            status = "뉴스 수집 중…"
+            do {
+                let job = try await briefingClient.collect { update in
+                    guard token == self.generation && !Task.isCancelled else { return }
+                    self.briefingJob = update
+                    self.briefingNotice = update.pending ? "브리핑 \(update.id)번 · 실제 피드 수집 중" :
+                        "브리핑 \(update.id)번 · " + (update.state == "failed" ? "수집 실패" :
+                            update.state == "partial" ? "일부 출처 조회 실패" : "등록 피드 조회 완료")
+                }
+                guard token == generation && !Task.isCancelled else { return "" }
+                if job.pending { briefingNotice = "수집 완료 미확인 · 다시 요청하면 결과 조회" }
+                return job.summary
+            } catch {
+                guard token == generation && !Task.isCancelled else { return "" }
+                briefingNotice = "조회 완료를 확인하지 못했습니다."
+                return "주인님, 뉴스 브리핑을 확인하지 못했습니다. 확인되지 않은 뉴스는 읽지 않겠습니다."
+            }
+        }
         // A known local fact is never guessed by Qwen and requires no token
         // generation, web request or stored timestamp.
         if let clock = JarvisLocalClock.parse(prompt) {
@@ -438,6 +483,7 @@ final class JarvisOverlayConversation: ObservableObject {
         }
         if let intent = JarvisBrowserControlIntent.parse(prompt) {
             if case .open = intent {
+                briefingVisible = false
                 onWorkspaceRequested?()
                 _ = liveDashboard.hide()
                 _ = dashboard.hide()
@@ -569,6 +615,7 @@ final class JarvisOverlayConversation: ObservableObject {
             let outcome: String
             switch liveIntent {
             case .show(let mode):
+                briefingVisible = false
                 onWorkspaceRequested?()
                 _ = browser.hide()
                 _ = dashboard.hide()
@@ -794,7 +841,8 @@ final class JarvisOverlayConversation: ObservableObject {
             if result.contains("저장했습니다") { _ = dashboard.hide() }
             return result
         case .show(let query, let category, let itemId):
-            onWorkspaceRequested?()
+            briefingVisible = false
+                onWorkspaceRequested?()
             _ = browser.hide(); _ = dashboard.hide()
             return await vault.show(query: query, category: category, itemId: itemId)
         case .hide:
@@ -815,6 +863,7 @@ final class JarvisOverlayConversation: ObservableObject {
             let result: String
             switch action {
             case .openBrowser(let engine):
+                briefingVisible = false
                 onWorkspaceRequested?()
                 _ = liveDashboard.hide()
                 _ = dashboard.hide()
@@ -825,10 +874,12 @@ final class JarvisOverlayConversation: ObservableObject {
                     outcomes.append("비공개 자료를 외부 검색어로 보내지 않았습니다.")
                     continue
                 }
+                briefingVisible = false
                 onWorkspaceRequested?()
                 _ = dashboard.hide()
                 result = browser.search(query, engine: engine)
             case .showDashboard:
+                briefingVisible = false
                 onWorkspaceRequested?()
                 _ = liveDashboard.hide()
                 _ = browser.hide()
@@ -991,6 +1042,10 @@ final class JarvisOverlayConversation: ObservableObject {
         studyClient.cancel()
         actionClient.cancelSession()
         actionNotice = ""
+        briefingClient.cancelSession()
+        briefingVisible = false
+        briefingJob = nil
+        briefingNotice = ""
         researchClient.cancelSession()
         researchNotice = ""
         researchSources = []
