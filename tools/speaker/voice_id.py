@@ -39,3 +39,14 @@ def centroid(embeddings):
 
 def similarity(a,b):
     return float(np.clip(np.dot(a,b),-1,1))
+
+def load_profile():
+    # Never deserialize arbitrary objects or expose biometric coordinates.
+    with np.load(PROFILE,allow_pickle=False) as saved:
+        e=saved["embedding"]
+        rev=str(saved["revision"].item())
+    if rev!=REVISION or e.shape!=(192,) or not np.isfinite(e).all() or abs(float(np.linalg.norm(e))-1)>.01:
+        raise ValueError("invalid voice profile")
+    if PROFILE.stat().st_mode & 0o077:
+        raise ValueError("voice profile permissions must be owner-only")
+    return e.astype(np.float32)
