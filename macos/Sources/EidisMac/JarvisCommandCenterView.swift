@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Full-screen, TV-friendly JARVIS command center. The active AVPlayer is owned
-/// by the parent overlay and moves to the upper left. This view NEVER renders
+/// by the parent overlay and moves to the center. This view NEVER renders
 /// fake analytics; all values come from live local APIs or bounded git scans.
 struct JarvisCommandCenterView: View {
     @ObservedObject var model: JarvisLiveDashboard
@@ -9,6 +9,8 @@ struct JarvisCommandCenterView: View {
     let close: () -> Void
     @State private var showInstagramTokenSheet = false
     @State private var instagramTokenInput = ""
+    @StateObject private var telemetry = JarvisMacSampler()
+    @State private var showRecorded = false
 
     private let amber = Color(red: 0.94, green: 0.67, blue: 0.30)
     private let muted = Color(red: 0.64, green: 0.66, blue: 0.68)
@@ -26,16 +28,27 @@ struct JarvisCommandCenterView: View {
             let usableHeight = max(0, height - inputReserve - topInset)
             let scale = min(2.0, max(0.84, min(width / 1430, height / 880)))
             let narrow = width < 1120
-            let leftRatio: CGFloat = narrow ? 0.27 : 0.265
             let gap: CGFloat = narrow ? 10 : 16
             let innerWidth = max(0, width - 2 * outer)
+            let headerHeight: CGFloat = 52
+            let metricsHeight: CGFloat = 66
+            let columnHeight = max(0, usableHeight - headerHeight - metricsHeight - 2 * gap)
+            let centerWidth = JarvisOverviewGeometry.centerWidth(innerWidth: innerWidth, height: height)
+            let leftWidth = max(0, (innerWidth - centerWidth - 2 * gap) * 0.5)
+            let rightWidth = max(0, innerWidth - centerWidth - 2 * gap - leftWidth)
 
-            HStack(alignment: .top, spacing: gap) {
-                leftColumn(fullHeight: height, scale: scale)
-                    .frame(width: max(0, innerWidth * leftRatio), height: usableHeight)
-                rightColumn(height: usableHeight, scale: scale, compact: narrow)
-                    .frame(width: max(0, innerWidth * (1 - leftRatio) - gap),
-                           height: usableHeight)
+            VStack(spacing: gap) {
+                header(scale: scale).frame(height: headerHeight)
+                keyMetrics(scale: scale).frame(height: metricsHeight)
+                HStack(alignment: .top, spacing: gap) {
+                    leftColumn(height: columnHeight, scale: scale, compact: narrow)
+                        .frame(width: leftWidth, height: columnHeight)
+                    centerColumn(height: columnHeight, scale: scale)
+                        .frame(width: centerWidth, height: columnHeight)
+                    rightColumn(height: columnHeight, scale: scale)
+                        .frame(width: rightWidth, height: columnHeight)
+                }
+                .frame(height: columnHeight)
             }
             .frame(width: innerWidth, height: usableHeight, alignment: .top)
             .padding(.horizontal, outer)
@@ -43,6 +56,13 @@ struct JarvisCommandCenterView: View {
             .frame(width: width, height: height, alignment: .top)
             .clipped()
             .accessibilityIdentifier("jarvis-command-center")
+        }
+        .task {
+            telemetry.reset()
+            while !Task.isCancelled {
+                telemetry.sample()
+                do { try await Task.sleep(for: .seconds(3)) } catch { return }
+            }
         }
         .sheet(isPresented: $showInstagramTokenSheet) {
             VStack(alignment: .leading, spacing: 16) {
@@ -79,72 +99,104 @@ struct JarvisCommandCenterView: View {
         }
     }
 
-    private func leftColumn(fullHeight: CGFloat, scale: CGFloat) -> some View {
-        VStack(spacing: 9) {
-            // A transparent slot for the same continuously rotating AVPlayer.
-            // Reserve only space; the entire screen never becomes scrollable.
-            Color.clear.frame(height: fullHeight * 0.465)
-            HStack(spacing: 7) {
-                Circle().fill(mint).frame(width: 6, height: 6)
-                Text("DECHIVE CORE / ACTIVE")
-                    .tracking(1.1)
-                    .font(.system(size: 10 * scale, weight: .semibold, design: .monospaced))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-                Spacer(minLength: 0)
-            }
-            .foregroundStyle(amber)
-            .frame(height: 20)
-            VStack(spacing: 8) {
-                JarvisLiveDialoguePanel(dialogue: dialogue)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                activityCard(scale: scale)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: min(135, fullHeight * 0.16))
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    private func leftColumn(height: CGFloat, scale: CGFloat, compact: Bool) -> some View {
+        let spacing: CGFloat = compact ? 8 : 11
+        let remaining = max(0, height - 2 * spacing)
+        let projectHeight = remaining * 0.31
+        let gitHeight = remaining * 0.36
+        let socialHeight = remaining - projectHeight - gitHeight
+        return VStack(spacing: spacing) {
+            projectsCard(scale: scale).frame(height: projectHeight)
+            gitCard(scale: scale).frame(height: gitHeight)
+            youtubeCard(scale: scale).frame(height: socialHeight)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .clipped()
     }
 
-    private func rightColumn(height: CGFloat, scale: CGFloat, compact: Bool) -> some View {
-        // Calculate rows from the available screen height, not from their text
-        // contents. Each potentially long list scrolls INSIDE its own card.
-        let spacing: CGFloat = compact ? 8 : 11
-        let headerHeight = min(73, height * 0.088)
-        let metricsHeight = min(84, height * 0.096)
-        let remaining = max(0, height - headerHeight - metricsHeight - 4 * spacing)
-        let projectHeight = remaining * 0.43
-        let serviceHeight = remaining * 0.35
-        let eventsHeight = remaining - projectHeight - serviceHeight
-
-        return VStack(spacing: spacing) {
-            header(scale: scale)
-                .frame(height: headerHeight)
-            keyMetrics(scale: scale)
-                .frame(height: metricsHeight)
-            HStack(alignment: .top, spacing: spacing) {
-                projectsCard(scale: scale)
-                    .frame(maxWidth: .infinity)
-                gitCard(scale: scale)
-                    .frame(maxWidth: .infinity)
+    private func centerColumn(height: CGFloat, scale: CGFloat) -> some View {
+        VStack(spacing: 9) {
+            // The same player is behind this transparent area. Not a card.
+            Color.clear.frame(height: height * 0.64)
+            HStack(spacing: 7) {
+                Circle().fill(mint).frame(width: 6, height: 6)
+                Text("DECHIVE CORE / ACTIVE")
+                    .tracking(1.1)
+                    .font(.system(size: 10 * scale, weight: .medium, design: .monospaced))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }.foregroundStyle(amber)
+            Picker("보기", selection: $showRecorded) {
+                Text("실제 조회 로그").tag(false)
+                Text("작업 기록").tag(true)
             }
-            .frame(height: projectHeight)
-            HStack(alignment: .top, spacing: spacing) {
-                youtubeCard(scale: scale)
-                    .frame(maxWidth: .infinity)
-                knowledgeCard(scale: scale)
-                    .frame(maxWidth: .infinity)
-                systemCard(scale: scale)
-                    .frame(maxWidth: .infinity)
-            }
-            .frame(height: serviceHeight)
-            recordedCard(scale: scale)
-                .frame(height: eventsHeight)
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            Group {
+                if showRecorded { recordedCard(scale: scale) }
+                else { activityCard(scale: scale) }
+            }.frame(maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .clipped()
+    }
+
+    private func rightColumn(height: CGFloat, scale: CGFloat) -> some View {
+        let spacing: CGFloat = 10
+        let remaining = max(0, height - 2 * spacing)
+        return VStack(spacing: spacing) {
+            JarvisLiveDialoguePanel(dialogue: dialogue)
+                .frame(height: remaining * 0.34)
+            macTelemetryCard(scale: scale)
+                .frame(height: remaining * 0.39)
+            systemCard(scale: scale)
+                .frame(height: remaining * 0.27)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .clipped()
+    }
+
+    private func macTelemetryCard(scale: CGFloat) -> some View {
+        panel("MAC / SYSTEM TELEMETRY", symbol: "cpu", scale: scale) {
+            ScrollView(.vertical) {
+                VStack(alignment: .leading, spacing: 9) {
+                    if let sample = telemetry.current {
+                        usageRow("CPU 전체", value: sample.cpuPercent.map { String(format: "%.1f%%", $0) } ?? "측정 중",
+                                 fraction: sample.cpuPercent.map { $0 / 100 }, scale: scale)
+                        usageRow("메모리 · VM 추정", value: sample.memoryBytes.map { gib($0) + " / " + gib(sample.totalMemory) } ?? "미확인",
+                                 fraction: sample.memoryBytes.map { Double($0) / Double(max(1,sample.totalMemory)) }, scale: scale)
+                        let available = sample.diskAvailable
+                        usageRow("저장소 · 데이터 볼륨", value: available.map { gib($0) + " 여유" } ?? "미확인",
+                                 fraction: sample.diskUsed.flatMap { used in available.map { Double(used) / max(1, Double(used) + Double($0)) } }, scale: scale)
+                        if let used = sample.diskUsed, let total = sample.diskTotal {
+                            systemRow("볼륨 사용 / 용량", gib(used) + " / " + gib(total), scale: scale)
+                        }
+                        systemRow("배터리", sample.batteryPercent.map { "\($0)%" } ?? "미확인", scale: scale)
+                        systemRow("전원", sample.powerSource, scale: scale)
+                        systemRow("열 상태", sample.thermal, scale: scale)
+                        Text("Mac OS 카운터 · 3초 간격")
+                            .font(.system(size: 9 * scale)).foregroundStyle(muted)
+                    } else { status("Mac 시스템 값 측정 중", scale: scale) }
+                }
+            }.scrollIndicators(.visible)
+        }
+    }
+    private func gib(_ bytes: UInt64) -> String {
+        String(format: "%.1f GiB", Double(bytes) / 1_073_741_824)
+    }
+    private func usageRow(_ name: String, value: String, fraction: Double?, scale: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            systemRow(name, value, scale: scale)
+            if let fraction {
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.white.opacity(0.10))
+                        Capsule().fill(fraction > 0.9 ? amber : mint)
+                            .frame(width: geometry.size.width * min(1, max(0,fraction)))
+                    }
+                }.frame(height: 5)
+            }
+        }
     }
 
     private func header(scale: CGFloat) -> some View {
@@ -165,7 +217,7 @@ struct JarvisCommandCenterView: View {
                 HStack(spacing: 5) {
                     Circle().fill(model.errorText == nil ? mint : amber)
                         .frame(width: 6, height: 6)
-                    Text(model.errorText == nil ? "SOURCE CHECKS ONLINE" : "PARTIAL CONNECTION")
+                    Text(model.errorText == nil ? "LOCAL CHECKS ONLINE" : "PARTIAL CONNECTION")
                 }
                 .foregroundStyle(model.errorText == nil ? mint : amber)
                 .font(.system(size: 10 * scale, weight: .medium, design: .monospaced))
@@ -502,12 +554,19 @@ struct JarvisCommandCenterView: View {
                     systemRow("SQLite", model.databaseStatus == "ok" ? "OK" : "확인 불가", scale: scale)
                     systemRow("Ollama", model.ollamaVersion.map { "v\($0)" } ?? "연결 안 됨", scale: scale)
                     systemRow("프로필", model.profileCount.map { "\($0)건" } ?? "확인 불가", scale: scale)
+                    systemRow("저장 자료", model.vaultTotal.map { "\($0)건" } ?? "미확인", scale: scale)
+                    ForEach(JarvisKnowledgeVault.categoryOrder, id: \.self) { category in
+                        if let count = model.vaultCounts[category], count > 0 {
+                            systemRow(JarvisKnowledgeVault.labels[category] ?? category, "\(count)건", scale: scale)
+                        }
+                    }
+                    systemRow("최근 작업 기록", model.activityChecked ? "\(model.recordedActivity.count)건" : "미확인", scale: scale)
                     Rectangle().fill(amber.opacity(0.2)).frame(height: 1)
                     if let vercel = model.vercelSnapshot {
                         if let error = vercel.error {
                             status("Vercel: " + error, scale: scale)
                         }
-                        systemRow("Vercel 프로젝트", "\(vercel.projects.count)개", scale: scale)
+                        systemRow("Vercel 프로젝트", vercel.error == nil ? "\(vercel.projects.count)개" : "미확인", scale: scale)
                         if vercel.error == nil {
                             let ready = vercel.deployments.filter { $0.state == "READY" }.count
                             let failed = vercel.deployments.filter { $0.state == "ERROR" }.count
@@ -532,7 +591,7 @@ struct JarvisCommandCenterView: View {
                     systemRow("로컬 갱신 주기", "약 7초", scale: scale)
                     systemRow("GitHub 원격 조회", "10분 / 캐시 재사용", scale: scale)
                     systemRow("Vercel 원격 조회", "15분 / 캐시 재사용", scale: scale)
-                    Text("실제 연결 상태만 표시 · 사용량 미측정")
+                    Text("실제 연결 상태 · 외부 API 사용량 미측정")
                         .font(.system(size: 9 * scale))
                         .foregroundStyle(muted)
                         .fixedSize(horizontal: false, vertical: true)

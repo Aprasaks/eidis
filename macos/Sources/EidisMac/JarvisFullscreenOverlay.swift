@@ -276,12 +276,8 @@ private struct JarvisSummonedView: View {
             let wide = area.size.width >= 1120
             let smallCore = min(area.size.width * (wide ? 0.253 : 0.34),
                                 area.size.height * (wide ? 0.44 : 0.37))
-            // Overview only: center the unboxed core within the transparent
-            // left-column slot. The resting and other workspace cores stay unchanged.
-            let coreOuter = min(32, max(12, area.size.width * 0.015))
-            let coreColumn = max(0, (area.size.width - 2 * coreOuter) * (wide ? 0.265 : 0.27))
-            let coreSlot = area.size.height * 0.465
-            let overviewCoreSize = max(0, min(coreColumn - 16, coreSlot - 8))
+            let overviewFrame = JarvisOverviewGeometry.coreFrame(width: area.size.width, height: area.size.height)
+            let overviewCoreSize = overviewFrame.width
             ZStack {
                 // Full-HD original has a black backdrop. Match it without
                 // chroma-key artifacts or a visibly scaled transparency matte.
@@ -304,8 +300,8 @@ private struct JarvisSummonedView: View {
                                 .mask {
                                     LinearGradient(stops: [
                                         .init(color: .white, location: 0),
-                                        .init(color: .white, location: 0.828),
-                                        .init(color: .clear, location: 0.865)
+                                        .init(color: .white, location: 0.822),
+                                        .init(color: .clear, location: 0.850)
                                     ], startPoint: .top, endPoint: .bottom)
                                 }
                         } else if compactCore {
@@ -319,8 +315,8 @@ private struct JarvisSummonedView: View {
                             Rectangle().fill(.white)
                         }
                     }
-                    .position(x: commandCenter ? coreOuter + coreColumn / 2 : area.size.width / 2,
-                              y: commandCenter ? 12 + coreSlot / 2 :
+                    .position(x: commandCenter ? overviewFrame.midX : area.size.width / 2,
+                              y: commandCenter ? overviewFrame.midY :
                                 workspaceActive ? area.size.height * 0.17 : area.size.height / 2)
                     .opacity(appeared ? (workspaceActive ? 0.65 : 1) : 0)
                     .animation(reduceMotion ? nil : .easeInOut(duration: 0.72), value: compactCore)
