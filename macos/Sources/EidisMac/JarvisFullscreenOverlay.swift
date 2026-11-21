@@ -218,6 +218,13 @@ private struct JarvisSummonedView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             voicePauseMenu
                         }
+                        if !dialogue.speechCaptureNotice.isEmpty {
+                            Text(dialogue.speechCaptureNotice)
+                                .font(.system(size: 9))
+                                .foregroundStyle(.orange.opacity(0.84))
+                                .lineLimit(1)
+                                .accessibilityIdentifier("jarvis-speech-evidence")
+                        }
                         HStack(spacing: 9) {
                             Button {
                                 dialogue.toggleMicrophone()
@@ -459,6 +466,13 @@ private struct JarvisSummonedView: View {
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 voicePauseMenu
+            }
+            if !dialogue.speechCaptureNotice.isEmpty {
+                Text(dialogue.speechCaptureNotice)
+                    .font(.system(size: 9))
+                    .foregroundStyle(.orange.opacity(0.84))
+                    .lineLimit(2)
+                    .accessibilityIdentifier("jarvis-workspace-speech-evidence")
             }
             Rectangle().fill(.orange.opacity(0.24)).frame(height: 1)
             ScrollViewReader { proxy in

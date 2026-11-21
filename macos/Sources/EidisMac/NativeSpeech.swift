@@ -68,6 +68,7 @@ final class LocalSpeechListener: ObservableObject {
     private var tapInstalled = false
     private var finalReceived = false
     private var recognitionFailed = false
+    private var finishConsumed = true
     private var sessionId = UUID()
 
     var captureBusy: Bool { isStarting || isFinalizing }
@@ -85,6 +86,7 @@ final class LocalSpeechListener: ObservableObject {
         lastCaptureEvidence = ""
         finalReceived = false
         recognitionFailed = false
+        finishConsumed = false
         status = "한국어 음성 인식과 마이크 권한을 확인합니다."
 
         // SwiftPM's unbundled executable has no usage descriptions.
@@ -204,27 +206,39 @@ final class LocalSpeechListener: ObservableObject {
         }
     }
 
-    /// Finish only after on-device recognition has had a chance to emit its
-    /// final transcript. Never send an empty/failed/cancelled recognition.
+    /// End the actual microphone capture and use only words produced by the
+    /// on-device recognizer. If ending the stream errors after a visible
+    /// partial result, keep that text but explicitly mark it provisional.
     func finish() async -> String {
-        guard isListening, !isFinalizing, !isStarting else { return "" }
+        let captured = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !finishConsumed, !isFinalizing, !isStarting,
+              isListening || (recognitionFailed && !captured.isEmpty) else { return "" }
+        finishConsumed = true  // never resubmit the same transcript twice
         let session = sessionId
+        let alreadyStopped = !isListening
         isFinalizing = true
         isListening = false
         status = "녹음을 마쳤습니다. 인식 문장을 확정하고 있습니다."
         stopAudio()
         audioRequest?.endAudio()
-        // 1.5 seconds maximum for on-device final transcription.
-        for _ in 0..<15 {
-            if finalReceived || recognitionFailed || sessionId != session { break }
+        // Give the recognizer a short opportunity to correct a visible
+        // partial result. Without text, preserve the old 1.5s maximum.
+        let waitSteps = captured.isEmpty ? 15 : 8
+        for step in 0..<15 {
+            if finalReceived || recognitionFailed || sessionId != session ||
+               alreadyStopped { break }
+            if step >= waitSteps { break }
             try? await Task.sleep(nanoseconds: 100_000_000)
         }
         guard sessionId == session else { return "" }
-        let recognized = LocalSpeechDecision.acceptedText(
+        let accepted = LocalSpeechDecision.acceptedText(
             transcript, failed: recognitionFailed)
-        let final = finalReceived
+        let recovered = accepted == nil ? LocalSpeechDecision.recoverCapturedText(
+            beforeFinishing: captured, afterFinishing: transcript) : nil
+        let recognized = accepted ?? recovered
+        let provisionalRecovery = accepted == nil && recovered != nil
+        let final = finalReceived && !recognitionFailed && !provisionalRecovery
         let failed = recognitionFailed
-        let failureDescription = status
         recognitionEpoch &+= 1
         recognitionTask?.cancel()
         recognitionTask = nil
@@ -233,12 +247,12 @@ final class LocalSpeechListener: ObservableObject {
         isFinalizing = false
         guard let recognized else {
             status = failed
-                ? "\(failureDescription) 명령 전송 없음."
+                ? "음성 인식이 종료 중 실패했고 복구할 문장도 없습니다. 전송하지 않았습니다."
                 : "인식된 문장이 없습니다. 서버에 아무 명령도 보내지 않았습니다."
             return ""
         }
-        // A partial result is labelled as such; don't claim final validation.
-        let certainty = LocalSpeechDecision.recognitionLabel(isFinal: final)
+        let certainty = provisionalRecovery ? "마지막 임시 전사(오류 후 복구)" :
+            LocalSpeechDecision.recognitionLabel(isFinal: final)
         lastCaptureEvidence = "\(certainty) · 한국어 온디바이스 인식 · \(Date().formatted(date: .omitted, time: .standard)) · 서버 전송은 별도 단계"
         status = "\(certainty) 문장 확보: \(recognized). 명령 전달을 시도합니다."
         return recognized
@@ -259,6 +273,7 @@ final class LocalSpeechListener: ObservableObject {
         isFinalizing = false
         recognitionFailed = false
         finalReceived = false
+        finishConsumed = true
         transcript = ""
         assembled.reset()
         lastCaptureEvidence = ""

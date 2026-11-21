@@ -5,9 +5,17 @@ precondition(LocalSpeechDecision.acceptedText(" 자비스, 다음 할 일 뭐야
 precondition(LocalSpeechDecision.acceptedText("  \n\t ", failed: false) == nil)
 precondition(LocalSpeechDecision.acceptedText("", failed: false) == nil)
 precondition(LocalSpeechDecision.acceptedText("실패 직전 임시 인식", failed: true) == nil)
+precondition(LocalSpeechDecision.recoverCapturedText(
+    beforeFinishing: " 이미 화면에 보였던 문장 ", afterFinishing: "") == "이미 화면에 보였던 문장")
+precondition(LocalSpeechDecision.recoverCapturedText(
+    beforeFinishing: "임시 문장", afterFinishing: " 최종 수정된 문장 ") == "최종 수정된 문장")
+precondition(LocalSpeechDecision.recoverCapturedText(
+    beforeFinishing: "", afterFinishing: "  ") == nil)
+precondition(LocalSpeechDecision.recoverCapturedText(
+    beforeFinishing: "   ", afterFinishing: "") == nil)
 precondition(LocalSpeechDecision.recognitionLabel(isFinal: true) == "최종 전사")
 precondition(LocalSpeechDecision.recognitionLabel(isFinal: false) == "마지막 임시 전사")
-print("PASS Korean recognized words forwarded only when nonempty and recognition did not fail")
+print("PASS strict finalization rejects failures; provisional recovery uses only actual captured words")
 print("PASS partial speech evidence never labelled as finalized")
 
 var ongoing = JarvisSpeechTranscriptAssembler()

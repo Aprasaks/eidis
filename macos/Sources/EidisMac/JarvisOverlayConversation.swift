@@ -34,6 +34,7 @@ final class JarvisOverlayConversation: ObservableObject {
     @Published private(set) var verificationClaims: [JarvisVerifiedClaim] = []
     private var continuityMonitor: Task<Void, Never>?
     @Published private(set) var liveTranscript = ""
+    @Published private(set) var speechCaptureNotice = ""
     @Published private(set) var dialogueTurns: [JarvisLiveDialogueTurn] = []
     @Published var autoTurnEnabled: Bool {
         didSet { UserDefaults.standard.set(autoTurnEnabled, forKey: "jarvis.dialogue.autoTurn") }
@@ -178,6 +179,7 @@ final class JarvisOverlayConversation: ObservableObject {
             completeUtterance()
             return
         }
+        speechCaptureNotice = ""
         // Spoken interruption is initiated with Space/the mic button.
         // Never allow the outgoing ElevenLabs audio to be mistaken for a new
         // utterance by opening a second recognizer while it is playing.
@@ -216,12 +218,14 @@ final class JarvisOverlayConversation: ObservableObject {
         listener.cancel()
         isListening = false
         liveTranscript = ""
+        speechCaptureNotice = ""
         lastPartialAt = nil
         status = "마이크 일시정지 · 대화 시작을 누르면 다시 듣습니다."
     }
 
     func activateListening() {
         guard !isListening && !isThinking && !isSpeaking && listeningTask == nil else { return }
+        speechCaptureNotice = ""
         let token = generation
         listeningTask = Task { [weak self] in
             guard let self else { return }
@@ -276,15 +280,27 @@ final class JarvisOverlayConversation: ObservableObject {
         dialogueTask = Task { [weak self] in
             guard let self else { return }
             self.status = "한국어 문장 확인 중…"
+            // Hold the exact words already displayed in THIS microphone turn.
+            // Apple's recognizer can fail or stop just as auto-finish begins.
+            let lastVisibleTranscript = self.liveTranscript
             let utterance = await self.listener.finish()
             guard !Task.isCancelled && token == self.generation else { return }
+            let recovered = utterance.isEmpty ? LocalSpeechDecision.recoverCapturedText(
+                beforeFinishing: lastVisibleTranscript,
+                afterFinishing: self.listener.transcript) : nil
+            let questionText = utterance.isEmpty ? (recovered ?? "") : utterance
             self.isThinking = false
-            guard !utterance.isEmpty else {
+            guard !questionText.isEmpty else {
                 self.liveTranscript = ""
-                self.status = "인식한 문장이 없습니다. Space를 눌러 다시 말씀해 주세요."
+                self.status = self.listener.status.contains("실패")
+                    ? self.listener.status
+                    : "실제로 인식된 문장이 없습니다. Space를 눌러 다시 말씀해 주세요."
                 return
             }
-            await self.handleQuestion(utterance, token: token)
+            self.speechCaptureNotice = recovered != nil
+                ? "마지막 임시 전사 사용 · 확정 과정 오류, 화면에 보였던 문장 기준"
+                : self.listener.lastCaptureEvidence
+            await self.handleQuestion(questionText, token: token)
         }
     }
 

@@ -8,6 +8,17 @@ enum LocalSpeechDecision {
         return text.isEmpty ? nil : text
     }
 
+    /// Recover ONLY a word sequence actually emitted by SFSpeechRecognizer
+    /// during this turn. A service error while ending audio may prevent an
+    /// isFinal callback; that must not erase text the user already saw.
+    /// Recovered text remains provisional and must never be called final.
+    static func recoverCapturedText(beforeFinishing: String, afterFinishing: String) -> String? {
+        let after = afterFinishing.trimmingCharacters(in: .whitespacesAndNewlines)
+        let before = beforeFinishing.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !after.isEmpty { return after }
+        return before.isEmpty ? nil : before
+    }
+
     static func recognitionLabel(isFinal: Bool) -> String {
         isFinal ? "최종 전사" : "마지막 임시 전사"
     }

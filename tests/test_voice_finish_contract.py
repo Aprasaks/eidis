@@ -23,9 +23,14 @@ class VoiceFinishContractTests(unittest.TestCase):
             "func cancel()", 1)[0]
         self.assertLess(method.index("stopAudio()"), method.index("audioRequest?.endAudio()"))
         self.assertLess(method.index("audioRequest?.endAudio()"),
-                        method.index("for _ in 0..<15"))
-        self.assertLess(method.index("for _ in 0..<15"),
+                        method.index("for step in 0..<15"))
+        self.assertLess(method.index("for step in 0..<15"),
                         method.index("recognitionTask?.cancel()"))
+        self.assertIn("let captured = transcript.trimmingCharacters(in: .whitespacesAndNewlines)",method)
+        self.assertIn("isListening || (recognitionFailed && !captured.isEmpty)",method)
+        self.assertIn("finishConsumed = true",method)
+        self.assertIn("LocalSpeechDecision.recoverCapturedText(",method)
+        self.assertIn("let waitSteps = captured.isEmpty ? 15 : 8",method)
         self.assertIn("finalReceived || recognitionFailed || sessionId != session", method)
         self.assertIn("LocalSpeechDecision.acceptedText(", method)
         self.assertIn("guard let recognized else", method)
