@@ -95,7 +95,7 @@ final class JarvisOverlayConversation: ObservableObject {
         answer = "네, 주인님."
         dialogueTurns.append(JarvisLiveDialogueTurn(role: "DECHIVE", content: answer))
         if dialogueTurns.count > 12 { dialogueTurns.removeFirst(dialogueTurns.count - 12) }
-        status = "데카 호출 인식 · 응답 중"
+        status = "Hey Jarvis 호출 인식 · 응답 중"
         let token = generation
         macVoice.speak(answer)
         dialogueTask = Task { [weak self] in
@@ -204,7 +204,7 @@ final class JarvisOverlayConversation: ObservableObject {
         startContinuityMonitor()
         if wakeStandbyEnabled {
             isActive = false
-            status = "호출 대기 · 데카"
+            status = "호출 대기 · Hey Jarvis"
         } else if Self.microphoneAlreadyAuthorized {
             activateListening()
         } else {

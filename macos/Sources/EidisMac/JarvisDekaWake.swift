@@ -82,7 +82,7 @@ final class DekaPCMRelay: @unchecked Sendable {
         let root = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".jarvis-lab/wakeword")
         let python = JarvisVoiceIdentity.python
         guard FileManager.default.isExecutableFile(atPath: python.path),
-              FileManager.default.fileExists(atPath: root.appendingPathComponent("deka_ko_experimental.onnx").path),
+              FileManager.default.fileExists(atPath: root.appendingPathComponent("venv/lib/python3.10/site-packages/openwakeword/resources/models/hey_jarvis_v0.1.onnx").path),
               let script = JarvisVoiceIdentity.worker else {
             fail("데카 호출 또는 화자 모델 환경 없음"); return
         }
@@ -123,7 +123,7 @@ final class DekaPCMRelay: @unchecked Sendable {
             } else if line.hasPrefix("HIT "), ready,
                       let score = Double(line.dropFirst(4)), score.isFinite,
                       (0.5...1).contains(score) {
-                stop("데카 감지 · \(String(format:"%.2f",score)) · 호출 대기 종료")
+                stop("Hey Jarvis 감지 · \(String(format:"%.2f",score)) · 호출 대기 종료")
                 onHit?()
                 return
             } else {
@@ -146,7 +146,7 @@ final class DekaPCMRelay: @unchecked Sendable {
         tapInstalled = true
         do { engine.prepare(); try engine.start() }
         catch { fail("데카 마이크 시작 실패"); return }
-        update("호출 대기 · 데카")
+        update("호출 대기 · Hey Jarvis")
         deadline?.cancel()
         deadline = nil // only worker startup is time-limited
     }

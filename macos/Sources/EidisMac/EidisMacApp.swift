@@ -47,7 +47,7 @@ private struct JarvisMenuCommands: View {
         Button(fullscreen.miniEnabled ? "작은 코어 숨기기  ⌘⌥S" : "작은 코어 항상 띄우기  ⌘⌥S") {
             fullscreen.toggleMini()
         }
-        Button(fullscreen.dekaEnabled ? "데카 상시 대기 끄기" : "데카 상시 대기 켜기") {
+        Button(fullscreen.dekaEnabled ? "Hey Jarvis 상시 대기 끄기" : "Hey Jarvis 상시 대기 켜기") {
             fullscreen.toggleDeka()
         }
         Text(fullscreen.dekaStatus)

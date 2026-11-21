@@ -12,7 +12,7 @@ import json,os,time
 WAKE_THRESHOLD = .25
 COMMAND_THRESHOLD = .52
 CHUNK = 2560
-WAKE_MODEL = Path.home()/".jarvis-lab/wakeword/deka_ko_experimental.onnx"
+WAKE_MODEL = Path.home()/".jarvis-lab/wakeword/venv/lib/python3.10/site-packages/openwakeword/resources/models/hey_jarvis_v0.1.onnx"
 
 def assess(model, owner, raw, threshold, min_seconds):
     try:
