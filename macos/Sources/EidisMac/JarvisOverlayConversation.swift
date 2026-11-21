@@ -49,6 +49,23 @@ final class JarvisOverlayConversation: ObservableObject {
     }
     // Controlled by SwiftUI FocusState; do not intercept Space while typing.
     var textInputFocused = false
+    var miniSingleTurn = false
+    var onWorkspaceRequested: (() -> Void)?
+    var onMiniTurnEnded: (() -> Void)?
+
+    func prepareMiniStandby() {
+        status = "대기 중 · 마이크 버튼 또는 Option+Space"
+    }
+
+    func resumeFullWorkspace() {
+        startContinuityMonitor()
+    }
+
+    private func finishMiniTurn() {
+        guard miniSingleTurn else { return }
+        isActive = false
+        onMiniTurnEnded?()
+    }
 
     private let listener = LocalSpeechListener()
     private let macVoice = JarvisVoiceService()
@@ -253,17 +270,30 @@ final class JarvisOverlayConversation: ObservableObject {
                    : "실시간 받아쓰기 · Space로 질문을 마쳐주세요.")
                 : self.listener.status
             self.listeningTask = nil
+            if !self.listener.isListening { self.finishMiniTurn() }
         }
     }
 
     private func startSilenceDetection(token: UUID) {
         silenceTask?.cancel()
         silenceTask = Task { [weak self] in
+            let openedAt = Date()
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .milliseconds(200)) }
                 catch { return }
                 guard let self, token == self.generation,
                       self.isListening else { return }
+                // Mini mode is an explicitly started single turn, never
+                // an indefinite background microphone. No speech: stop at 30s;
+                // cap an unusually long capture at 120s even in manual mode.
+                if self.miniSingleTurn {
+                    let elapsed = Date().timeIntervalSince(openedAt)
+                    if elapsed >= 120 ||
+                        (elapsed >= 30 && self.listener.transcript.isEmpty) {
+                        self.completeUtterance()
+                        return
+                    }
+                }
                 guard self.autoTurnEnabled, !self.listener.transcript.isEmpty,
                       let lastPartialAt = self.lastPartialAt else { continue }
                 if Date().timeIntervalSince(lastPartialAt) >= self.silenceWaitSeconds {
@@ -302,6 +332,7 @@ final class JarvisOverlayConversation: ObservableObject {
                 self.status = self.listener.status.contains("실패")
                     ? self.listener.status
                     : "실제로 인식된 문장이 없습니다. Space를 눌러 다시 말씀해 주세요."
+                self.finishMiniTurn()
                 return
             }
             self.speechCaptureNotice = recovered != nil
@@ -380,14 +411,20 @@ final class JarvisOverlayConversation: ObservableObject {
             await elevenLabs.waitForOutputToFinish(fallback: macVoice)
             guard token == generation && !Task.isCancelled else { return }
             isSpeaking = false
-            status = "대화 가능 · 다음 질문은 자동으로 듣습니다. Space로도 끼어들 수 있습니다."
-            if isActive { activateListening() }
+            if miniSingleTurn {
+                status = "대기 중 · 마이크 버튼 또는 Option+Space"
+                finishMiniTurn()
+            } else {
+                status = "대화 가능 · 다음 질문은 자동으로 듣습니다. Space로도 끼어들 수 있습니다."
+                if isActive { activateListening() }
+            }
         } catch {
             guard token == generation && !Task.isCancelled else { return }
             streamingAnswer = ""
             isThinking = false
             isSpeaking = false
             status = "로컬 Qwen에 연결할 수 없습니다. Ollama 실행 상태를 확인해 주세요."
+            finishMiniTurn()
         }
     }
 
@@ -401,6 +438,7 @@ final class JarvisOverlayConversation: ObservableObject {
         }
         if let intent = JarvisBrowserControlIntent.parse(prompt) {
             if case .open = intent {
+                onWorkspaceRequested?()
                 _ = liveDashboard.hide()
                 _ = dashboard.hide()
                 _ = vault.hide()
@@ -531,6 +569,7 @@ final class JarvisOverlayConversation: ObservableObject {
             let outcome: String
             switch liveIntent {
             case .show(let mode):
+                onWorkspaceRequested?()
                 _ = browser.hide()
                 _ = dashboard.hide()
                 _ = vault.hide()
@@ -755,6 +794,7 @@ final class JarvisOverlayConversation: ObservableObject {
             if result.contains("저장했습니다") { _ = dashboard.hide() }
             return result
         case .show(let query, let category, let itemId):
+            onWorkspaceRequested?()
             _ = browser.hide(); _ = dashboard.hide()
             return await vault.show(query: query, category: category, itemId: itemId)
         case .hide:
@@ -775,6 +815,7 @@ final class JarvisOverlayConversation: ObservableObject {
             let result: String
             switch action {
             case .openBrowser(let engine):
+                onWorkspaceRequested?()
                 _ = liveDashboard.hide()
                 _ = dashboard.hide()
                 result = browser.openHome(engine: engine)
@@ -784,9 +825,11 @@ final class JarvisOverlayConversation: ObservableObject {
                     outcomes.append("비공개 자료를 외부 검색어로 보내지 않았습니다.")
                     continue
                 }
+                onWorkspaceRequested?()
                 _ = dashboard.hide()
                 result = browser.search(query, engine: engine)
             case .showDashboard:
+                onWorkspaceRequested?()
                 _ = liveDashboard.hide()
                 _ = browser.hide()
                 result = await dashboard.show()

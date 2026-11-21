@@ -30,7 +30,7 @@ class OllamaFullscreenConversationContract(unittest.TestCase):
             self.assertIn(needle, CHAT)
         for needle in ['dialogue?.cancel()', 'speakSummonGreeting',
                        'waitForOutputToFinish', 'await dialogue.afterGreeting()',
-                       'if event.keyCode == 53', 'dialogue?.toggleMicrophone()',
+                       'if event.keyCode == 53', 'if let dialogue { dialogue.toggleMicrophone() }',
                        'jarvis-overlay-microphone', 'jarvis-overlay-text-input',
                        '.focused($isInputFocused)', 'dialogue.textInputFocused = focused',
                        'composerEditing: self.dialogue?.textInputFocused == true',

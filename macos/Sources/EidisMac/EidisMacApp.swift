@@ -44,7 +44,7 @@ private struct JarvisMenuCommands: View {
 
     var body: some View {
         Button("DECHIVE 소환 / 닫기  ⌘⌥J") { fullscreen.toggle() }
-        Button(fullscreen.miniEnabled ? "작은 코어 숨기기" : "작은 코어 항상 띄우기") {
+        Button(fullscreen.miniEnabled ? "작은 코어 숨기기  ⌘⌥S" : "작은 코어 항상 띄우기  ⌘⌥S") {
             fullscreen.toggleMini()
         }
         Button("작업 및 설정 열기") {

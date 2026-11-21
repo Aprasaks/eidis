@@ -10,10 +10,12 @@ private final class JarvisOverlayHotkey {
     private var hotkey: EventHotKeyRef?
     private var escapeHotkey: EventHotKeyRef?
     private var microphoneHotkey: EventHotKeyRef?
+    private var miniHotkey: EventHotKeyRef?
     private var handler: EventHandlerRef?
     var onPress: (() -> Void)?
     var onEscape: (() -> Void)?
     var onMicrophone: (() -> Void)?
+    var onMini: (() -> Void)?
 
     func install() -> Bool {
         var event = EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
@@ -35,6 +37,7 @@ private final class JarvisOverlayHotkey {
                 case 51: key.onPress?()
                 case 52: key.onEscape?()
                 case 53: key.onMicrophone?()
+                case 54: key.onMini?()
                 default: break
                 }
             }
@@ -56,6 +59,13 @@ private final class JarvisOverlayHotkey {
         let identifier = EventHotKeyID(signature: 0x4A415256, id: 52)
         return RegisterEventHotKey(UInt32(kVK_Escape), 0, identifier,
             GetApplicationEventTarget(), 0, &escapeHotkey) == noErr
+    }
+
+    func installMini() -> Bool {
+        guard miniHotkey == nil else { return true }
+        let identifier = EventHotKeyID(signature: 0x4A415256, id: 54)
+        return RegisterEventHotKey(UInt32(kVK_ANSI_S), UInt32(cmdKey | optionKey),
+            identifier, GetApplicationEventTarget(), 0, &miniHotkey) == noErr
     }
 
     func uninstallEscape() {
@@ -80,6 +90,8 @@ private final class JarvisOverlayHotkey {
     func uninstall() {
         uninstallEscape()
         uninstallMicrophone()
+        if let miniHotkey { UnregisterEventHotKey(miniHotkey) }
+        miniHotkey = nil
         if let hotkey { UnregisterEventHotKey(hotkey) }
         if let handler { RemoveEventHandler(handler) }
         hotkey = nil
@@ -141,48 +153,98 @@ private struct JarvisLoopingCore: NSViewRepresentable {
 }
 
 
-/// Idle, read-only desktop companion. It never opens the microphone.
+/// A dedicated drag surface: dragging the core's button would otherwise
+/// activate the full workspace rather than move the floating panel.
+private struct JarvisMiniDragHandle: NSViewRepresentable {
+    final class Handle: NSView {
+        override func mouseDown(with event: NSEvent) {
+            window?.performDrag(with: event)
+        }
+        override func resetCursorRects() {
+            addCursorRect(bounds, cursor: .openHand)
+        }
+    }
+    func makeNSView(context: Context) -> Handle { Handle(frame: .zero) }
+    func updateNSView(_ view: Handle, context: Context) {}
+}
+
+/// Compact companion. Microphone capture requires an explicit button/hotkey.
 private struct JarvisMiniCoreView: View {
     let videoURL: URL
+    let diameter: CGFloat
+    @ObservedObject var dialogue: JarvisOverlayConversation
     let expand: () -> Void
     let hide: () -> Void
+    let resize: (CGFloat) -> Void
+    let microphone: () -> Void
+    let captionChanged: (Bool) -> Void
+
+    private var caption: String {
+        if dialogue.isListening { return dialogue.liveTranscript.isEmpty ? "듣는 중…" : dialogue.liveTranscript }
+        if dialogue.isThinking { return dialogue.streamingAnswer.isEmpty ? dialogue.status : dialogue.streamingAnswer }
+        if dialogue.isSpeaking { return dialogue.answer }
+        if dialogue.status.hasPrefix("마이크·") || dialogue.status.contains("권한") ||
+            dialogue.status.contains("실패") ||
+            dialogue.status.contains("수 없습니다") || dialogue.status.contains("문장이 없습니다") {
+            return dialogue.status
+        }
+        return ""
+    }
 
     var body: some View {
-        VStack(spacing: 4) {
-            HStack(spacing: 6) {
-                Circle().fill(Color.orange.opacity(0.88))
-                    .frame(width: 6, height: 6)
-                Text("JARVIS / STANDBY")
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.orange)
-                Spacer()
-                Button(action: hide) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.67))
-                        .padding(6)
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("jarvis-mini-hide")
-            }
+        VStack(spacing: 3) {
             Button(action: expand) {
                 JarvisLoopingCore(videoURL: videoURL, compact: true)
-                    .frame(width: 205, height: 182)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .frame(width: diameter, height: diameter)
+                    .clipShape(Circle())
                     .allowsHitTesting(false)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("전체화면 자비스 열기")
             .accessibilityIdentifier("jarvis-mini-expand")
-            Text("⌘⌥J · 전체화면 열기")
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.60))
+            HStack(spacing: 7) {
+                JarvisMiniDragHandle()
+                    .frame(width: 17, height: 18)
+                    .background {
+                        Image(systemName: "line.3.horizontal")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.70))
+                    }
+                    .accessibilityLabel("코어 위치 이동")
+                Button { resize(-30) } label: { Image(systemName: "minus.circle") }
+                    .accessibilityLabel("코어 작게")
+                Button(action: microphone) {
+                    Image(systemName: dialogue.isListening ? "stop.circle.fill" : "mic.circle.fill")
+                        .foregroundStyle(dialogue.isListening ? .green : .orange)
+                }
+                .accessibilityLabel(dialogue.isListening ? "질문 마치기" : "음성 질문 시작")
+                .accessibilityIdentifier("jarvis-mini-microphone")
+                Button { resize(30) } label: { Image(systemName: "plus.circle") }
+                    .accessibilityLabel("코어 크게")
+                Button(action: hide) { Image(systemName: "xmark.circle") }
+                    .accessibilityLabel("작은 코어 숨기기")
+                    .accessibilityIdentifier("jarvis-mini-hide")
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 16))
+            .foregroundStyle(.white.opacity(0.88))
+            .padding(.horizontal, 10).padding(.vertical, 4)
+            .background(.black.opacity(0.72), in: Capsule())
+            if !caption.isEmpty {
+                Text(caption)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white)
+                    .lineLimit(4)
+                    .frame(width: diameter - 12, height: 64, alignment: .topLeading)
+                    .padding(6)
+                    .background(.black.opacity(0.88), in: RoundedRectangle(cornerRadius: 10))
+                    .accessibilityIdentifier("jarvis-mini-caption")
+            }
         }
-        .padding(10)
-        .frame(width: 230, height: 245)
-        .background(.black.opacity(0.94),
-                    in: RoundedRectangle(cornerRadius: 18))
-        .overlay(RoundedRectangle(cornerRadius: 18)
-            .stroke(Color.orange.opacity(0.40), lineWidth: 1))
+        .frame(width: diameter + 12, height: diameter + 38 + (caption.isEmpty ? 0 : 78),
+               alignment: .top)
+        .onChange(of: caption.isEmpty) { _, empty in captionChanged(!empty) }
+        .onAppear { captionChanged(!caption.isEmpty) }
         .accessibilityIdentifier("jarvis-mini-core")
     }
 }
@@ -1240,6 +1302,11 @@ final class JarvisFullscreenOverlay: ObservableObject {
     private var hotkey: JarvisOverlayHotkey?
     private var panel: JarvisOverlayPanel?
     private var miniPanel: JarvisOverlayPanel?
+    private var miniDialogue: JarvisOverlayConversation?
+    private var miniObservers: [NSObjectProtocol] = []
+    private var miniDiameter: CGFloat = 190
+    private var miniHasCaption = false
+    private var lastMiniToggle = Date.distantPast
     private var interactionMonitor: Any?
     private var lastScrollInput = Date.distantPast
     private var horizontalScrollTotal: CGFloat = 0
@@ -1258,9 +1325,11 @@ final class JarvisFullscreenOverlay: ObservableObject {
         key.onPress = { [weak self] in self?.toggle() }
         key.onEscape = { [weak self] in self?.dismiss() }
         key.onMicrophone = { [weak self] in self?.handleMicrophoneShortcut() }
+        key.onMini = { [weak self] in self?.toggleMini() }
         if key.install() {
             hotkey = key
             NSLog("JARVIS: Command-Option-J fullscreen shortcut registered")
+            NSLog("JARVIS: Command-Option-S mini shortcut registered=%@", key.installMini().description)
         } else {
             NSLog("JARVIS: Command-Option-J shortcut unavailable; overlay not activated")
         }
@@ -1281,6 +1350,8 @@ final class JarvisFullscreenOverlay: ObservableObject {
     }
 
     func toggleMini() {
+        guard Date().timeIntervalSince(lastMiniToggle) > 0.35 else { return }
+        lastMiniToggle = Date()
         miniEnabled.toggle()
         UserDefaults.standard.set(miniEnabled, forKey: "jarvis.mini.enabled")
         if miniEnabled {
@@ -1292,55 +1363,151 @@ final class JarvisFullscreenOverlay: ObservableObject {
 
     private func showMini() {
         guard miniEnabled, panel == nil else { return }
-        if let miniPanel {
-            miniPanel.orderFrontRegardless()
-            return
-        }
+        if let miniPanel { miniPanel.orderFrontRegardless(); return }
         guard let screen = NSScreen.main ?? NSScreen.screens.first,
               let url = Bundle.main.url(forResource: "DECHIVE_FullHD_Loop",
                                         withExtension: "mp4") else { return }
-        let size = NSSize(width: 230, height: 245)
-        let frame = Self.miniFrame(visible: screen.visibleFrame, size: size)
+        let preferences = UserDefaults.standard
+        let savedSize = preferences.object(forKey: "jarvis.mini.diameter") as? Double ?? 190
+        miniDiameter = CGFloat(savedSize.isFinite ? min(max(savedSize, 160), 340) : 190)
+        miniHasCaption = false
+        let size = NSSize(width: miniDiameter + 12, height: miniDiameter + 38)
+        var frame = Self.miniFrame(visible: screen.visibleFrame, size: size)
+        if let saved = preferences.string(forKey: "jarvis.mini.frame") {
+            let old = NSRectFromString(saved)
+            if let destination = NSScreen.screens.first(where: { $0.visibleFrame.intersects(old) }) {
+                frame = Self.clampMini(NSRect(x: old.minX, y: old.maxY-size.height,
+                    width: size.width, height: size.height), visible: destination.visibleFrame)
+            }
+        }
         let mini = JarvisOverlayPanel(contentRect: frame,
-                                      styleMask: [.borderless],
-                                      backing: .buffered, defer: false)
+            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         mini.isOpaque = false
         mini.backgroundColor = .clear
-        mini.hasShadow = true
+        mini.hasShadow = false
         mini.hidesOnDeactivate = false
         mini.level = .floating
         mini.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         mini.isMovableByWindowBackground = true
-        mini.contentView = NSHostingView(rootView: JarvisMiniCoreView(
-            videoURL: url,
-            expand: { [weak self] in self?.show() },
-            hide: { [weak self] in self?.toggleMini() }))
+        let voice = JarvisOverlayConversation()
+        voice.miniSingleTurn = true
+        voice.prepareMiniStandby()
+        voice.onMiniTurnEnded = { [weak self] in
+            if self?.panel == nil { self?.onPresentationChanged?(false) }
+        }
+        voice.onWorkspaceRequested = { [weak self] in self?.promoteMini() }
+        miniDialogue = voice
         miniPanel = mini
+        mountMini(url: url)
+        miniObservers.append(NotificationCenter.default.addObserver(
+            forName: NSWindow.didMoveNotification, object: mini, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.saveMiniFrame() }
+        })
+        miniObservers.append(NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.layoutMini() }
+        })
         mini.orderFrontRegardless()
+        if hotkey?.installMicrophone() != true {
+            NSLog("JARVIS: mini Option-Space unavailable; microphone button remains available")
+        }
         NSLog("JARVIS: opt-in mini core shown")
     }
 
-    static func miniFrame(visible: NSRect, size: NSSize) -> NSRect {
-        NSRect(x: max(visible.minX, visible.maxX - size.width - 22),
-               y: visible.minY + 24, width: size.width, height: size.height)
+    private func mountMini(url: URL) {
+        guard let miniPanel, let miniDialogue else { return }
+        miniPanel.contentView = NSHostingView(rootView: JarvisMiniCoreView(
+            videoURL: url, diameter: miniDiameter, dialogue: miniDialogue,
+            expand: { [weak self] in self?.promoteMini() },
+            hide: { [weak self] in self?.toggleMini() },
+            resize: { [weak self] amount in self?.resizeMini(amount) },
+            microphone: { [weak self] in self?.handleMicrophoneShortcut() },
+            captionChanged: { [weak self] visible in self?.setMiniCaption(visible) }))
     }
 
-    private func hideMini() {
+    static func clampMini(_ frame: NSRect, visible: NSRect) -> NSRect {
+        NSRect(x: min(max(frame.minX,visible.minX),max(visible.minX,visible.maxX-frame.width)),
+               y: min(max(frame.minY,visible.minY),max(visible.minY,visible.maxY-frame.height)),
+               width: frame.width, height: frame.height)
+    }
+
+    static func miniFrame(visible: NSRect, size: NSSize) -> NSRect {
+        clampMini(NSRect(x: visible.maxX-size.width-22, y: visible.minY+24,
+                         width:size.width,height:size.height), visible:visible)
+    }
+
+    private func saveMiniFrame() {
         guard let miniPanel else { return }
+        UserDefaults.standard.set(NSStringFromRect(miniPanel.frame), forKey: "jarvis.mini.frame")
+        UserDefaults.standard.set(Double(miniDiameter), forKey: "jarvis.mini.diameter")
+    }
+
+    private func resizeMini(_ amount: CGFloat) {
+        guard miniPanel != nil,
+              let url = Bundle.main.url(forResource:"DECHIVE_FullHD_Loop",withExtension:"mp4") else { return }
+        miniDiameter = min(max(miniDiameter+amount,160),340)
+        layoutMini()
+        mountMini(url:url)
+        saveMiniFrame()
+    }
+
+    private func setMiniCaption(_ visible: Bool) {
+        guard miniHasCaption != visible else { return }
+        miniHasCaption = visible
+        layoutMini()
+    }
+
+    private func layoutMini() {
+        guard let miniPanel else { return }
+        let old=miniPanel.frame
+        let height=miniDiameter+38+(miniHasCaption ? 78 : 0)
+        let proposed=NSRect(x:old.minX,y:old.maxY-height,width:miniDiameter+12,height:height)
+        let visible=(miniPanel.screen ?? NSScreen.main)?.visibleFrame ?? old
+        miniPanel.setFrame(Self.clampMini(proposed,visible:visible),display:true)
+        saveMiniFrame()
+    }
+
+    private func hideMini(preserveDialogue: Bool = false) {
+        guard let miniPanel else { return }
+        saveMiniFrame()
+        for observer in miniObservers { NotificationCenter.default.removeObserver(observer) }
+        miniObservers.removeAll()
+        if !preserveDialogue {
+            miniDialogue?.cancel()
+            onPresentationChanged?(false)
+        }
+        miniDialogue = nil
         miniPanel.orderOut(nil)
         miniPanel.contentView = nil
         self.miniPanel = nil
+        hotkey?.uninstallMicrophone()
+    }
+
+    private func promoteMini() {
+        guard panel == nil, let voice = miniDialogue else { return }
+        present(fullscreenDialogue: voice)
     }
 
     private func handleMicrophoneShortcut() {
-        guard panel != nil, Date().timeIntervalSince(lastMicrophoneShortcut) > 0.25 else {
+        guard panel != nil || miniPanel != nil, Date().timeIntervalSince(lastMicrophoneShortcut) > 0.25 else {
             return
         }
         lastMicrophoneShortcut = Date()
-        dialogue?.toggleMicrophone()
+        if let dialogue { dialogue.toggleMicrophone() }
+        else if let miniDialogue {
+            onPresentationChanged?(true)
+            miniDialogue.toggleMicrophone()
+        }
     }
 
     func show() {
+        if miniDialogue != nil { promoteMini() }
+        else { present(fullscreenDialogue: nil) }
+    }
+
+    private func present(fullscreenDialogue: JarvisOverlayConversation?) {
         NSLog("JARVIS: show requested")
         guard panel == nil,
               let screen = NSScreen.main ?? NSScreen.screens.first,
@@ -1351,7 +1518,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
         }
         // Release the small video player before the fullscreen player starts.
         // The opt-in preference is retained and the mini recreates on dismiss.
-        hideMini()
+        hideMini(preserveDialogue: fullscreenDialogue != nil)
         // Cancel a background study request before starting live interaction.
         onPresentationChanged?(true)
         let window = JarvisOverlayPanel(contentRect: screen.frame,
@@ -1367,7 +1534,10 @@ final class JarvisFullscreenOverlay: ObservableObject {
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.isMovable = false
         window.setFrame(screen.frame, display: true)
-        let dialogue = JarvisOverlayConversation()
+        let dialogue = fullscreenDialogue ?? JarvisOverlayConversation()
+        dialogue.miniSingleTurn = false
+        dialogue.onWorkspaceRequested = nil
+        dialogue.onMiniTurnEnded = nil
         self.dialogue = dialogue
         window.contentView = NSHostingView(rootView: JarvisSummonedView(
             videoURL: url,
@@ -1438,6 +1608,10 @@ final class JarvisFullscreenOverlay: ObservableObject {
         // Speak only after the core is onscreen. This reuses the already
         // consented ElevenLabs service; no wake-word/microphone runs here.
         greetingTask?.cancel()
+        if fullscreenDialogue != nil {
+            dialogue.resumeFullWorkspace()
+            return
+        }
         greetingTask = Task { [weak self] in
             guard let self, self.panel != nil else { return }
             await ElevenLabsVoiceService.shared.speakSummonGreeting(fallback: self.greetingFallback)
