@@ -20,7 +20,7 @@ struct EidisMacApp: App {
 
         // Work/voice/diagnostics are secondary; available only when requested.
         MenuBarExtra("DECHIVE", systemImage: "circle.hexagongrid") {
-            JarvisMenuCommands(lifecycle: lifecycle)
+            JarvisMenuCommands(lifecycle: lifecycle, fullscreen: lifecycle.fullscreen)
         }
 
         Window("내 목소리 설정", id: "jarvis-voice-setup") {
@@ -40,9 +40,13 @@ struct EidisMacApp: App {
 private struct JarvisMenuCommands: View {
     @Environment(\.openWindow) private var openWindow
     let lifecycle: JarvisAppLifecycle
+    @ObservedObject var fullscreen: JarvisFullscreenOverlay
 
     var body: some View {
-        Button("DECHIVE 소환 / 닫기  ⌘⌥J") { lifecycle.fullscreen.toggle() }
+        Button("DECHIVE 소환 / 닫기  ⌘⌥J") { fullscreen.toggle() }
+        Button(fullscreen.miniEnabled ? "작은 코어 숨기기" : "작은 코어 항상 띄우기") {
+            fullscreen.toggleMini()
+        }
         Button("작업 및 설정 열기") {
             openWindow(id: "jarvis-tools")
             NSApp.activate(ignoringOtherApps: true)

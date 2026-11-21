@@ -2,6 +2,7 @@ import AppKit
 import AVFoundation
 import Carbon
 import SwiftUI
+import Combine
 
 // Keyboard invocation is always explicit. This preview does not run a microphone
 // or claim the '자비스' wake word works.
@@ -136,6 +137,53 @@ private struct JarvisLoopingCore: NSViewRepresentable {
     static func dismantleNSView(_ view: JarvisVideoSurface, coordinator: Coordinator) {
         coordinator.player.pause()
         view.playerLayer?.player = nil
+    }
+}
+
+
+/// Idle, read-only desktop companion. It never opens the microphone.
+private struct JarvisMiniCoreView: View {
+    let videoURL: URL
+    let expand: () -> Void
+    let hide: () -> Void
+
+    var body: some View {
+        VStack(spacing: 4) {
+            HStack(spacing: 6) {
+                Circle().fill(Color.orange.opacity(0.88))
+                    .frame(width: 6, height: 6)
+                Text("JARVIS / STANDBY")
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.orange)
+                Spacer()
+                Button(action: hide) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.67))
+                        .padding(6)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("jarvis-mini-hide")
+            }
+            Button(action: expand) {
+                JarvisLoopingCore(videoURL: videoURL, compact: true)
+                    .frame(width: 205, height: 182)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .allowsHitTesting(false)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("jarvis-mini-expand")
+            Text("⌘⌥J · 전체화면 열기")
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.60))
+        }
+        .padding(10)
+        .frame(width: 230, height: 245)
+        .background(.black.opacity(0.94),
+                    in: RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18)
+            .stroke(Color.orange.opacity(0.40), lineWidth: 1))
+        .accessibilityIdentifier("jarvis-mini-core")
     }
 }
 
@@ -1186,9 +1234,12 @@ private struct JarvisSummonedView: View {
 }
 
 @MainActor
-final class JarvisFullscreenOverlay {
+final class JarvisFullscreenOverlay: ObservableObject {
+    @Published private(set) var miniEnabled =
+        UserDefaults.standard.bool(forKey: "jarvis.mini.enabled")
     private var hotkey: JarvisOverlayHotkey?
     private var panel: JarvisOverlayPanel?
+    private var miniPanel: JarvisOverlayPanel?
     private var interactionMonitor: Any?
     private var lastScrollInput = Date.distantPast
     private var horizontalScrollTotal: CGFloat = 0
@@ -1213,6 +1264,7 @@ final class JarvisFullscreenOverlay {
         } else {
             NSLog("JARVIS: Command-Option-J shortcut unavailable; overlay not activated")
         }
+        if miniEnabled { showMini() }
         // Manual invocation used only for test builds; production launch remains quiet.
         if ProcessInfo.processInfo.arguments.contains("--overlay-preview") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { [self] in
@@ -1226,6 +1278,58 @@ final class JarvisFullscreenOverlay {
         guard Date().timeIntervalSince(lastToggle) > 0.45 else { return }
         lastToggle = Date()
         if panel == nil { show() } else { dismiss() }
+    }
+
+    func toggleMini() {
+        miniEnabled.toggle()
+        UserDefaults.standard.set(miniEnabled, forKey: "jarvis.mini.enabled")
+        if miniEnabled {
+            if panel == nil { showMini() }
+        } else {
+            hideMini()
+        }
+    }
+
+    private func showMini() {
+        guard miniEnabled, panel == nil else { return }
+        if let miniPanel {
+            miniPanel.orderFrontRegardless()
+            return
+        }
+        guard let screen = NSScreen.main ?? NSScreen.screens.first,
+              let url = Bundle.main.url(forResource: "DECHIVE_FullHD_Loop",
+                                        withExtension: "mp4") else { return }
+        let size = NSSize(width: 230, height: 245)
+        let frame = Self.miniFrame(visible: screen.visibleFrame, size: size)
+        let mini = JarvisOverlayPanel(contentRect: frame,
+                                      styleMask: [.borderless],
+                                      backing: .buffered, defer: false)
+        mini.isOpaque = false
+        mini.backgroundColor = .clear
+        mini.hasShadow = true
+        mini.hidesOnDeactivate = false
+        mini.level = .floating
+        mini.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        mini.isMovableByWindowBackground = true
+        mini.contentView = NSHostingView(rootView: JarvisMiniCoreView(
+            videoURL: url,
+            expand: { [weak self] in self?.show() },
+            hide: { [weak self] in self?.toggleMini() }))
+        miniPanel = mini
+        mini.orderFrontRegardless()
+        NSLog("JARVIS: opt-in mini core shown")
+    }
+
+    static func miniFrame(visible: NSRect, size: NSSize) -> NSRect {
+        NSRect(x: max(visible.minX, visible.maxX - size.width - 22),
+               y: visible.minY + 24, width: size.width, height: size.height)
+    }
+
+    private func hideMini() {
+        guard let miniPanel else { return }
+        miniPanel.orderOut(nil)
+        miniPanel.contentView = nil
+        self.miniPanel = nil
     }
 
     private func handleMicrophoneShortcut() {
@@ -1245,6 +1349,9 @@ final class JarvisFullscreenOverlay {
             NSLog("JARVIS: fullscreen video asset or active screen missing")
             return
         }
+        // Release the small video player before the fullscreen player starts.
+        // The opt-in preference is retained and the mini recreates on dismiss.
+        hideMini()
         // Cancel a background study request before starting live interaction.
         onPresentationChanged?(true)
         let window = JarvisOverlayPanel(contentRect: screen.frame,
@@ -1401,9 +1508,11 @@ final class JarvisFullscreenOverlay {
         window.orderOut(nil)
         window.contentView = nil // releases video layer and pauses AVPlayerLooper
         onPresentationChanged?(false)
+        if miniEnabled { showMini() }
     }
 
     func stop() {
+        hideMini()
         hotkey?.uninstallEscape()
         hotkey?.uninstallMicrophone()
         greetingTask?.cancel()
