@@ -12,7 +12,7 @@ class DekaStandby(unittest.TestCase):
         self.assertIn("데카 상시 대기 켜기",MENU)
         self.assertIn("데카 상시 대기 끄기",MENU)
         self.assertNotIn("seconds(180)",WAKE)
-        self.assertIn("seconds(15)",WAKE)
+        self.assertIn("seconds(45)",WAKE)
     def test_pause_while_any_dialogue_or_audio_is_active(self):
         for value in ["voice.wakeCaptureBusy || greetingTask != nil",
                       "greetingFallback.isSpeaking || ElevenLabsVoiceService.shared.outputActive",

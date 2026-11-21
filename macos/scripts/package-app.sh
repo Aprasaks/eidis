@@ -31,6 +31,8 @@ rm -f "$RESOURCES/JARVIS_FullHD_Loop.mp4"
 rm -f "$RESOURCES/JARVIS_Activation_Alpha_HEVC.mov"
 cp "$ROOT/app.py" "$RESOURCES/app.py"
 cp "$ROOT/tools/wakeword/deka_worker.py" "$RESOURCES/deka_worker.py"
+cp "$ROOT/tools/speaker/voice_gate.py" "$RESOURCES/voice_gate.py"
+cp "$ROOT/tools/speaker/voice_id.py" "$RESOURCES/voice_id.py"
 for source in "$ROOT"/jarvis/*.py; do
   cp "$source" "$RESOURCES/jarvis/"
 done

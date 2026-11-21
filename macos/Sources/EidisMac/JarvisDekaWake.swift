@@ -80,15 +80,15 @@ final class DekaPCMRelay: @unchecked Sendable {
         guard epoch == id, armed else { return }
         guard allowed else { fail("데카 마이크 권한 필요"); return }
         let root = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".jarvis-lab/wakeword")
-        let python = root.appendingPathComponent("venv/bin/python")
+        let python = JarvisVoiceIdentity.python
         guard FileManager.default.isExecutableFile(atPath: python.path),
               FileManager.default.fileExists(atPath: root.appendingPathComponent("deka_ko_experimental.onnx").path),
-              let script = Bundle.main.url(forResource:"deka_worker",withExtension:"py") else {
-            fail("데카 실험 모델 또는 로컬 환경 없음"); return
+              let script = JarvisVoiceIdentity.worker else {
+            fail("데카 호출 또는 화자 모델 환경 없음"); return
         }
         let child = Process(), stdin = Pipe(), stdout = Pipe()
         child.executableURL = python
-        child.arguments = ["-I", "-u", script.path]
+        child.arguments = ["-I", "-B", "-u", script.path, "wake"]
         child.standardInput = stdin; child.standardOutput = stdout
         child.standardError = FileHandle.nullDevice
         process = child; input = stdin; output = stdout
@@ -100,7 +100,7 @@ final class DekaPCMRelay: @unchecked Sendable {
         do { try child.run() }
         catch { fail("데카 모델 실행 실패"); return }
         deadline = Task { [weak self] in
-            do { try await Task.sleep(for: .seconds(15)) } catch { return }
+            do { try await Task.sleep(for: .seconds(45)) } catch { return }
             guard let self, self.epoch == id, !self.ready else { return }
             self.fail("데카 모델 준비 시간 초과")
         }
@@ -118,6 +118,8 @@ final class DekaPCMRelay: @unchecked Sendable {
             outputBuffer.removeSubrange(...end)
             if line == "READY", !ready {
                 ready = true; startAudio(id: id)
+            } else if line == "REJECT", ready {
+                NSLog("DEKA: wake candidate rejected by experimental speaker filter")
             } else if line.hasPrefix("HIT "), ready,
                       let score = Double(line.dropFirst(4)), score.isFinite,
                       (0.5...1).contains(score) {
@@ -125,7 +127,7 @@ final class DekaPCMRelay: @unchecked Sendable {
                 onHit?()
                 return
             } else {
-                fail("데카 모델 응답 오류"); return
+                fail("데카 모델 또는 음성 프로필 오류"); return
             }
         }
     }

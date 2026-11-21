@@ -71,6 +71,13 @@ final class LocalSpeechListener: ObservableObject {
     private var recognitionFailed = false
     private var finishConsumed = true
     private var sessionId = UUID()
+    var requiresOwnerVoice = false
+    private var voiceIDCapture: JarvisVoiceIDCapture?
+    func takeVoiceIDAudio() -> Data? {
+        let value=voiceIDCapture?.take()
+        voiceIDCapture=nil
+        return value
+    }
 
     var captureBusy: Bool { isStarting || isFinalizing }
 
@@ -83,6 +90,8 @@ final class LocalSpeechListener: ObservableObject {
         sessionId = session
         isStarting = true
         defer { if sessionId == session { isStarting = false } }
+        voiceIDCapture?.discard()
+        voiceIDCapture=nil
         transcript = ""
         assembled.reset()
         recognitionEpoch &+= 1
@@ -134,8 +143,15 @@ final class LocalSpeechListener: ObservableObject {
                 return
             }
             let relay = audioRelay
+            let capture = requiresOwnerVoice ? JarvisVoiceIDCapture(source:format) : nil
+            guard !requiresOwnerVoice || capture != nil else {
+                status = "화자 확인용 입력 형식을 사용할 수 없습니다."
+                return
+            }
+            voiceIDCapture = capture
             input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
                 relay.append(buffer)
+                capture?.append(buffer)
             }
             tapInstalled = true
             engine.prepare()
@@ -147,6 +163,8 @@ final class LocalSpeechListener: ObservableObject {
             beginRecognitionSegment(session: session)
         } catch {
             stopAudio()
+            voiceIDCapture?.discard()
+            voiceIDCapture=nil
             audioRequest?.endAudio()
             recognitionTask?.cancel()
             recognitionTask = nil
@@ -274,6 +292,8 @@ final class LocalSpeechListener: ObservableObject {
         sessionId = UUID()
         recognitionEpoch &+= 1
         stopAudio()
+        voiceIDCapture?.discard()
+        voiceIDCapture=nil
         audioRequest?.endAudio()
         recognitionTask?.cancel()
         recognitionTask = nil

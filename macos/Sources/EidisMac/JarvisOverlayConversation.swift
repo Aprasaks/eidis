@@ -310,6 +310,7 @@ final class JarvisOverlayConversation: ObservableObject {
         listeningTask = Task { [weak self] in
             guard let self else { return }
             self.status = "마이크·한국어 음성 인식 확인 중…"
+            self.listener.requiresOwnerVoice = self.wakeTurn || self.wakeStandbyEnabled
             await self.listener.start()
             guard !Task.isCancelled && self.generation == token else {
                 self.listener.cancel()
@@ -393,6 +394,22 @@ final class JarvisOverlayConversation: ObservableObject {
                 beforeFinishing: lastVisibleTranscript,
                 afterFinishing: self.listener.transcript) : nil
             let questionText = utterance.isEmpty ? (recovered ?? "") : utterance
+            // The raw audio belongs to this turn only. Even the provisional
+            // transcript recovery must pass the same speaker gate.
+            let requireOwner = self.listener.requiresOwnerVoice
+            let audio = self.listener.takeVoiceIDAudio()
+            if requireOwner && !questionText.isEmpty {
+                let verified = if let audio { await JarvisVoiceIdentity.verify(audio) } else { false }
+                guard !Task.isCancelled && token == self.generation else { return }
+                if !verified {
+                    self.isThinking = false
+                    self.liveTranscript = ""
+                    self.status = "등록된 목소리 확인 실패 · 질문 전달하지 않음"
+                    NSLog("DEKA: command rejected by experimental speaker filter")
+                    self.finishMiniTurn()
+                    return
+                }
+            }
             self.isThinking = false
             guard !questionText.isEmpty else {
                 self.liveTranscript = ""
