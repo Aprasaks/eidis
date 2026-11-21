@@ -163,6 +163,18 @@ struct JarvisLiveDialoguePanel: View {
                             }
                             .id(turn.id)
                         }
+                        if dialogue.isThinking && !dialogue.streamingAnswer.isEmpty {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text("JARVIS / 답변 작성 중 · 최종 답변 아님")
+                                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                                    .foregroundStyle(amber)
+                                Text(dialogue.streamingAnswer)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.white.opacity(0.88))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .id("streaming")
+                        }
                         if dialogue.isListening || !dialogue.liveTranscript.isEmpty {
                             VStack(alignment: .leading, spacing: 5) {
                                 Text("주인님 / LIVE TRANSCRIPT")
@@ -196,6 +208,9 @@ struct JarvisLiveDialoguePanel: View {
                     withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo("end", anchor: .bottom) }
                 }
                 .onChange(of: dialogue.liveTranscript) { _, _ in
+                    proxy.scrollTo("end", anchor: .bottom)
+                }
+                .onChange(of: dialogue.streamingAnswer) { _, _ in
                     proxy.scrollTo("end", anchor: .bottom)
                 }
             }

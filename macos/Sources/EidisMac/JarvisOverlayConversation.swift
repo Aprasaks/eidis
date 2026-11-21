@@ -35,6 +35,7 @@ final class JarvisOverlayConversation: ObservableObject {
     private var continuityMonitor: Task<Void, Never>?
     @Published private(set) var liveTranscript = ""
     @Published private(set) var speechCaptureNotice = ""
+    @Published private(set) var streamingAnswer = ""
     @Published private(set) var dialogueTurns: [JarvisLiveDialogueTurn] = []
     @Published var autoTurnEnabled: Bool {
         didSet { UserDefaults.standard.set(autoTurnEnabled, forKey: "jarvis.dialogue.autoTurn") }
@@ -206,6 +207,7 @@ final class JarvisOverlayConversation: ObservableObject {
         }
         isThinking = false
         isSpeaking = false
+        streamingAnswer = ""
         status = "DECHIVE 응답을 중단했습니다. 말씀하세요."
     }
 
@@ -283,7 +285,10 @@ final class JarvisOverlayConversation: ObservableObject {
             // Hold the exact words already displayed in THIS microphone turn.
             // Apple's recognizer can fail or stop just as auto-finish begins.
             let lastVisibleTranscript = self.liveTranscript
+            let finishStarted = Date()
             let utterance = await self.listener.finish()
+            NSLog("DECHIVE speech finalization elapsed_ms=%.1f",
+                  Date().timeIntervalSince(finishStarted)*1000)
             guard !Task.isCancelled && token == self.generation else { return }
             let recovered = utterance.isEmpty ? LocalSpeechDecision.recoverCapturedText(
                 beforeFinishing: lastVisibleTranscript,
@@ -320,21 +325,26 @@ final class JarvisOverlayConversation: ObservableObject {
     private func handleQuestion(_ text: String, token: UUID) async {
         guard token == generation && !Task.isCancelled else { return }
         let prompt = String(text.prefix(6000))
+        let requestStarted = Date()
         question = prompt
         liveTranscript = ""
         dialogueTurns.append(JarvisLiveDialogueTurn(role: "YOU", content: prompt))
         if dialogueTurns.count > 12 { dialogueTurns.removeFirst(dialogueTurns.count - 12) }
         answer = ""
+        streamingAnswer = ""
         sourceURL = nil
         sourceTitle = ""
         isMemoryAnswer = JarvisPersonalProfile.parse(prompt) == .recall
         isThinking = true
-        status = "Qwen3.5가 요청을 이해하고 기능을 선택하는 중…"
+        status = "질문 처리 중…"
         do {
             let response = try await planAndRespond(prompt, token: token)
             guard !response.isEmpty else { return }
             guard token == generation && !Task.isCancelled else { return }
+            NSLog("DECHIVE response text ready elapsed_ms=%.1f",
+                  Date().timeIntervalSince(requestStarted)*1000)
             isThinking = false
+            streamingAnswer = ""
             answer = response
             dialogueTurns.append(JarvisLiveDialogueTurn(role: "DECHIVE", content: response))
             if dialogueTurns.count > 12 { dialogueTurns.removeFirst(dialogueTurns.count - 12) }
@@ -360,7 +370,10 @@ final class JarvisOverlayConversation: ObservableObject {
                 speechText = String(response.prefix(550)) + ". 자세한 보고서는 화면에서 확인하실 수 있습니다."
             } else { speechText = response }
             let spoken = speechText.replacingOccurrences(of: "DECHIVE", with: "데카이브", options: .caseInsensitive)
+            let voiceStarted = Date()
             await elevenLabs.speak(spoken, fallback: macVoice)
+            NSLog("DECHIVE voice synthesis request elapsed_ms=%.1f",
+                  Date().timeIntervalSince(voiceStarted)*1000)
             guard token == generation && !Task.isCancelled else { return }
             await elevenLabs.waitForOutputToFinish(fallback: macVoice)
             guard token == generation && !Task.isCancelled else { return }
@@ -369,6 +382,7 @@ final class JarvisOverlayConversation: ObservableObject {
             if isActive { activateListening() }
         } catch {
             guard token == generation && !Task.isCancelled else { return }
+            streamingAnswer = ""
             isThinking = false
             isSpeaking = false
             status = "로컬 Qwen에 연결할 수 없습니다. Ollama 실행 상태를 확인해 주세요."
@@ -378,6 +392,11 @@ final class JarvisOverlayConversation: ObservableObject {
     /// Qwen selects tools through the local Ollama API. This client only runs
     /// audited, read-only actions from JarvisCommand, never generated code.
     private func planAndRespond(_ prompt: String, token: UUID) async throws -> String {
+        // A known local fact is never guessed by Qwen and requires no token
+        // generation, web request or stored timestamp.
+        if let clock = JarvisLocalClock.parse(prompt) {
+            return JarvisLocalClock.answer(clock)
+        }
         if let intent = JarvisBrowserControlIntent.parse(prompt) {
             if case .open = intent {
                 _ = liveDashboard.hide()
@@ -570,6 +589,7 @@ final class JarvisOverlayConversation: ObservableObject {
         guard !Task.isCancelled, token == generation else { return "" }
         // Log elapsed time, never utterances, project text or private memories.
         NSLog("DECHIVE thinking retrieval duration_ms=%.1f", Date().timeIntervalSince(contextStarted) * 1000)
+        let useFastStream = JarvisConversationSpeedRoute.shouldStreamWithoutTools(prompt)
         let reasoningGuidance: String
         switch thinkingMode {
         case .fast:
@@ -579,13 +599,25 @@ final class JarvisOverlayConversation: ObservableObject {
         case .deliberate:
             reasoningGuidance = "주인님의 고민에 무조건 동의하지 마세요. 관찰된 사실, 추정, 검증할 질문을 구분하고 현실적인 대안이나 반론을 제시하세요. 말은 간결하게 하세요."
         }
-        var messages = [["role": "system", "content": JarvisCommand.systemInstructions + "\n" +
-                        reasoningGuidance + "\n" + panelContext +
+        let shortDialoguePolicy = """
+        당신은 Mac 안에서 작동하는 한국어 개인 비서 자비스입니다. 사용자를 '주인님'이라고 부릅니다.
+        일반 질문에 간결하고 자연스럽게 답하되, 확인하지 않은 사실·현재 시각·실시간 자료를
+        추측해서 사실처럼 주장하지 마세요. 명령을 수행하거나 데이터를 변경했다고 주장하지 마세요.
+        원문으로 확인하지 않은 외부 자료를 사실로 확정하지 마세요.
+        맥락을 과장하거나 없는 사용자 기록을 꾸며내지 마세요.
+        보통 한두 문장으로 답하고 필요할 때만 간단히 설명하세요.
+        """
+        var messages = [["role": "system", "content":
+                        (useFastStream ? shortDialoguePolicy :
+                            JarvisCommand.systemInstructions + "\n" + panelContext) +
+                        "\n" + reasoningGuidance +
+                        "\n[실제 Mac 시스템 시각 — 항상 이 값을 현재 날짜·시간 기준으로 사용] " +
+                        JarvisLocalClock.answer(.both) +
                         (profileContext.isEmpty ? "" : "\n" + profileContext) +
                         (recalledContext.isEmpty ? "" : "\n" + recalledContext)]]
         messages.append(contentsOf: conversation.suffix(8))
         messages.append(["role": "user", "content": String(prompt.prefix(900))])
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "model": "qwen3.5:9b-q4_K_M",
             "messages": messages,
             "tools": JarvisCommand.tools,
@@ -594,12 +626,38 @@ final class JarvisOverlayConversation: ObservableObject {
             // Keep usable answers until a larger-budget mode is benchmarked.
             "think": false,
             "stream": false,
-            "keep_alive": "10m",
+            "keep_alive": "30m",
             "options": ["num_ctx": thinkingMode == .fast ? 4096 : 6144,
                         "num_predict": thinkingMode == .deliberate ? 380 : 260,
                         "temperature": 0.1]
         ]
+        if useFastStream {
+            // Ordinary conversations do not need the expensive tool schema.
+            // Preserve audited tool selection for any action-like request.
+            body.removeValue(forKey: "tools")
+            body["stream"] = true
+            body["options"] = [
+                "num_ctx": thinkingMode == .fast ? 2048 : 4096,
+                "num_predict": thinkingMode == .deliberate ? 280 : 160,
+                "temperature": 0.1
+            ]
+        }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        if useFastStream {
+            status = "자비스가 답변하는 중…"
+            let output = try await JarvisOllamaTextStream.receive(
+                request: request, session: session
+            ) { [weak self] partial in
+                guard let self, !Task.isCancelled, token == self.generation else { return }
+                self.streamingAnswer = partial
+            }
+            guard !Task.isCancelled, token == generation else { return "" }
+            conversation.append(["role": "user", "content": prompt])
+            conversation.append(["role": "assistant", "content": output])
+            if conversation.count > 8 { conversation.removeFirst(conversation.count - 8) }
+            return output
+        }
+        status = "로컬 Qwen에서 안전한 명령을 확인하는 중…"
         let data: Data
         let response: URLResponse
         do {
@@ -873,6 +931,7 @@ final class JarvisOverlayConversation: ObservableObject {
         sourceURL = nil
         sourceTitle = ""
         isMemoryAnswer = false
+        streamingAnswer = ""
         conversation.removeAll()
         dashboard.cancel()
         browser.cancel()

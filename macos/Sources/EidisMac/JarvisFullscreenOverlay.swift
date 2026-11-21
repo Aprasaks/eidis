@@ -264,7 +264,8 @@ private struct JarvisSummonedView: View {
 
                 // Keep the original JARVIS title unobstructed even for long
                 // answers: subtitles sit on the left, not atop the gold core.
-                if !dialogue.answer.isEmpty && !commandCenter && !workspaceActive {
+                if (!dialogue.answer.isEmpty || !dialogue.streamingAnswer.isEmpty)
+                   && !commandCenter && !workspaceActive {
                     HStack(alignment: .bottom) {
                         VStack(alignment: .leading, spacing: 7) {
                             Text(dialogue.question)
@@ -276,7 +277,8 @@ private struct JarvisSummonedView: View {
                                 // Keep its full text scrollable, never truncate
                                 // the user's researched answer with an ellipsis.
                                 ScrollView(.vertical) {
-                                    Text(dialogue.answer)
+                                    Text(dialogue.answer.isEmpty ? dialogue.streamingAnswer :
+                                         dialogue.answer)
                                         .font(.system(size: 13))
                                         .foregroundStyle(.white.opacity(0.93))
                                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -285,7 +287,8 @@ private struct JarvisSummonedView: View {
                                 .frame(maxHeight: min(210, area.size.height * 0.25))
                                 .scrollIndicators(.visible)
                             } else {
-                                Text(dialogue.answer)
+                                Text(dialogue.answer.isEmpty ? dialogue.streamingAnswer :
+                                     dialogue.answer)
                                     .font(.system(size: 14))
                                     .foregroundStyle(.white.opacity(0.93))
                                     .fixedSize(horizontal: false, vertical: true)
@@ -312,10 +315,12 @@ private struct JarvisSummonedView: View {
                     .allowsHitTesting(dialogue.sourceURL != nil || dialogue.isMemoryAnswer)
                 }
 
-                if commandCenter && !dialogue.answer.isEmpty {
+                if commandCenter && (!dialogue.answer.isEmpty ||
+                                     !dialogue.streamingAnswer.isEmpty) {
                     VStack {
                         Spacer()
-                        Text(dialogue.answer)
+                        Text(dialogue.answer.isEmpty ? dialogue.streamingAnswer :
+                             dialogue.answer)
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(.white.opacity(0.94))
                             .lineLimit(2)
@@ -493,6 +498,17 @@ private struct JarvisSummonedView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .id(turn.id)
                         }
+                        if dialogue.isThinking && !dialogue.streamingAnswer.isEmpty {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("JARVIS / 작성 중 · 아직 최종 답변 아님")
+                                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                                    .foregroundStyle(.orange)
+                                Text(dialogue.streamingAnswer)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.white.opacity(0.86))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
                         if dialogue.isListening || !dialogue.liveTranscript.isEmpty {
                             VStack(alignment: .leading, spacing: 5) {
                                 Text("LIVE TRANSCRIPT")
@@ -522,6 +538,9 @@ private struct JarvisSummonedView: View {
                     }
                 }
                 .onChange(of: dialogue.liveTranscript) { _, _ in
+                    proxy.scrollTo("workspace-end", anchor: .bottom)
+                }
+                .onChange(of: dialogue.streamingAnswer) { _, _ in
                     proxy.scrollTo("workspace-end", anchor: .bottom)
                 }
             }

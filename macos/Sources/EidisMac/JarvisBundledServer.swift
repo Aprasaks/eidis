@@ -182,6 +182,7 @@ final class JarvisAppLifecycle: NSObject, NSApplicationDelegate {
     let fullscreen = JarvisFullscreenOverlay()
     private let studyRunner = JarvisStudyRunner()
     private let verificationRunner = JarvisVerificationRunner()
+    private let localModelWarmup = JarvisLocalModelWarmup()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         fullscreen.onPresentationChanged = { [weak self] active in
@@ -192,6 +193,9 @@ final class JarvisAppLifecycle: NSObject, NSApplicationDelegate {
         Task {
             await server.connectOnLaunch()
             if server.ready {
+                // Warm the on-device model in parallel with the animated
+                // UI. Users should not pay the cold-load penalty on first turn.
+                localModelWarmup.start()
                 studyRunner.start()
                 verificationRunner.start()
             }
@@ -206,6 +210,7 @@ final class JarvisAppLifecycle: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        localModelWarmup.stop()
         verificationRunner.stop()
         studyRunner.stop()
         fullscreen.stop()
