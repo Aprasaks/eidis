@@ -57,6 +57,7 @@ final class LocalSpeechListener: ObservableObject {
     @Published private(set) var transcript = ""
     @Published private(set) var status = "마이크가 꺼져 있습니다. 버튼을 누를 때만 듣습니다."
     @Published private(set) var lastCaptureEvidence = ""
+    @Published private(set) var activeMicrophone = ""
 
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "ko-KR"))
     private let engine = AVAudioEngine()
@@ -84,6 +85,7 @@ final class LocalSpeechListener: ObservableObject {
         recognitionEpoch &+= 1
         audioRelay.replace(with: nil)
         lastCaptureEvidence = ""
+        activeMicrophone = ""
         finalReceived = false
         recognitionFailed = false
         finishConsumed = false
@@ -135,6 +137,8 @@ final class LocalSpeechListener: ObservableObject {
             tapInstalled = true
             engine.prepare()
             try engine.start()
+            let name = AVCaptureDevice.default(for: .audio)?.localizedName ?? "이름 확인 불가"
+            activeMicrophone = "Mac 입력: \(String(name.prefix(70))) · \(Int(format.sampleRate))Hz"
             isListening = true
             status = "듣는 중… 인식된 문장은 쉬었다 이어가도 유지됩니다."
             beginRecognitionSegment(session: session)
@@ -159,6 +163,10 @@ final class LocalSpeechListener: ObservableObject {
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.requiresOnDeviceRecognition = true
         request.shouldReportPartialResults = true
+        // Natural Korean questions are closer to dictation than command words.
+        // Vocabulary hints favor brand/domain terms but do not rewrite output.
+        request.taskHint = .dictation
+        request.contextualStrings = JarvisSpeechVocabulary.phrases
         audioRequest = request
         finalReceived = false
         audioRelay.replace(with: request)

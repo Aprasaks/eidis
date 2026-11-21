@@ -1,0 +1,19 @@
+import Foundation
+
+@main struct SpeechVocabularySmoke {
+    static func main() {
+        let terms=JarvisSpeechVocabulary.phrases
+        precondition(!terms.isEmpty && terms.count<=100)
+        precondition(Set(terms).count==terms.count)
+        precondition(terms.allSatisfy {
+            !$0.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty &&
+            $0.count<=30 &&
+            !$0.contains("\n")
+        })
+        for item in ["자비스","데카이브","DECHIVE","깃허브","GitHub",
+                     "Vercel","Ollama","Qwen","ElevenLabs","브라우저"] {
+            precondition(terms.contains(item),"Missing vocabulary hint: \(item)")
+        }
+        print("PASS: short, unique and bounded on-device JARVIS speech vocabulary (\(terms.count))")
+    }
+}

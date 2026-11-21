@@ -218,6 +218,13 @@ private struct JarvisSummonedView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             voicePauseMenu
                         }
+                        if !dialogue.activeMicrophone.isEmpty {
+                            Text(dialogue.activeMicrophone)
+                                .font(.system(size: 9))
+                                .foregroundStyle(.white.opacity(0.62))
+                                .lineLimit(1)
+                                .accessibilityIdentifier("jarvis-active-microphone")
+                        }
                         if !dialogue.speechCaptureNotice.isEmpty {
                             Text(dialogue.speechCaptureNotice)
                                 .font(.system(size: 9))
@@ -471,6 +478,13 @@ private struct JarvisSummonedView: View {
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 voicePauseMenu
+            }
+            if !dialogue.activeMicrophone.isEmpty {
+                Text(dialogue.activeMicrophone)
+                    .font(.system(size: 9))
+                    .foregroundStyle(.white.opacity(0.62))
+                    .lineLimit(2)
+                    .accessibilityIdentifier("jarvis-workspace-active-microphone")
             }
             if !dialogue.speechCaptureNotice.isEmpty {
                 Text(dialogue.speechCaptureNotice)

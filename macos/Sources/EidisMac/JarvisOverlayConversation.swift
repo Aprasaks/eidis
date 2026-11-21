@@ -35,6 +35,7 @@ final class JarvisOverlayConversation: ObservableObject {
     private var continuityMonitor: Task<Void, Never>?
     @Published private(set) var liveTranscript = ""
     @Published private(set) var speechCaptureNotice = ""
+    @Published private(set) var activeMicrophone = ""
     @Published private(set) var streamingAnswer = ""
     @Published private(set) var dialogueTurns: [JarvisLiveDialogueTurn] = []
     @Published var autoTurnEnabled: Bool {
@@ -239,6 +240,7 @@ final class JarvisOverlayConversation: ObservableObject {
                 return
             }
             self.isListening = self.listener.isListening
+            self.activeMicrophone = self.listener.activeMicrophone
             self.isActive = self.listener.isListening
             if self.listener.isListening {
                 self.liveTranscript = ""
