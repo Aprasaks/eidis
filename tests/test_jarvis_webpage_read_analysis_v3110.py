@@ -54,7 +54,7 @@ class JarvisWebPageAnalysisContract(unittest.TestCase):
         self.assertIn('출처:',OVERLAY)
         self.assertIn('ScrollView(.vertical)', OVERLAY)
         panel=(ROOT / "macos/Sources/EidisMac/JarvisLiveDialoguePanel.swift").read_text()
-        self.assertIn('if !commandCenter && !workspaceActive && (showDetails || activeResearch)', OVERLAY)
+        self.assertIn('if !commandCenter && !workspaceActive {', OVERLAY)
         self.assertIn('ScrollView(.vertical)', panel)
         self.assertIn('Text(turn.content)', panel)
         self.assertIn('.textSelection(.enabled)', panel)

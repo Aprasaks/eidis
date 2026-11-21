@@ -6,17 +6,14 @@ UI=(ROOT/"macos/Sources/EidisMac/JarvisFullscreenOverlay.swift").read_text()
 CHAT=(ROOT/"macos/Sources/EidisMac/JarvisOverlayConversation.swift").read_text()
 PANEL=(ROOT/"macos/Sources/EidisMac/JarvisLiveDialoguePanel.swift").read_text()
 class CleanCoreTests(unittest.TestCase):
-    def test_resting_caption_does_not_render_technical_status(self):
-        caption=UI.split("private func restingCaption",1)[1].split("private var restingControls",1)[0]
-        self.assertIn("dialogue.liveTranscript",caption)
-        self.assertIn("dialogue.question",caption)
-        self.assertIn("dialogue.answer",caption)
-        self.assertNotIn("dialogue.status",caption)
-        self.assertNotIn("dialogue.streamingAnswer",caption)
-        self.assertIn("lineLimit(4)",caption)
-        self.assertIn("Task.sleep(for: .seconds(12))",UI)
+    def test_right_dialogue_retained_without_routine_status(self):
+        self.assertIn("JarvisLiveDialoguePanel(dialogue: dialogue, quiet: true)",UI)
+        self.assertIn("if !quiet {",PANEL)
+        self.assertIn("if !quiet && dialogue.dialogueTurns.isEmpty",PANEL)
+        self.assertIn("if !dialogue.liveTranscript.isEmpty || (!quiet && dialogue.isListening)",PANEL)
+        self.assertIn("Text(turn.content)",PANEL)
+        self.assertNotIn("restingCaption(size:",UI)
     def test_no_duplicate_transcript_on_workspace(self):
-        self.assertIn("if !commandCenter && !workspaceActive && (showDetails || activeResearch)",UI)
         self.assertIn("if !commandCenter && !workspaceActive {",UI)
         self.assertIn("workspaceConversationPanel",UI)
     def test_controls_and_diagnostics_remain_accessible(self):

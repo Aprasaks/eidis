@@ -175,6 +175,7 @@ final class JarvisOverlayConversation: ObservableObject {
     func showSummonCaption() {
         guard question.isEmpty, answer.isEmpty else { return }
         answer = "주인님, 자비스입니다."
+        dialogueTurns.append(JarvisLiveDialogueTurn(role: "DECHIVE", content: answer))
     }
 
     func afterGreeting() async {

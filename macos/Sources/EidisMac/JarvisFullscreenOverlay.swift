@@ -265,9 +265,7 @@ private struct JarvisSummonedView: View {
     @State private var appeared = false
     @State private var controlsHovered = false
     @State private var closeHovered = false
-    @State private var showDetails = false
     @State private var showDiagnostics = false
-    @State private var captionExpired = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         GeometryReader { area in
@@ -307,7 +305,7 @@ private struct JarvisSummonedView: View {
                     .opacity(appeared ? (workspaceActive ? 0.65 : 1) : 0)
                     .animation(reduceMotion ? nil : .easeInOut(duration: 0.72), value: compactCore)
                     .allowsHitTesting(false)
-                // The cinematic resting surface contains only the core.
+                // The cinematic resting surface keeps the core and right dialogue.
                 // Controls are revealed intentionally at the screen edge.
                 VStack {
                     HStack {
@@ -333,11 +331,6 @@ private struct JarvisSummonedView: View {
                 .padding(.horizontal, 30)
                 .zIndex(12)
 
-                if !commandCenter && !workspaceActive {
-                    restingCaption(size: area.size)
-                        .zIndex(2)
-                }
-
                 if commandCenter && (!dialogue.answer.isEmpty ||
                                      !dialogue.streamingAnswer.isEmpty) {
                     VStack {
@@ -359,12 +352,12 @@ private struct JarvisSummonedView: View {
                     .allowsHitTesting(false)
                 }
 
-                // Full session and actual research evidence are available on
-                // demand, never as a duplicate window over a dashboard.
-                if !commandCenter && !workspaceActive && (showDetails || activeResearch) {
+                // Keep the original right-hand dialogue surface, with spoken
+                // content only. Never duplicate it over a focused workspace.
+                if !commandCenter && !workspaceActive {
                     HStack {
                         Spacer(minLength: 0)
-                        JarvisLiveDialoguePanel(dialogue: dialogue)
+                        JarvisLiveDialoguePanel(dialogue: dialogue, quiet: true)
                             .frame(width: min(370, max(295, area.size.width * 0.235)),
                                    height: min(540, area.size.height * 0.64))
                             .padding(.trailing, 24)
@@ -441,81 +434,12 @@ private struct JarvisSummonedView: View {
                 // Never leave Space permanently disabled by a stale FocusState.
                 isInputFocused = false
                 dialogue.textInputFocused = false
-                showDetails = false
                 showDiagnostics = false
             }
-        }
-        .task(id: captionRevision) {
-            captionExpired = false
-            guard !dialogue.isThinking && !dialogue.isSpeaking else { return }
-            do { try await Task.sleep(for: .seconds(12)) } catch { return }
-            guard !Task.isCancelled else { return }
-            captionExpired = true
         }
         .onAppear {
             if reduceMotion { appeared = true }
             else { withAnimation(.easeInOut(duration: 0.36)) { appeared = true } }
-        }
-    }
-
-    private var activeResearch: Bool {
-        dialogue.isThinking && (JarvisResearchIntent.parse(dialogue.question) != nil ||
-            JarvisVerificationIntent.parse(dialogue.question) != nil)
-    }
-
-    private var captionRevision: String {
-        [dialogue.question, dialogue.answer, dialogue.liveTranscript,
-         String(dialogue.isThinking), String(dialogue.isSpeaking), captionIssue].joined(separator: "\u{1F}")
-    }
-
-    // Actionable failures may be shown in plain language; routine technical
-    // telemetry remains in the dedicated diagnostics surface.
-    private var captionIssue: String {
-        if dialogue.status.hasPrefix("로컬 Qwen에 연결할 수 없습니다") {
-            return "지금은 대답하기 어려워요. 잠시 후 다시 말씀해 주세요."
-        }
-        if dialogue.status.contains("마이크 권한") && dialogue.status.contains("확인") {
-            return "대화하려면 마이크 권한을 확인해 주세요."
-        }
-        return ""
-    }
-
-    @ViewBuilder private func restingCaption(size: CGSize) -> some View {
-        let live = dialogue.liveTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
-        let question = live.isEmpty ? dialogue.question : live
-        let answer = live.isEmpty ? (dialogue.answer.isEmpty ? captionIssue : dialogue.answer) : ""
-        if (!captionExpired || !live.isEmpty || dialogue.isSpeaking) &&
-            (!question.isEmpty || !answer.isEmpty) {
-            VStack {
-                Spacer(minLength: 0)
-                VStack(spacing: 10) {
-                    if !question.isEmpty {
-                        Text(question)
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(Color.orange.opacity(0.9))
-                            .lineLimit(2)
-                            .accessibilityIdentifier("jarvis-core-user-caption")
-                    }
-                    if !answer.isEmpty {
-                        Text(answer)
-                            .font(.system(size: 20, weight: .regular))
-                            .foregroundStyle(.white.opacity(0.97))
-                            .lineLimit(4)
-                            .accessibilityIdentifier("jarvis-core-answer-caption")
-                    }
-                }
-                .multilineTextAlignment(.center)
-                .lineSpacing(4)
-                .frame(maxWidth: min(780, size.width * 0.72))
-                .padding(.horizontal, 22)
-                .padding(.vertical, 12)
-                .background(.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 12))
-                .padding(.bottom, max(100, size.height * 0.12))
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .allowsHitTesting(false)
-            .transition(.opacity)
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: captionExpired)
         }
     }
 
@@ -543,11 +467,6 @@ private struct JarvisSummonedView: View {
                     .buttonStyle(.bordered)
                     .disabled(typedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || dialogue.isListening)
                     .accessibilityIdentifier("jarvis-overlay-send")
-                Button { showDetails.toggle() } label: {
-                    Image(systemName: "text.bubble")
-                }
-                .help("대화 기록 및 출처")
-                .accessibilityLabel("대화 기록 및 출처")
                 Button { showDiagnostics.toggle() } label: {
                     Image(systemName: "terminal")
                 }

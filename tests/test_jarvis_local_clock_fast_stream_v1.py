@@ -49,7 +49,7 @@ class LiveClockAndSpeedTests(unittest.TestCase):
         self.assertIn("답변 작성 중 · 최종 답변 아님",PANEL)
         self.assertIn("작성 중 · 아직 최종 답변 아님",VIEW)
         self.assertLess(CHAT.index("streamingAnswer = \"\"",CHAT.index("private func handleQuestion")),
-                        CHAT.index("dialogueTurns.append(JarvisLiveDialogueTurn(role: \"DECHIVE\""))
+                        CHAT.index("dialogueTurns.append(JarvisLiveDialogueTurn(role: \"DECHIVE\"",CHAT.index("private func handleQuestion")))
         self.assertIn("conversation.append([\"role\": \"assistant\", \"content\": output])",CHAT)
 
     def test_preload_is_local_no_generated_text_and_can_fail_harmlessly(self):

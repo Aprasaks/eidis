@@ -52,7 +52,7 @@ class JarvisLiveDialogueContract(unittest.TestCase):
                       'dialogueTurns.append(JarvisLiveDialogueTurn(role: "DECHIVE"',
                       'dialogueTurns.removeAll()', 'private let elevenLabs'):
             self.assertIn(value, CHAT)
-        self.assertIn('JarvisLiveDialoguePanel(dialogue: dialogue)', OVERLAY)
+        self.assertIn('JarvisLiveDialoguePanel(dialogue: dialogue, quiet: true)', OVERLAY)
         self.assertIn('JarvisLiveDialoguePanel(dialogue: dialogue)', ROOM)
         self.assertIn('activityCard(scale: scale)', ROOM)
         self.assertIn('JarvisLoopingCore(videoURL: videoURL, compact: compactCore)', OVERLAY)

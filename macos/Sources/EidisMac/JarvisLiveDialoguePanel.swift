@@ -5,6 +5,7 @@ import SwiftUI
 /// not an AI guess of what the person will say next.
 struct JarvisLiveDialoguePanel: View {
     @ObservedObject var dialogue: JarvisOverlayConversation
+    var quiet: Bool = false
     // The presentation-only panel has no settings or action controls.
 
     private let amber = Color(red: 0.94, green: 0.67, blue: 0.30)
@@ -17,20 +18,22 @@ struct JarvisLiveDialoguePanel: View {
                 Text("DECHIVE / LIVE DIALOGUE")
                     .tracking(0.9)
                 Spacer(minLength: 0)
-                Circle()
-                    .fill(dialogue.isListening ? .green : dialogue.isSpeaking ? amber : muted)
-                    .frame(width: 7, height: 7)
-                Text(dialogue.isListening ? "LISTENING" :
-                     dialogue.isThinking ? "THINKING" :
-                     dialogue.isSpeaking ? "SPEAKING" : "READY")
-                    .font(.system(size: 9, design: .monospaced))
-                    .foregroundStyle(muted)
+                if !quiet {
+                    Circle()
+                        .fill(dialogue.isListening ? .green : dialogue.isSpeaking ? amber : muted)
+                        .frame(width: 7, height: 7)
+                    Text(dialogue.isListening ? "LISTENING" :
+                         dialogue.isThinking ? "THINKING" :
+                         dialogue.isSpeaking ? "SPEAKING" : "READY")
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundStyle(muted)
+                }
             }
             .font(.system(size: 11, weight: .semibold, design: .monospaced))
             .foregroundStyle(amber)
 
             Rectangle().fill(amber.opacity(0.23)).frame(height: 1)
-            if !dialogue.continuityNotice.isEmpty {
+            if !quiet && !dialogue.continuityNotice.isEmpty {
                 HStack(alignment: .top, spacing: 6) {
                     Image(systemName: "clock.badge.exclamationmark")
                     Text(dialogue.continuityNotice)
@@ -41,7 +44,7 @@ struct JarvisLiveDialoguePanel: View {
                 .accessibilityIdentifier("dechive-continuity-notice")
             }
 
-            if !dialogue.studyNotice.isEmpty {
+            if !quiet && !dialogue.studyNotice.isEmpty {
                 HStack(spacing: 6) {
                     Image(systemName: "doc.text.magnifyingglass")
                     Text(dialogue.studyNotice)
@@ -51,7 +54,7 @@ struct JarvisLiveDialoguePanel: View {
                 .accessibilityIdentifier("dechive-study-notice")
             }
 
-            if !dialogue.actionNotice.isEmpty {
+            if !quiet && !dialogue.actionNotice.isEmpty {
                 HStack(spacing: 6) {
                     Image(systemName: "list.bullet.rectangle")
                     Text(dialogue.actionNotice)
@@ -68,8 +71,10 @@ struct JarvisLiveDialoguePanel: View {
                         Text("RESEARCH FIELD / 실제 발견 자료")
                             .fontWeight(.semibold)
                         Spacer(minLength: 0)
-                        Text(dialogue.researchNotice)
-                            .lineLimit(1)
+                        if !quiet {
+                            Text(dialogue.researchNotice)
+                                .lineLimit(1)
+                        }
                     }
                     .font(.system(size: 9, design: .monospaced))
                     .foregroundStyle(amber)
@@ -116,8 +121,10 @@ struct JarvisLiveDialoguePanel: View {
                         Text("VERIFICATION / 인용 원문 대조")
                             .fontWeight(.semibold)
                         Spacer(minLength: 0)
-                        Text(dialogue.verificationNotice)
-                            .lineLimit(1)
+                        if !quiet {
+                            Text(dialogue.verificationNotice)
+                                .lineLimit(1)
+                        }
                     }
                     .font(.system(size: 9, design: .monospaced))
                     .foregroundStyle(amber)
@@ -173,7 +180,7 @@ struct JarvisLiveDialoguePanel: View {
                         }
                         if dialogue.isThinking && !dialogue.streamingAnswer.isEmpty {
                             VStack(alignment: .leading, spacing: 5) {
-                                Text("JARVIS / 답변 작성 중 · 최종 답변 아님")
+                                Text(quiet ? "자비스 · 초안" : "JARVIS / 답변 작성 중 · 최종 답변 아님")
                                     .font(.system(size: 9, weight: .semibold, design: .monospaced))
                                     .foregroundStyle(amber)
                                 Text(dialogue.streamingAnswer)
@@ -183,9 +190,9 @@ struct JarvisLiveDialoguePanel: View {
                             }
                             .id("streaming")
                         }
-                        if dialogue.isListening || !dialogue.liveTranscript.isEmpty {
+                        if !dialogue.liveTranscript.isEmpty || (!quiet && dialogue.isListening) {
                             VStack(alignment: .leading, spacing: 5) {
-                                Text("주인님 / LIVE TRANSCRIPT")
+                                Text(quiet ? "주인님" : "주인님 / LIVE TRANSCRIPT")
                                     .font(.system(size: 9, weight: .semibold, design: .monospaced))
                                     .foregroundStyle(amber)
                                 Text(dialogue.liveTranscript.isEmpty ?
@@ -194,7 +201,7 @@ struct JarvisLiveDialoguePanel: View {
                                     .foregroundStyle(dialogue.liveTranscript.isEmpty ?
                                                     muted : .white.opacity(0.9))
                                     .fixedSize(horizontal: false, vertical: true)
-                                if !dialogue.liveTranscript.isEmpty {
+                                if !quiet && !dialogue.liveTranscript.isEmpty {
                                     Text("인식 중 · 아직 확정되지 않은 문장")
                                         .font(.system(size: 9))
                                         .foregroundStyle(muted)
@@ -202,8 +209,13 @@ struct JarvisLiveDialoguePanel: View {
                             }
                             .id("live")
                         }
-                        if dialogue.dialogueTurns.isEmpty && !dialogue.isListening {
+                        if !quiet && dialogue.dialogueTurns.isEmpty && !dialogue.isListening {
                             Text("대화를 시작하면 실제 인식 내용과 응답이 이곳에 표시됩니다.")
+                                .font(.system(size: 12))
+                                .foregroundStyle(muted)
+                        }
+                        if quiet && dialogue.status.hasPrefix("로컬 Qwen에 연결할 수 없습니다") {
+                            Text("지금은 대답하기 어려워요. 잠시 후 다시 말씀해 주세요.")
                                 .font(.system(size: 12))
                                 .foregroundStyle(muted)
                         }
