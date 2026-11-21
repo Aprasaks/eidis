@@ -276,18 +276,32 @@ private struct JarvisSummonedView: View {
             let wide = area.size.width >= 1120
             let smallCore = min(area.size.width * (wide ? 0.253 : 0.34),
                                 area.size.height * (wide ? 0.44 : 0.37))
+            // Match the command-center's actual left-column geometry.
+            let coreOuter = min(32, max(12, area.size.width * 0.015))
+            let coreColumnWidth = max(0, (area.size.width - 2 * coreOuter) * (wide ? 0.265 : 0.27))
+            let coreSlotHeight = area.size.height * 0.465
+            let commandCore = max(0, min(coreColumnWidth - 20, coreSlotHeight - 12))
             ZStack {
                 // Full-HD original has a black backdrop. Match it without
                 // chroma-key artifacts or a visibly scaled transparency matte.
                 Color.black.opacity(appeared ? 1 : 0)
                     .ignoresSafeArea()
                 JarvisLoopingCore(videoURL: videoURL, compact: compactCore)
-                    .frame(width: compactCore ? smallCore : area.size.width,
-                           height: compactCore ? smallCore : area.size.height)
+                    .frame(width: commandCenter ? commandCore : (compactCore ? smallCore : area.size.width),
+                           height: commandCenter ? commandCore : (compactCore ? smallCore : area.size.height))
                     // The 10-second film has the original JARVIS caption at its
                     // bottom. Mask ONLY the compact crop, never alter the source.
                     .mask {
-                        if compactCore {
+                        if commandCenter {
+                            // The ring extends below 72% of the original film.
+                            // Preserve its entire orbit; fade only the caption
+                            // strip near 86%. No circular crop in the overview.
+                            LinearGradient(stops: [
+                                .init(color: .white, location: 0.0),
+                                .init(color: .white, location: 0.835),
+                                .init(color: .clear, location: 0.855)
+                            ], startPoint: .top, endPoint: .bottom)
+                        } else if compactCore {
                             LinearGradient(stops: [
                                 .init(color: .white, location: 0.0),
                                 .init(color: .white, location: 0.72),
@@ -298,8 +312,8 @@ private struct JarvisSummonedView: View {
                             Rectangle().fill(.white)
                         }
                     }
-                    .position(x: commandCenter ? area.size.width * (wide ? 0.143 : 0.24) : area.size.width / 2,
-                              y: commandCenter ? area.size.height * (wide ? 0.235 : 0.18) :
+                    .position(x: commandCenter ? coreOuter + coreColumnWidth / 2 : area.size.width / 2,
+                              y: commandCenter ? 12 + coreSlotHeight / 2 :
                                 workspaceActive ? area.size.height * 0.17 : area.size.height / 2)
                     .opacity(appeared ? (workspaceActive ? 0.65 : 1) : 0)
                     .animation(reduceMotion ? nil : .easeInOut(duration: 0.72), value: compactCore)

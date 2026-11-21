@@ -12,7 +12,7 @@ class CommandCenterContract(unittest.TestCase):
                      'AVPlayerLooper(player: player', 'videoGravity = compact ? .resizeAspectFill : .resizeAspect',
                      '.animation(reduceMotion ? nil : .easeInOut(duration: 0.72)',
                      'JarvisCommandCenterView(model: liveDashboard, dialogue: dialogue)',
-                     'liveDashboard.mode == .overview', 'area.size.height * (wide ? 0.235 : 0.18)',
+                     'liveDashboard.mode == .overview', '12 + coreSlotHeight / 2',
                      'dialogue?.cancel()', 'hotkey?.uninstallEscape()'):
             self.assertIn(text,OVERLAY)
         self.assertNotIn('JARVIS_Activation_Alpha_HEVC.mov',OVERLAY)
