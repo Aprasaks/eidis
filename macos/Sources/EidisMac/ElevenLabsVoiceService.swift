@@ -419,7 +419,7 @@ final class ElevenLabsVoiceService: ObservableObject {
                             isSummonGreeting: Bool = false) async {
         let generation = speechGeneration
         guard !Task.isCancelled else { return }
-        let phrase = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let phrase = KoreanSpeechText.normalize(text).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !phrase.isEmpty else { return }
         guard (enabled || explicitlyPreviewed) && keyPresent else {
             fallback.speak(phrase)
@@ -432,7 +432,7 @@ final class ElevenLabsVoiceService: ObservableObject {
             status = "음성 생성 중입니다. 중복 호출을 막았습니다."
             return
         }
-        guard phrase.count <= Self.maxCharacters else {
+        guard phrase.count <= Self.maxCharacters, text.count <= Self.maxCharacters else {
             status = "600자를 넘는 응답은 비용·정보 노출을 줄이기 위해 Mac에서만 읽습니다."
             fallback.speak(phrase)
             return

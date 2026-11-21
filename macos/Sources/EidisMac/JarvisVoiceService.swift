@@ -50,7 +50,7 @@ final class JarvisVoiceService: ObservableObject {
     }
 
     func speak(_ text: String) {
-        let phrase = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let phrase = KoreanSpeechText.normalize(text).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !phrase.isEmpty else { return }
         synthesizer.stopSpeaking(at: .immediate)
         let utterance = AVSpeechUtterance(string: phrase)
