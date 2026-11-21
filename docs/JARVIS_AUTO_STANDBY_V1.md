@@ -1,0 +1,4 @@
+# Automatic DEKA standby
+- User explicitly requested automatic listening on app launch. Persist jarvis.deka.autoStandby in macOS defaults; opted-in installation starts the existing local low-power detector without a menu click. Default for other installs is off until a user opts in. Manual menu disable or hiding the final mini core persists off. Settings still suspend listening until manually started again or opted-in relaunch/wake.
+- Actual system sleep stops capture; didWake resumes after two seconds if opted in. App exit stops capture without erasing the preference. No new login item, system sleep policy or permission bypass. Preview launch is excluded from automatic mic start.
+- Existing enrolled-speaker gates, thresholds, quiet gating, session timeout and audio privacy are unchanged. Log only standby state transitions. 308 regression tests including source contracts and signed app build; actual distant calling and wake-from-sleep not yet hardware tested.

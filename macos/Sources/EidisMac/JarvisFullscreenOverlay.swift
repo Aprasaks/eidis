@@ -1270,12 +1270,16 @@ private struct JarvisSummonedView: View {
 final class JarvisFullscreenOverlay: ObservableObject {
     @Published private(set) var miniEnabled =
         UserDefaults.standard.bool(forKey: "jarvis.mini.enabled")
-    // Explicit session opt-in; restart never silently opens the microphone.
+    // Persistent opt-in: launch and wake restore the user-selected preference.
     @Published private(set) var dekaEnabled = false
     @Published private(set) var dekaArmed = false
     @Published private(set) var dekaStatus = "데카 상시 대기 꺼짐"
     private let deka = JarvisDekaWake()
+    private let dekaPreferenceKey = "jarvis.deka.autoStandby"
     private var dekaSleepObserver: NSObjectProtocol?
+    private var dekaWakeObserver: NSObjectProtocol?
+    private var dekaResumeTask: Task<Void,Never>?
+    private var dekaSleeping = false
     private var dekaMonitorTask: Task<Void, Never>?
     private var dekaNotBefore = Date.distantPast
 
@@ -1301,7 +1305,18 @@ final class JarvisFullscreenOverlay: ObservableObject {
         voice.onBeforeQuestion = { [weak self] in self?.pauseDeka() }
     }
     func toggleDeka() {
-        if dekaEnabled { stopDeka(); return }
+        if dekaEnabled {
+            UserDefaults.standard.set(false, forKey: dekaPreferenceKey)
+            dekaResumeTask?.cancel()
+            stopDeka()
+            return
+        }
+        UserDefaults.standard.set(true, forKey: dekaPreferenceKey)
+        startPreferredDeka()
+    }
+    private func startPreferredDeka() {
+        guard !dekaEnabled, !dekaSleeping,
+              UserDefaults.standard.bool(forKey: dekaPreferenceKey) else { return }
         guard !NSApp.windows.contains(where: { $0 !== miniPanel && $0 !== panel && $0.isVisible && $0.level == .normal && $0.canBecomeKey }) else {
             dekaStatus = "작업 및 음성 설정 창을 닫고 시작하세요."; return
         }
@@ -1368,6 +1383,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
             guard let self else { return }
             self.dekaArmed = self.deka.armed
             self.dekaStatus = text
+            NSLog("DEKA standby: %@", text)
             // System telemetry belongs in the menu, not the core caption.
         }
         deka.onFailure = { [weak self] reason in self?.stopDeka(reason) }
@@ -1378,7 +1394,23 @@ final class JarvisFullscreenOverlay: ObservableObject {
         }
         LocalSpeechListener.beforeCapture = { [weak self] in self?.pauseDeka("질문 듣는 중 · 호출 감지 일시정지") }
         dekaSleepObserver = NSWorkspace.shared.notificationCenter.addObserver(forName:NSWorkspace.willSleepNotification,object:nil,queue:.main) { [weak self] _ in
-            Task { @MainActor in self?.stopDeka("절전으로 상시 대기 종료") }
+            Task { @MainActor in
+                guard let self else { return }
+                self.dekaSleeping = true
+                self.dekaResumeTask?.cancel()
+                self.stopDeka("절전으로 상시 대기 일시정지")
+            }
+        }
+        dekaWakeObserver = NSWorkspace.shared.notificationCenter.addObserver(forName:NSWorkspace.didWakeNotification,object:nil,queue:.main) { [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                self.dekaSleeping = false
+                self.dekaResumeTask?.cancel()
+                self.dekaResumeTask = Task { [weak self] in
+                    do { try await Task.sleep(for: .seconds(2)) } catch { return }
+                    self?.startPreferredDeka()
+                }
+            }
         }
         NSLog("JARVIS: overlay start, args=%@", ProcessInfo.processInfo.arguments.joined(separator: ","))
         let key = JarvisOverlayHotkey()
@@ -1394,6 +1426,9 @@ final class JarvisFullscreenOverlay: ObservableObject {
             NSLog("JARVIS: Command-Option-J shortcut unavailable; overlay not activated")
         }
         if miniEnabled { showMini() }
+        if !ProcessInfo.processInfo.arguments.contains("--overlay-preview") {
+            startPreferredDeka()
+        }
         // Manual invocation used only for test builds; production launch remains quiet.
         if ProcessInfo.processInfo.arguments.contains("--overlay-preview") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { [self] in
@@ -1417,7 +1452,10 @@ final class JarvisFullscreenOverlay: ObservableObject {
         if miniEnabled {
             if panel == nil { showMini() }
         } else {
-            if panel == nil { stopDeka("작은 코어 숨김 · 상시 대기 종료") }
+            if panel == nil {
+                UserDefaults.standard.set(false, forKey: dekaPreferenceKey)
+                stopDeka("작은 코어 숨김 · 상시 대기 종료")
+            }
             hideMini()
         }
     }
@@ -1764,8 +1802,12 @@ final class JarvisFullscreenOverlay: ObservableObject {
         stopDeka()
         hideMini()
         LocalSpeechListener.beforeCapture = nil
+        dekaResumeTask?.cancel()
+        dekaResumeTask = nil
         if let dekaSleepObserver { NSWorkspace.shared.notificationCenter.removeObserver(dekaSleepObserver) }
+        if let dekaWakeObserver { NSWorkspace.shared.notificationCenter.removeObserver(dekaWakeObserver) }
         dekaSleepObserver = nil
+        dekaWakeObserver = nil
         hotkey?.uninstallEscape()
         hotkey?.uninstallMicrophone()
         greetingTask?.cancel()

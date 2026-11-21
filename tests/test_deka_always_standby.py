@@ -35,7 +35,7 @@ class DekaStandby(unittest.TestCase):
         self.assertIn("dekaMonitorTask?.cancel()",UI)
         self.assertIn("dekaEnabled = false",UI)
         self.assertIn("deka.onFailure = { [weak self] reason in self?.stopDeka(reason) }",UI)
-        self.assertIn("절전으로 상시 대기 종료",UI)
+        self.assertIn("절전으로 상시 대기 일시정지",UI)
         self.assertIn("func stop() {\n        stopDeka()",UI)
         self.assertIn("engine.inputNode.removeTap",WAKE)
         self.assertIn("epoch = UUID()",WAKE)
