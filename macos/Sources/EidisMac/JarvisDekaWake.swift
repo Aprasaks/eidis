@@ -122,7 +122,7 @@ final class DekaPCMRelay: @unchecked Sendable {
                 NSLog("DEKA: wake candidate rejected by experimental speaker filter")
             } else if line.hasPrefix("HIT "), ready,
                       let score = Double(line.dropFirst(4)), score.isFinite,
-                      (0.5...1).contains(score) {
+                      (0.28...1).contains(score) {
                 stop("Hey Jarvis 감지 · \(String(format:"%.2f",score)) · 호출 대기 종료")
                 onHit?()
                 return

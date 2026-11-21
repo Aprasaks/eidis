@@ -10,6 +10,7 @@ from collections import deque
 import json,os,time
 
 WAKE_THRESHOLD = .25
+WAKEWORD_THRESHOLD = .28  # provisional distant-call sensitivity; owner filter still required
 COMMAND_THRESHOLD = .52
 CHUNK = 2560
 WAKE_MODEL = Path.home()/".jarvis-lab/wakeword/venv/lib/python3.10/site-packages/openwakeword/resources/models/hey_jarvis_v0.1.onnx"
@@ -135,7 +136,7 @@ def wake(model,owner,diagnostics=None):
             detector.reset()
             cooldown=10
             peak=0.0
-        elif score>=.5:
+        elif score>=WAKEWORD_THRESHOLD:
             peak=score
             pending=2 # 160 ms to retain the ending phoneme
 
