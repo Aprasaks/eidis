@@ -174,14 +174,23 @@ final class JarvisBundledServer: ObservableObject {
     }
 }
 
+// The bootstrap guard executable intentionally excludes the graphical lifecycle.
+#if !JARVIS_SERVER_SMOKE
 @MainActor
 final class JarvisAppLifecycle: NSObject, NSApplicationDelegate {
     let server = JarvisBundledServer()
     let fullscreen = JarvisFullscreenOverlay()
+    private let studyRunner = JarvisStudyRunner()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        fullscreen.onPresentationChanged = { [weak self] active in
+            self?.studyRunner.setConversationActive(active)
+        }
         fullscreen.start()
-        Task { await server.connectOnLaunch() }
+        Task {
+            await server.connectOnLaunch()
+            if server.ready { studyRunner.start() }
+        }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication,
@@ -192,7 +201,10 @@ final class JarvisAppLifecycle: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        studyRunner.stop()
         fullscreen.stop()
         server.stopOwnedServer()
     }
 }
+
+#endif

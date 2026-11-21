@@ -17,6 +17,7 @@ from .vision import VisionError, VisionRemoteError, vision_ready, analyze_screen
 from .storage import MemoryStore
 from .thinking import related_context
 from .continuity import scan, snapshot, acknowledge, SCAN_INTERVAL
+from . import study
 from .projects import ProjectCheckError, verify_public_github
 from .tools import ToolRunner, ToolDenied, ToolExecutionError
 from .google_youtube import GoogleYouTubeConnection, YouTubeConnectionError
@@ -122,6 +123,14 @@ class JarvisHandler(BaseHTTPRequestHandler):
             return self._json(200, {"items": self.store.list_profile()})
         if path == "/api/memories":
             return self._json(200, {"items": self.store.recent_memories()})
+        if path == "/api/study":
+            return self._json(200, study.status(self.store))
+        if path == "/api/study/draft":
+            try:
+                value = parse_qs(urlsplit(self.path).query).get("id", [""])[0]
+                return self._json(200, study.get_draft(self.store, int(value)))
+            except (ValueError, IndexError) as exc:
+                return self._json(400, {"error": str(exc)})
         if path == "/api/continuity":
             return self._json(200, snapshot(self.store))
         if path == "/api/thoughts":
@@ -164,7 +173,9 @@ class JarvisHandler(BaseHTTPRequestHandler):
                          "/api/projects/github/check", "/api/profile", "/api/profile/forget",
                          "/api/vault", "/api/vault/archive", "/api/vault/restore",
                          "/api/youtube/connect", "/api/thinking/context",
-                         "/api/thoughts", "/api/thoughts/review", "/api/continuity/acknowledge"):
+                         "/api/thoughts", "/api/thoughts/review", "/api/continuity/acknowledge",
+                         "/api/study/topic", "/api/study/stop", "/api/study/enabled",
+                         "/api/study/claim", "/api/study/finish"):
             return self._json(404, {"error": "알 수 없는 경로"})
         if not self._same_origin():
             return self._json(403, {"error": "로컬 앱에서만 요청할 수 있습니다."})
@@ -179,6 +190,19 @@ class JarvisHandler(BaseHTTPRequestHandler):
                 raise ValueError("JSON 객체로 요청해야 합니다.")
             if path == "/api/youtube/connect":
                 return self._json(200, self.youtube.begin(self.server.server_port))
+            if path == "/api/study/topic":
+                topic_id = study.create_topic(self.store, data.get("topic"), data.get("premise", ""))
+                study.schedule(self.store)
+                return self._json(200, {"id": topic_id, "enabled": study.enabled(self.store)})
+            if path == "/api/study/stop":
+                return self._json(200, {"stopped": study.stop_topic(self.store, data.get("id"))})
+            if path == "/api/study/enabled":
+                return self._json(200, {"enabled": study.set_enabled(self.store, data.get("enabled"))})
+            if path == "/api/study/claim":
+                return self._json(200, {"job": study.claim(self.store)})
+            if path == "/api/study/finish":
+                return self._json(200, {"accepted": study.finish(self.store, data.get("id"),
+                    data.get("lease"), data.get("outcome"), data.get("result", ""))})
             if path == "/api/continuity/acknowledge":
                 return self._json(200, {"acknowledged": acknowledge(self.store, data.get("id"))})
             if path == "/api/thinking/context":
@@ -313,6 +337,7 @@ class ContinuityServer(HTTPServer):
         self._last_scan = now
         try:
             scan(self.RequestHandlerClass.store)
+            study.schedule(self.RequestHandlerClass.store)
         except Exception:
             # Keep serving foreground requests if the review subsystem fails.
             logging.warning("DECHIVE continuity scan failed; will retry on next interval")

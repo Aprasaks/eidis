@@ -26,6 +26,7 @@ final class JarvisOverlayConversation: ObservableObject {
     @Published private(set) var isSpeaking = false
     @Published private(set) var isActive = false
     @Published private(set) var continuityNotice = ""
+    @Published private(set) var studyNotice = ""
     private var continuityMonitor: Task<Void, Never>?
     @Published private(set) var liveTranscript = ""
     @Published private(set) var dialogueTurns: [JarvisLiveDialogueTurn] = []
@@ -48,6 +49,7 @@ final class JarvisOverlayConversation: ObservableObject {
     let personalProfile = JarvisPersonalProfile()
     let vault = JarvisKnowledgeVault()
     private let thinkingCore = JarvisThinkingCore()
+    private let studyClient = JarvisStudyClient()
     let liveDashboard = JarvisLiveDashboard()
     private let elevenLabs = ElevenLabsVoiceService.shared
     private let session: URLSession
@@ -111,6 +113,13 @@ final class JarvisOverlayConversation: ObservableObject {
                 : ""
         } else if !Task.isCancelled {
             continuityNotice = ""
+        }
+        let studyDraftCount = await studyClient.draftCount()
+        guard !Task.isCancelled else { return }
+        if let count = studyDraftCount, count > 0 {
+            studyNotice = "검증 전 연구 초안 \(count)건"
+        } else {
+            studyNotice = ""
         }
     }
 
@@ -265,7 +274,8 @@ final class JarvisOverlayConversation: ObservableObject {
             if dialogueTurns.count > 12 { dialogueTurns.removeFirst(dialogueTurns.count - 12) }
             if JarvisVaultIntent.parse(prompt) == nil &&
                JarvisPersonalProfile.parse(prompt) == nil &&
-               JarvisThoughtIntent.parse(prompt) == nil {
+               JarvisThoughtIntent.parse(prompt) == nil &&
+               JarvisStudyIntent.parse(prompt) == nil {
                 lastAssistantContent = response
                 lastDiscussionTopic = prompt
             }
@@ -291,6 +301,28 @@ final class JarvisOverlayConversation: ObservableObject {
     /// Qwen selects tools through the local Ollama API. This client only runs
     /// audited, read-only actions from JarvisCommand, never generated code.
     private func planAndRespond(_ prompt: String, token: UUID) async throws -> String {
+        if let intent = JarvisStudyIntent.parse(prompt) {
+            let outcome: String
+            switch intent {
+            case .register(let topic):
+                outcome = await studyClient.register(topic: topic)
+            case .registerPrior:
+                outcome = await studyClient.register(topic: lastDiscussionTopic, premise: lastAssistantContent)
+            case .report:
+                outcome = await studyClient.report()
+            case .draft(let id):
+                outcome = await studyClient.read(id)
+            case .stop(let id):
+                outcome = await studyClient.stop(id)
+            case .enable(let enabled):
+                outcome = await studyClient.setEnabled(enabled)
+            }
+            guard !Task.isCancelled && token == generation else { return "" }
+            conversation.append(["role": "user", "content": String(prompt.prefix(500))])
+            conversation.append(["role": "assistant", "content": outcome])
+            if conversation.count > 8 { conversation.removeFirst(conversation.count - 8) }
+            return outcome
+        }
         // Personal memories require an explicit user instruction. This path
         // never asks Qwen to invent or infer facts and persists no transcripts.
         let profileIntent = JarvisPersonalProfile.parse(prompt)
@@ -732,7 +764,9 @@ final class JarvisOverlayConversation: ObservableObject {
         continuityMonitor?.cancel()
         continuityMonitor = nil
         continuityNotice = ""
+        studyNotice = ""
         thinkingCore.cancel()
+        studyClient.cancel()
         lastAssistantContent = ""
         lastDiscussionTopic = ""
         status = "DECHIVE 대화 종료"

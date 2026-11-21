@@ -142,6 +142,8 @@ class MemoryStore:
         )
         from .continuity import init_schema
         init_schema(self.db)
+        from .study import init_schema as init_study_schema
+        init_study_schema(self.db)
         self.db.commit()
 
     VAULT_CATEGORIES = frozenset({'ideas','research','projects','references','notes','tasks'})

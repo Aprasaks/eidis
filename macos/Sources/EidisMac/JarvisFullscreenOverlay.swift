@@ -952,6 +952,7 @@ final class JarvisFullscreenOverlay {
     private let greetingFallback = JarvisVoiceService()
     private var greetingTask: Task<Void, Never>?
     private var dialogue: JarvisOverlayConversation?
+    var onPresentationChanged: ((Bool) -> Void)?
 
     func start() {
         NSLog("JARVIS: overlay start, args=%@", ProcessInfo.processInfo.arguments.joined(separator: ","))
@@ -988,6 +989,8 @@ final class JarvisFullscreenOverlay {
             NSLog("JARVIS: fullscreen video asset or active screen missing")
             return
         }
+        // Cancel a background study request before starting live interaction.
+        onPresentationChanged?(true)
         let window = JarvisOverlayPanel(contentRect: screen.frame,
             styleMask: [.borderless, .fullSizeContentView],
             backing: .buffered, defer: false)
@@ -1129,6 +1132,7 @@ final class JarvisFullscreenOverlay {
         horizontalScrollTotal = 0
         window.orderOut(nil)
         window.contentView = nil // releases video layer and pauses AVPlayerLooper
+        onPresentationChanged?(false)
     }
 
     func stop() {
