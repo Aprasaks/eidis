@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 import mimetypes
 import os
+import time
+import logging
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit, parse_qs
@@ -14,6 +16,7 @@ from .design import DesignError, RemoteDesignError, remote_ready, suggest_design
 from .vision import VisionError, VisionRemoteError, vision_ready, analyze_screen, validate_image
 from .storage import MemoryStore
 from .thinking import related_context
+from .continuity import scan, snapshot, acknowledge, SCAN_INTERVAL
 from .projects import ProjectCheckError, verify_public_github
 from .tools import ToolRunner, ToolDenied, ToolExecutionError
 from .google_youtube import GoogleYouTubeConnection, YouTubeConnectionError
@@ -119,6 +122,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
             return self._json(200, {"items": self.store.list_profile()})
         if path == "/api/memories":
             return self._json(200, {"items": self.store.recent_memories()})
+        if path == "/api/continuity":
+            return self._json(200, snapshot(self.store))
         if path == "/api/thoughts":
             return self._json(200, {"items": self.store.list_thoughts()})
         if path == "/api/projects":
@@ -159,7 +164,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
                          "/api/projects/github/check", "/api/profile", "/api/profile/forget",
                          "/api/vault", "/api/vault/archive", "/api/vault/restore",
                          "/api/youtube/connect", "/api/thinking/context",
-                         "/api/thoughts", "/api/thoughts/review"):
+                         "/api/thoughts", "/api/thoughts/review", "/api/continuity/acknowledge"):
             return self._json(404, {"error": "알 수 없는 경로"})
         if not self._same_origin():
             return self._json(403, {"error": "로컬 앱에서만 요청할 수 있습니다."})
@@ -174,6 +179,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
                 raise ValueError("JSON 객체로 요청해야 합니다.")
             if path == "/api/youtube/connect":
                 return self._json(200, self.youtube.begin(self.server.server_port))
+            if path == "/api/continuity/acknowledge":
+                return self._json(200, {"acknowledged": acknowledge(self.store, data.get("id"))})
             if path == "/api/thinking/context":
                 # Read only: contextual sources remain local; no model/API call.
                 return self._json(200, {"items": related_context(
@@ -294,6 +301,23 @@ class JarvisHandler(BaseHTTPRequestHandler):
         super().log_message(fmt, *args)
 
 
+class ContinuityServer(HTTPServer):
+    """Bounded local scans on the existing single-threaded server, never an LLM loop."""
+    continuity_interval = SCAN_INTERVAL
+    _last_scan = float("-inf")
+
+    def service_actions(self):
+        now = time.monotonic()
+        if now - self._last_scan < self.continuity_interval:
+            return
+        self._last_scan = now
+        try:
+            scan(self.RequestHandlerClass.store)
+        except Exception:
+            # Keep serving foreground requests if the review subsystem fails.
+            logging.warning("DECHIVE continuity scan failed; will retry on next interval")
+
+
 def make_server(host: str = "127.0.0.1", port: int = 8765, db_path: Path | None = None):
     if host not in ("127.0.0.1", "localhost"):
         raise ValueError("원격 노출을 막기 위해 localhost만 허용합니다.")
@@ -305,6 +329,9 @@ def make_server(host: str = "127.0.0.1", port: int = 8765, db_path: Path | None 
     handler = type("LocalHandler", (JarvisHandler,),
                    {"store": store, "engine": engine, "brain": brain, "tools": tools,
                     "youtube": youtube})
-    server = HTTPServer(("127.0.0.1", port), handler)
+    server = ContinuityServer(("127.0.0.1", port), handler)
     server.vision_calls = 0
+    # Complete the initial check before accepting requests. Diagnostics and
+    # other read-only requests do not themselves cause database writes.
+    server.service_actions()
     return server

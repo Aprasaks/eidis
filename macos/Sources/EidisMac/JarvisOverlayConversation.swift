@@ -25,6 +25,8 @@ final class JarvisOverlayConversation: ObservableObject {
     @Published private(set) var isThinking = false
     @Published private(set) var isSpeaking = false
     @Published private(set) var isActive = false
+    @Published private(set) var continuityNotice = ""
+    private var continuityMonitor: Task<Void, Never>?
     @Published private(set) var liveTranscript = ""
     @Published private(set) var dialogueTurns: [JarvisLiveDialogueTurn] = []
     @Published var autoTurnEnabled: Bool {
@@ -84,10 +86,31 @@ final class JarvisOverlayConversation: ObservableObject {
 
     func afterGreeting() async {
         guard !Task.isCancelled else { return }
+        startContinuityMonitor()
         if Self.microphoneAlreadyAuthorized {
             activateListening()
         } else {
             status = "Space를 누르면 마이크 권한을 확인하고 대화를 시작합니다."
+        }
+    }
+
+    private func startContinuityMonitor() {
+        continuityMonitor?.cancel()
+        continuityMonitor = Task { [weak self] in
+            while !Task.isCancelled {
+                await self?.refreshContinuityNotice()
+                try? await Task.sleep(for: .seconds(30))
+            }
+        }
+    }
+
+    private func refreshContinuityNotice() async {
+        if let result = try? await thinkingCore.continuitySnapshot(), !Task.isCancelled {
+            continuityNotice = result.openCount > 0
+                ? "주인님, 확인할 사항 \(result.openCount)건 · 최근 기록 기준"
+                : ""
+        } else if !Task.isCancelled {
+            continuityNotice = ""
         }
     }
 
@@ -301,6 +324,11 @@ final class JarvisOverlayConversation: ObservableObject {
                 outcome = await thinkingCore.reviewThought(id: id, status: "rejected", note: reason)
             case .userReviewed(let id, let note):
                 outcome = await thinkingCore.reviewThought(id: id, status: "user_reviewed", note: note)
+            case .continuityList:
+                outcome = await thinkingCore.continuityReport()
+            case .acknowledgeContinuity(let id):
+                outcome = await thinkingCore.acknowledgeContinuity(id: id)
+                await refreshContinuityNotice()
             }
             guard !Task.isCancelled && token == generation else { return "" }
             conversation.append(["role": "user", "content": prompt])
@@ -701,6 +729,9 @@ final class JarvisOverlayConversation: ObservableObject {
         vault.cancel()
         liveDashboard.cancel()
         personalProfile.cancel()
+        continuityMonitor?.cancel()
+        continuityMonitor = nil
+        continuityNotice = ""
         thinkingCore.cancel()
         lastAssistantContent = ""
         lastDiscussionTopic = ""

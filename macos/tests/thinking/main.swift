@@ -19,6 +19,11 @@ struct ThinkingCoreSmoke {
             precondition(id == 7)
         } else { preconditionFailure("Expected explicit review intent") }
         precondition(JarvisThoughtIntent.parse("자비스, 유튜브 열어줘") == nil)
+        precondition(JarvisThoughtIntent.parse("자비스, 내가 까먹은 일 있어?") == .continuityList)
+        precondition(JarvisThoughtIntent.parse("자비스, 다시 검토할 것 알려줘") == .continuityList)
+        precondition(JarvisThoughtIntent.parse("자비스, 알림 3번 확인했어") == .acknowledgeContinuity(3))
+        precondition(JarvisThoughtIntent.parse("자비스, 알림 3번 확인했어? 아니 확인하지 마") == nil)
+        print("PASS: natural continuity queries and explicit acknowledgement")
         print("PASS: small talk and direct commands remain fast")
         print("PASS: context-dependent and deliberative speech classified automatically")
         print("PASS: explicit thought saves are distinguished from generic commands")

@@ -46,7 +46,7 @@ def compact(text: str, limit: int = 240) -> str:
     return " ".join(str(text).split())[:limit]
 
 
-def related_context(store, query: str, limit: int = 5) -> list[dict]:
+def related_context(store, query: str, limit: int = 5, *, include_thoughts: bool = True) -> list[dict]:
     """Return only positive, relevant matches from user's existing local data.
 
     The source kind and verification status stay attached so unverified AI
@@ -103,13 +103,14 @@ def related_context(store, query: str, limit: int = 5) -> list[dict]:
                 f"목표: {row['goal']}. 작업: {task_summary}",
                 "local_project_record", row["updated_at"], 1)
 
-    for row in store.db.execute(
-        "SELECT id,topic,hypothesis,review_note,status,created_at "
-        "FROM thought_records ORDER BY id DESC LIMIT ?", (MAX_CANDIDATES,)
-    ):
-        prose = f"{row['hypothesis']}. 검토: {row['review_note']}"
-        propose("thought", row["id"], row["topic"], prose,
-                f"assistant_thought_{row['status']}", row["created_at"])
+    if include_thoughts:
+        for row in store.db.execute(
+            "SELECT id,topic,hypothesis,review_note,status,created_at "
+            "FROM thought_records ORDER BY id DESC LIMIT ?", (MAX_CANDIDATES,)
+        ):
+            prose = f"{row['hypothesis']}. 검토: {row['review_note']}"
+            propose("thought", row["id"], row["topic"], prose,
+                    f"assistant_thought_{row['status']}", row["created_at"])
 
     # Higher lexical relevance first, then newer records within their source.
     candidates.sort(key=lambda item: (item["_score"], item["recorded_at"]), reverse=True)

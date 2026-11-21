@@ -140,6 +140,8 @@ class MemoryStore:
             "CREATE INDEX IF NOT EXISTS thought_records_recent_idx "
             "ON thought_records(updated_at DESC)"
         )
+        from .continuity import init_schema
+        init_schema(self.db)
         self.db.commit()
 
     VAULT_CATEGORIES = frozenset({'ideas','research','projects','references','notes','tasks'})

@@ -30,6 +30,16 @@ struct JarvisLiveDialoguePanel: View {
             .foregroundStyle(amber)
 
             Rectangle().fill(amber.opacity(0.23)).frame(height: 1)
+            if !dialogue.continuityNotice.isEmpty {
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "clock.badge.exclamationmark")
+                    Text(dialogue.continuityNotice)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(amber)
+                .accessibilityIdentifier("dechive-continuity-notice")
+            }
 
             ScrollViewReader { proxy in
                 ScrollView(.vertical) {

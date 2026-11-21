@@ -42,12 +42,28 @@ enum JarvisThoughtIntent: Equatable {
     case list
     case reject(Int, String)
     case userReviewed(Int, String)
+    case continuityList
+    case acknowledgeContinuity(Int)
 
     static func parse(_ utterance: String) -> Self? {
         let withoutWake = utterance.replacingOccurrences(
             of: #"^(자비스|jarvis)[,，?？.!！\s]*"#,
             with: "", options: [.regularExpression, .caseInsensitive])
         let text = withoutWake.lowercased().replacingOccurrences(of: " ", with: "")
+        // Acknowledge only an explicitly identified notification, not a task.
+        let clean = text.trimmingCharacters(in: .punctuationCharacters)
+        if clean.range(of: #"^알림[1-9][0-9]{0,5}번(확인했어|확인완료|확인했어요|읽었어|읽었어요)$"#,
+                       options: .regularExpression) != nil,
+           let digits = clean.range(of: #"[1-9][0-9]{0,5}"#, options: .regularExpression),
+           let id = Int(clean[digits]) {
+            return .acknowledgeContinuity(id)
+        }
+        if ["까먹은일", "까먹은거", "잊은일", "잊은거", "놓친일", "뭐잊었",
+            "뭘잊었", "미완료작업", "다시검토할", "확인할사항", "미확인알림", "알림목록",
+            "잊어버린일", "잊어버린거"].contains(where: { text.contains($0) }) &&
+           !["저장해", "기록해", "삭제해", "지워줘"].contains(where: { text.contains($0) }) {
+            return .continuityList
+        }
         if let match = text.range(of: #"[1-9][0-9]{0,5}번"#, options: .regularExpression),
            let id = Int(text[match].dropLast()),
            ["생각", "판단", "가설", "사고기록"].contains(where: { text.contains($0) }) {
@@ -91,6 +107,20 @@ private struct JarvisThoughtRecord: Decodable {
 }
 private struct JarvisThoughtSaveResponse: Decodable { let thought: JarvisThoughtRecord }
 private struct JarvisThoughtListResponse: Decodable { let items: [JarvisThoughtRecord] }
+
+struct JarvisContinuityItem: Decodable {
+    let id: Int
+    let kind: String
+    let sourceId: Int
+    let title: String
+    let reason: String
+}
+struct JarvisContinuitySnapshot: Decodable {
+    let lastScan: String?
+    let openCount: Int
+    let items: [JarvisContinuityItem]
+}
+private struct JarvisContinuityAcknowledgement: Decodable { let acknowledged: Bool }
 
 @MainActor
 final class JarvisThinkingCore {
@@ -192,6 +222,42 @@ final class JarvisThinkingCore {
             return "주인님, 저장한 사고 기록입니다. " + lines.joined(separator: " / ")
         } catch {
             return "주인님, 현재 사고 기록 저장소를 확인할 수 없습니다."
+        }
+    }
+
+    func continuitySnapshot() async throws -> JarvisContinuitySnapshot {
+        try await request("api/continuity")
+    }
+
+    func continuityReport() async -> String {
+        do {
+            let result = try await continuitySnapshot()
+            guard result.lastScan != nil else {
+                return "주인님, 아직 첫 점검이 완료되지 않았습니다."
+            }
+            if result.openCount == 0 {
+                return "주인님, 현재 로컬 기록에서 확인을 요청할 새 사항은 없습니다. 모든 일이 끝났다는 뜻은 아닙니다."
+            }
+            let lines = result.items.prefix(3).map {
+                "알림 \($0.id)번, \($0.title.prefix(65)): \($0.reason)"
+            }
+            let rest = result.openCount > lines.count ? " 외 \(result.openCount - lines.count)건입니다." : ""
+            return "주인님, 확인할 사항이 \(result.openCount)건 있습니다. " +
+                lines.joined(separator: " / ") + rest + " 실제 진행 여부를 확인해 주세요."
+        } catch {
+            return "주인님, 현재 자동 점검 기록을 불러오지 못했습니다."
+        }
+    }
+
+    func acknowledgeContinuity(id: Int) async -> String {
+        do {
+            let result: JarvisContinuityAcknowledgement = try await request(
+                "api/continuity/acknowledge", payload: ["id": id])
+            return result.acknowledged
+                ? "주인님, 알림 \(id)번을 확인한 것으로 표시했습니다. 실제 작업이나 가설의 상태는 바꾸지 않았습니다."
+                : "주인님, 해당 미확인 알림을 찾을 수 없습니다."
+        } catch {
+            return "주인님, 알림 확인 상태를 변경하지 못했습니다."
         }
     }
 
