@@ -64,6 +64,38 @@ final class JarvisOverlayConversation: ObservableObject {
     var onWorkspaceRequested: (() -> Void)?
     var onMiniTurnEnded: (() -> Void)?
 
+    var wakeCaptureBusy: Bool {
+        isListening || isThinking || isSpeaking || isActive || listeningTask != nil || listener.captureBusy
+    }
+    private var wakeTurn = false
+    func setWakeStatus(_ text: String) {
+        guard !wakeCaptureBusy else { return }
+        status = text
+    }
+    func beginDekaWakeTurn() {
+        guard miniSingleTurn, !wakeCaptureBusy else { return }
+        wakeTurn = true
+        isSpeaking = true
+        answer = "네, 주인님."
+        status = "데카 호출 인식 · 응답 중"
+        let token = generation
+        macVoice.speak(answer)
+        dialogueTask = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(for: .milliseconds(150))
+            for _ in 0..<100 {
+                guard token == self.generation, !Task.isCancelled else { return }
+                if !self.macVoice.isSpeaking { break }
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+            guard token == self.generation, !Task.isCancelled else { return }
+            self.macVoice.stop()
+            self.isSpeaking = false
+            self.dialogueTask = nil
+            self.activateListening()
+        }
+    }
+
     func prepareMiniStandby() {
         status = "대기 중 · 마이크 버튼 또는 Option+Space"
     }
@@ -73,6 +105,7 @@ final class JarvisOverlayConversation: ObservableObject {
     }
 
     private func finishMiniTurn() {
+        wakeTurn = false
         guard miniSingleTurn else { return }
         isActive = false
         onMiniTurnEnded?()
@@ -241,6 +274,7 @@ final class JarvisOverlayConversation: ObservableObject {
     }
 
     func pauseMicrophone() {
+        wakeTurn = false
         isActive = false
         silenceTask?.cancel()
         silenceTask = nil
@@ -276,7 +310,7 @@ final class JarvisOverlayConversation: ObservableObject {
                 self.startSilenceDetection(token: token)
             }
             self.status = self.listener.isListening
-                ? (self.autoTurnEnabled
+                ? (self.autoTurnEnabled || self.wakeTurn
                    ? "실시간 받아쓰기 · 말을 멈추면 자동으로 질문합니다."
                    : "실시간 받아쓰기 · Space로 질문을 마쳐주세요.")
                 : self.listener.status
@@ -305,7 +339,7 @@ final class JarvisOverlayConversation: ObservableObject {
                         return
                     }
                 }
-                guard self.autoTurnEnabled, !self.listener.transcript.isEmpty,
+                guard self.autoTurnEnabled || self.wakeTurn, !self.listener.transcript.isEmpty,
                       let lastPartialAt = self.lastPartialAt else { continue }
                 if Date().timeIntervalSince(lastPartialAt) >= self.silenceWaitSeconds {
                     self.completeUtterance()
@@ -1054,6 +1088,7 @@ final class JarvisOverlayConversation: ObservableObject {
     }
 
     func cancel() {
+        wakeTurn = false
         generation = UUID()
         dialogueTask?.cancel()
         listeningTask?.cancel()

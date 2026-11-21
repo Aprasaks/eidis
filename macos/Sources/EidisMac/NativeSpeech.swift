@@ -74,8 +74,11 @@ final class LocalSpeechListener: ObservableObject {
 
     var captureBusy: Bool { isStarting || isFinalizing }
 
+    static var beforeCapture: (() -> Void)?
+
     func start() async {
         guard !isListening, !isStarting, !isFinalizing else { return }
+        Self.beforeCapture?()
         let session = UUID()
         sessionId = session
         isStarting = true

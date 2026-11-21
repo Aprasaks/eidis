@@ -47,15 +47,23 @@ private struct JarvisMenuCommands: View {
         Button(fullscreen.miniEnabled ? "작은 코어 숨기기  ⌘⌥S" : "작은 코어 항상 띄우기  ⌘⌥S") {
             fullscreen.toggleMini()
         }
+        Button(fullscreen.dekaArmed ? "데카 호출 실험 중지" : "데카 호출 실험 시작 (3분)") {
+            fullscreen.toggleDeka()
+        }
+        Text(fullscreen.dekaStatus)
+        Divider()
         Button("작업 및 설정 열기") {
+            fullscreen.stopDeka("설정 창 열기 · 시험 종료")
             openWindow(id: "jarvis-tools")
             NSApp.activate(ignoringOtherApps: true)
         }
         Button("내 목소리 설정") {
+            fullscreen.stopDeka("설정 창 열기 · 시험 종료")
             openWindow(id: "jarvis-voice-setup")
             NSApp.activate(ignoringOtherApps: true)
         }
         Button("ElevenLabs 목소리 선택") {
+            fullscreen.stopDeka("설정 창 열기 · 시험 종료")
             openWindow(id: "jarvis-elevenlabs-voices")
             NSApp.activate(ignoringOtherApps: true)
         }

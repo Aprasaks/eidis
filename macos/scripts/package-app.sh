@@ -30,6 +30,7 @@ rm -f "$RESOURCES/JARVIS_FullHD_Loop.mp4"
 # Keep the original alpha source in macos/Resources/Art for rollback.
 rm -f "$RESOURCES/JARVIS_Activation_Alpha_HEVC.mov"
 cp "$ROOT/app.py" "$RESOURCES/app.py"
+cp "$ROOT/tools/wakeword/deka_worker.py" "$RESOURCES/deka_worker.py"
 for source in "$ROOT"/jarvis/*.py; do
   cp "$source" "$RESOURCES/jarvis/"
 done
