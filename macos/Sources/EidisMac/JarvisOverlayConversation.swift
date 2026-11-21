@@ -33,6 +33,7 @@ final class JarvisOverlayConversation: ObservableObject {
     @Published private(set) var briefingNotice = ""
     private let briefingClient = JarvisBriefingClient()
     let stockBoard = JarvisStockBoard()
+    let weatherCenter = JarvisWeatherCenter()
 
     func hideBriefing() {
         briefingVisible = false
@@ -400,7 +401,8 @@ final class JarvisOverlayConversation: ObservableObject {
                JarvisVerificationIntent.parse(prompt) == nil &&
                JarvisBrowserControlIntent.parse(prompt) == nil &&
                JarvisBriefingIntent.parse(prompt) == nil &&
-               StockBoardIntent.parse(prompt) == nil {
+               StockBoardIntent.parse(prompt) == nil &&
+               WeatherIntent.parse(prompt) == nil {
                 lastAssistantContent = response
                 lastDiscussionTopic = prompt
             }
@@ -443,6 +445,22 @@ final class JarvisOverlayConversation: ObservableObject {
     /// Qwen selects tools through the local Ollama API. This client only runs
     /// audited, read-only actions from JarvisCommand, never generated code.
     private func planAndRespond(_ prompt: String, token: UUID) async throws -> String {
+        if weatherCenter.visible && Self.isGenericPanelClose(prompt) {
+            weatherCenter.hide()
+            return "주인님, 날씨 화면을 닫았습니다."
+        }
+        if let intent = WeatherIntent.parse(prompt) {
+            if intent != .hide && intent != .unsupported {
+                _ = browser.hide()
+                _ = liveDashboard.hide()
+                _ = dashboard.hide()
+                _ = vault.hide()
+                stockBoard.hide()
+                hideBriefing()
+                onWorkspaceRequested?()
+            }
+            return await weatherCenter.handle(intent)
+        }
         if stockBoard.visible && Self.isGenericPanelClose(prompt) {
             stockBoard.hide()
             return "주인님, 주식 현황표를 닫았습니다."
@@ -453,6 +471,7 @@ final class JarvisOverlayConversation: ObservableObject {
                 _ = liveDashboard.hide()
                 _ = dashboard.hide()
                 _ = vault.hide()
+                weatherCenter.hide()
                 hideBriefing()
                 onWorkspaceRequested?()
             }
@@ -471,6 +490,7 @@ final class JarvisOverlayConversation: ObservableObject {
             _ = liveDashboard.hide()
             _ = dashboard.hide()
             _ = vault.hide()
+            weatherCenter.hide()
             stockBoard.hide()
             onWorkspaceRequested?()
             briefingVisible = true
@@ -501,6 +521,7 @@ final class JarvisOverlayConversation: ObservableObject {
         }
         if let intent = JarvisBrowserControlIntent.parse(prompt) {
             if case .open = intent {
+                weatherCenter.hide()
                 stockBoard.hide()
                 briefingVisible = false
                 onWorkspaceRequested?()
@@ -634,6 +655,7 @@ final class JarvisOverlayConversation: ObservableObject {
             let outcome: String
             switch liveIntent {
             case .show(let mode):
+                weatherCenter.hide()
                 stockBoard.hide()
                 briefingVisible = false
                 onWorkspaceRequested?()
@@ -861,6 +883,7 @@ final class JarvisOverlayConversation: ObservableObject {
             if result.contains("저장했습니다") { _ = dashboard.hide() }
             return result
         case .show(let query, let category, let itemId):
+            weatherCenter.hide()
             stockBoard.hide()
             briefingVisible = false
                 onWorkspaceRequested?()
@@ -884,6 +907,7 @@ final class JarvisOverlayConversation: ObservableObject {
             let result: String
             switch action {
             case .openBrowser(let engine):
+                weatherCenter.hide()
                 stockBoard.hide()
                 briefingVisible = false
                 onWorkspaceRequested?()
@@ -896,12 +920,14 @@ final class JarvisOverlayConversation: ObservableObject {
                     outcomes.append("비공개 자료를 외부 검색어로 보내지 않았습니다.")
                     continue
                 }
+                weatherCenter.hide()
                 stockBoard.hide()
                 briefingVisible = false
                 onWorkspaceRequested?()
                 _ = dashboard.hide()
                 result = browser.search(query, engine: engine)
             case .showDashboard:
+                weatherCenter.hide()
                 stockBoard.hide()
                 briefingVisible = false
                 onWorkspaceRequested?()
@@ -1066,6 +1092,7 @@ final class JarvisOverlayConversation: ObservableObject {
         studyClient.cancel()
         actionClient.cancelSession()
         actionNotice = ""
+        weatherCenter.hide()
         stockBoard.hide()
         briefingClient.cancelSession()
         briefingVisible = false

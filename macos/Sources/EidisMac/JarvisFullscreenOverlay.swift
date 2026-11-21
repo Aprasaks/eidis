@@ -259,6 +259,7 @@ private struct JarvisSummonedView: View {
     @ObservedObject var vault: JarvisKnowledgeVault
     @ObservedObject var liveDashboard: JarvisLiveDashboard
     @ObservedObject var stockBoard: JarvisStockBoard
+    @ObservedObject var weatherCenter: JarvisWeatherCenter
     @State private var typedText = ""
     @FocusState private var isInputFocused: Bool
     @State private var appeared = false
@@ -267,7 +268,7 @@ private struct JarvisSummonedView: View {
         GeometryReader { area in
             let commandCenter = liveDashboard.isVisible && liveDashboard.mode == .overview
             let workspaceActive = !commandCenter && (browser.isVisible ||
-                vault.isVisible || liveDashboard.isVisible || dashboard.isVisible || dialogue.briefingVisible || stockBoard.visible)
+                vault.isVisible || liveDashboard.isVisible || dashboard.isVisible || dialogue.briefingVisible || stockBoard.visible || weatherCenter.visible)
             let compactCore = commandCenter || workspaceActive
             let conversationWidth = min(max(area.size.width * 0.30, 255), 470)
             let wide = area.size.width >= 1120
@@ -486,7 +487,9 @@ private struct JarvisSummonedView: View {
                             .frame(width: conversationWidth)
                             .frame(maxHeight: .infinity)
                         Group {
-                            if stockBoard.visible {
+                            if weatherCenter.visible {
+                                JarvisWeatherCenterView(model:weatherCenter)
+                            } else if stockBoard.visible {
                                 JarvisStockBoardView(model:stockBoard)
                             } else if dialogue.briefingVisible {
                                 JarvisMorningBriefingView(job:dialogue.briefingJob,
@@ -1553,7 +1556,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
             dashboard: dialogue.dashboard,
             browser: dialogue.browser,
             vault: dialogue.vault,
-            liveDashboard: dialogue.liveDashboard, stockBoard: dialogue.stockBoard))
+            liveDashboard: dialogue.liveDashboard, stockBoard: dialogue.stockBoard, weatherCenter: dialogue.weatherCenter))
         // Do not show the old JARVIS dashboard behind the cinematic veil.
         // orderOut keeps its state and project data intact; the Dock can reopen it.
         hiddenAppWindows = NSApp.windows.filter { $0 !== window && $0.isVisible }
