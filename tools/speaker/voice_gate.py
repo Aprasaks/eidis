@@ -7,6 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import numpy as np
 from voice_id import VoiceID, load_profile, similarity, SR
 from collections import deque
+import json,os,time
 
 WAKE_THRESHOLD = .25
 COMMAND_THRESHOLD = .52
@@ -61,7 +62,46 @@ class QuietWake:
         if not np.isfinite(score):raise ValueError("wake score")
         return score
 
-def wake(model,owner):
+class WakeDiagnostics:
+    """Last rolling numerical summary only; never PCM, transcript or embedding."""
+    def __init__(self):
+        self.path=Path.home()/".jarvis-lab/speaker/wake-diagnostics.json"
+        self.started=time.monotonic()
+        self.last=self.started
+        self.frames=0
+        self.max_rms=0.
+        self.max_wake=0.
+        self.candidates=0
+        self.rejected=0
+        self.last_candidate=None
+        self.publish()
+    def publish(self):
+        value=dict(pid=os.getpid(),updated=time.time(),frames=self.frames,
+                   peak_rms=round(self.max_rms,2),peak_wake=round(self.max_wake,4),
+                   candidates=self.candidates,rejected=self.rejected,
+                   last_candidate=self.last_candidate)
+        tmp=self.path.with_suffix(".tmp")
+        try:
+            fd=os.open(tmp,os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600)
+            with os.fdopen(fd,"w") as f:json.dump(value,f)
+            os.replace(tmp,self.path)
+        except OSError:pass
+    def frame(self,pcm,score):
+        if time.monotonic()-self.started>300:return
+        self.frames+=1
+        self.max_rms=max(self.max_rms,float(np.sqrt(np.mean(pcm.astype(np.float32)**2))))
+        self.max_wake=max(self.max_wake,score)
+        if time.monotonic()-self.last>=3:
+            self.publish()
+            self.last=time.monotonic()
+    def candidate(self,score,voice,accepted):
+        if time.monotonic()-self.started>300:return
+        self.candidates+=1
+        self.rejected+=int(not accepted)
+        self.last_candidate=dict(wake=round(score,4),voice=None if voice is None else round(voice,4),accepted=bool(accepted))
+        self.publish()
+
+def wake(model,owner,diagnostics=None):
     from openwakeword.model import Model
     detector=Model(wakeword_models=[str(WAKE_MODEL)],inference_framework="onnx",ncpu=1)
     gate=QuietWake(detector)
@@ -74,7 +114,9 @@ def wake(model,owner):
         raw=sys.stdin.buffer.read(CHUNK)
         if len(raw)!=CHUNK:return
         ring.append(raw)
-        score=gate.push(np.frombuffer(raw,dtype="<i2"))
+        pcm=np.frombuffer(raw,dtype="<i2")
+        score=gate.push(pcm)
+        if diagnostics:diagnostics.frame(pcm,score)
         if cooldown:
             cooldown-=1
             continue
@@ -84,6 +126,7 @@ def wake(model,owner):
             if pending:continue
             accepted,voice_score=assess(model,owner,b"".join(ring),WAKE_THRESHOLD,.25)
             ring.clear()
+            if diagnostics:diagnostics.candidate(peak,voice_score,accepted)
             if accepted:
                 print(f"HIT {peak:.6f}",flush=True)
                 while sys.stdin.buffer.read(CHUNK):pass
@@ -108,7 +151,7 @@ def main():
     if len(sys.argv)!=2 or sys.argv[1] not in ("wake","command"):raise ValueError("mode")
     owner=load_profile()
     model=VoiceID()
-    if sys.argv[1]=="wake":wake(model,owner)
+    if sys.argv[1]=="wake":wake(model,owner,WakeDiagnostics())
     else:command(model,owner)
 if __name__=="__main__":
     try:main()
