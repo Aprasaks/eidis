@@ -18,9 +18,10 @@ struct WeatherTown: Equatable, Identifiable {
     ]
 }
 enum WeatherIntent:Equatable {
-    case show(WeatherTown?,Bool), refresh, hide, unsupported
+    case show(WeatherTown?,Bool), refresh, hide, unsupported, source
     static func parse(_ raw:String)->Self? {
         let s=raw.lowercased().replacingOccurrences(of:#"^(자비스|jarvis)[,，.!！\s]*"#,with:"",options:.regularExpression).filter{!$0.isWhitespace}.trimmingCharacters(in:CharacterSet(charactersIn:".!?！요"))
+        if ["날씨출처","날씨출처알려줘","날씨출처가뭐야","날씨어디서가져와","날씨데이터출처"].contains(s){return .source}
         if ["날씨닫아","날씨화면닫아","날씨보드닫아","웨더센터닫아","날씨화면닫아줘"].contains(s){return .hide}
         if ["날씨갱신해","날씨새로고침","날씨다시조회해줘","날씨갱신해줘"].contains(s){return .refresh}
         guard !["하지마","보여주지마","알려주지마","설명","원리","역사","만들어","코드","주식","뉴스","특보","미세먼지"].contains(where:{s.contains($0)}) else{return nil}
@@ -146,6 +147,10 @@ final class WeatherClient {
     func hide(){visible=false;revision=UUID();busy=false}
     func setDefault(_ town:WeatherTown){guard WeatherTown.towns.contains(town) else{return};UserDefaults.standard.set(town.name,forKey:"jarvis.weather.defaultTown")}
     func handle(_ intent:WeatherIntent) async ->String {
+        if intent == .source {
+            guard let snapshot else {return "날씨는 오픈메테오에서 가져와요. 아직 확인된 날씨 자료는 없어요."}
+            return "화면에 있는 "+snapshot.town.name+" 날씨는 오픈메테오의 기상 모델 자료예요. 실제 관측값은 아니고, 정확한 기준 시각은 화면에 표시해 뒀어요."
+        }
         if intent == .hide{hide();return "주인님, 날씨 화면을 닫았습니다."}
         if intent == .unsupported{return "주인님, 현재 지원하는 지역은 군산, 서울, 고양, 전주, 부산, 인천, 대전, 대구, 광주, 제주입니다. 지역을 먼저 말씀해 주세요."}
         if case .show(let town,let next)=intent {if let town{selected=town}else{selected=WeatherTown.towns.first{$0.name==UserDefaults.standard.string(forKey:"jarvis.weather.defaultTown")} ?? WeatherTown.towns[0]};tomorrow=next}
@@ -233,14 +238,13 @@ enum WeatherConversation {
             sentences.append("주인님, 지금 "+town+"의 날씨 정보입니다.")
         }
         let actual=temp(d.current.temperature_2m), feels=temp(d.current.apparent_temperature)
-        if let actual,let feels {sentences.append("기온은 "+actual+"인데, 체감온도는 "+feels+"예요.")}
+        if let actual,let feels {sentences.append("기온은 "+actual+"인데, 체감온도는 "+feels+"로 나와요.")}
         else if let actual {sentences.append("기온은 "+actual+"예요.")}
         else if let feels {sentences.append("체감온도는 "+feels+"예요.")}
         else {sentences.append("기온과 체감온도는 확인되지 않았습니다.")}
         if let apparent=d.current.apparent_temperature,apparent.isFinite,apparent < 5 {
             sentences.append("나가실 땐 따뜻하게 입으세요.")
         }
-        sentences.append("기상 모델 기준이에요.")
         return sentences.joined(separator:" ")
     }
 }

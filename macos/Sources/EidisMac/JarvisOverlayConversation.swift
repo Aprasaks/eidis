@@ -483,8 +483,14 @@ final class JarvisOverlayConversation: ObservableObject {
             weatherCenter.hide()
             return "주인님, 날씨 화면을 닫았습니다."
         }
+        if weatherCenter.visible {
+            let sourceQuestion = prompt.replacingOccurrences(of: #"^(데카|자비스|jarvis)[,，.!?\s]*"#, with: "", options: [.regularExpression,.caseInsensitive]).filter{!$0.isWhitespace}.trimmingCharacters(in:CharacterSet(charactersIn:".!?？요"))
+            if ["출처가뭐야","출처알려줘","출처는어디야","어디서가져왔어","이거어디서가져왔어","어디서확인했어"].contains(sourceQuestion) {
+                return await weatherCenter.handle(.source)
+            }
+        }
         if let intent = WeatherIntent.parse(prompt) {
-            if intent != .hide && intent != .unsupported {
+            if intent != .hide && intent != .unsupported && intent != .source {
                 _ = browser.hide()
                 _ = liveDashboard.hide()
                 _ = dashboard.hide()
@@ -775,7 +781,7 @@ final class JarvisOverlayConversation: ObservableObject {
                         (useFastStream ? shortDialoguePolicy :
                             JarvisCommand.systemInstructions + "\n" + panelContext) +
                         "\n" + reasoningGuidance +
-                        "\n[대화 성격] 오래 함께 일한 편안하고 유능한 비서처럼 말하세요. 반말은 하지 않되 일상에서는 해요체(그래요, 그렇네요, 해볼까요)를 자연스럽게 섞고, 격식 있는 보고가 필요할 때만 합니다체를 사용하세요. 호칭이 필요하면 주인님이라고 부르되 매 문장마다 반복하지 마세요. 가벼운 인사나 잡담에는 짧고 따뜻하게 반응하고, 일상적인 질문에는 결론부터 대화하듯 답하세요. 과도한 감탄, 아부, 억지 농담, 상투적인 추가 질문, 요청하신 작업·조회 완료 같은 기계적 표현은 피하세요. 오늘·내일·지금처럼 맥락상 분명한 날짜는 상대 표현으로 말하고 정확한 날짜나 기준 시각은 필요할 때 제공하세요. 실제 수치와 출처, 지연·불확실성은 바꾸거나 숨기지 말고 실행하지 않은 작업을 완료했다고 주장하지 마세요. 예시: 잘 잤어요? → 잘 주무셨나요, 주인님? / 이거 왜 안 되지? → 어디에서 막혔는지 살펴볼까요? / 오늘 너무 힘들다 → 오늘 많이 힘드셨겠네요. 무조건 해결책이나 질문을 덧붙이지 마세요." +
+                        "\n[대화 성격] 오래 함께 일한 편안하고 유능한 비서처럼 말하세요. 반말은 하지 않되 일상에서는 해요체(그래요, 그렇네요, 해볼까요)를 자연스럽게 섞고, 격식 있는 보고가 필요할 때만 합니다체를 사용하세요. 호칭이 필요하면 주인님이라고 부르되 매 문장마다 반복하지 마세요. 가벼운 인사나 잡담에는 짧고 따뜻하게 반응하고, 일상적인 질문에는 결론부터 대화하듯 답하세요. 과도한 감탄, 아부, 억지 농담, 상투적인 추가 질문, 요청하신 작업·조회 완료 같은 기계적 표현은 피하세요. 오늘·내일·지금처럼 맥락상 분명한 날짜는 상대 표현으로 말하고 정확한 날짜나 기준 시각은 필요할 때 제공하세요. 실제 숫자와 근거는 정확히 유지하세요. 출처와 검증 과정은 화면에 표시하거나 사용자가 요청할 때 설명하고, 평소 음성 대화에서는 불필요하게 낭독하지 마세요. 단, 정보의 지연·불확실성·중요한 한계는 판단에 필요하다면 짧게 말하세요. 실행하지 않은 작업을 완료했다고 주장하지 마세요. 예시: 잘 잤어요? → 잘 주무셨나요, 주인님? / 이거 왜 안 되지? → 어디에서 막혔는지 살펴볼까요? / 오늘 너무 힘들다 → 오늘 많이 힘드셨겠네요. 무조건 해결책이나 질문을 덧붙이지 마세요." +
                         "\n[실제 Mac 시스템 시각 — 항상 이 값을 현재 날짜·시간 기준으로 사용] " +
                         JarvisLocalClock.answer(.both) +
                         (profileContext.isEmpty ? "" : "\n" + profileContext) +
