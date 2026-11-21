@@ -1,0 +1,6 @@
+openwakeword==0.6.0
+numpy==2.2.6
+onnxruntime==1.23.2
+onnx==1.23.2
+scikit-learn==1.7.2
+sounddevice==0.5.6
