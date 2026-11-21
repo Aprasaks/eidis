@@ -57,7 +57,7 @@ class LiveClockAndSpeedTests(unittest.TestCase):
         self.assertIn("localModelWarmup.start()",APP)
         self.assertIn("localModelWarmup.stop()",APP)
         self.assertIn("http://127.0.0.1:11434/api/generate",WARM)
-        self.assertIn('"keep_alive":"30m"',WARM)
+        self.assertIn('"keep_alive":"2m"',WARM)
         self.assertIn('"stream":false',WARM)
         self.assertIn('object["model"] as? String',WARM)
         self.assertNotIn('"prompt"',WARM)

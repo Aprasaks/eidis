@@ -71,6 +71,17 @@ final class JarvisOverlayConversation: ObservableObject {
         isListening || isThinking || isSpeaking || isActive || listeningTask != nil || listener.captureBusy || macVoice.isSpeaking
     }
     private var wakeTurn = false
+    // One authenticated call establishes a short-lived hands-free conversation.
+    // Each subsequent utterance still goes through the same voice filter.
+    private var wakeSessionStarted: Date?
+    private var wakeSessionTurns = 0
+    private let wakeSessionLimit = 600.0
+    private let wakeSessionIdle = 12.0
+    func endWakeSession() {
+        guard wakeTurn else { return }
+        interruptCurrentReply()
+        pauseMicrophone()
+    }
     func setWakeStatus(_ text: String) {
         guard !wakeCaptureBusy else { return }
         status = text
@@ -78,6 +89,8 @@ final class JarvisOverlayConversation: ObservableObject {
     func beginDekaWakeTurn() {
         guard (miniSingleTurn || wakeStandbyEnabled), !wakeCaptureBusy else { return }
         wakeTurn = true
+        wakeSessionStarted = Date()
+        wakeSessionTurns = 0
         isSpeaking = true
         answer = "네, 주인님."
         dialogueTurns.append(JarvisLiveDialogueTurn(role: "DECHIVE", content: answer))
@@ -112,6 +125,8 @@ final class JarvisOverlayConversation: ObservableObject {
     private func finishMiniTurn() {
         let shouldEnd = singleTurnCapture
         wakeTurn = false
+        wakeSessionStarted = nil
+        wakeSessionTurns = 0
         guard shouldEnd else { return }
         isActive = false
         onMiniTurnEnded?()
@@ -290,6 +305,8 @@ final class JarvisOverlayConversation: ObservableObject {
 
     func pauseMicrophone() {
         wakeTurn = false
+        wakeSessionStarted = nil
+        wakeSessionTurns = 0
         isActive = false
         silenceTask?.cancel()
         silenceTask = nil
@@ -350,7 +367,8 @@ final class JarvisOverlayConversation: ObservableObject {
                 if self.singleTurnCapture {
                     let elapsed = Date().timeIntervalSince(openedAt)
                     if elapsed >= 120 ||
-                        (elapsed >= 30 && self.listener.transcript.isEmpty) {
+                        (elapsed >= 30 && self.listener.transcript.isEmpty) ||
+                        (self.wakeTurn && elapsed >= self.wakeSessionIdle && self.listener.transcript.isEmpty) {
                         self.completeUtterance()
                         return
                     }
@@ -457,7 +475,10 @@ final class JarvisOverlayConversation: ObservableObject {
         status = "질문 처리 중…"
         do {
             let command = JarvisDialogueInput.command(prompt)
-            let response = command.isEmpty ? "네, 주인님." : try await planAndRespond(command, token: token)
+            let localReply = JarvisDialogueInput.presenceOrEnd(command)
+            let response: String
+            if let localReply { response = localReply.reply }
+            else { response = try await planAndRespond(command, token: token) }
             guard token == generation && !Task.isCancelled else { return }
             guard !response.isEmpty else {
                 isThinking = false
@@ -505,7 +526,17 @@ final class JarvisOverlayConversation: ObservableObject {
             await elevenLabs.waitForOutputToFinish(fallback: macVoice)
             guard token == generation && !Task.isCancelled else { return }
             isSpeaking = false
-            if singleTurnCapture {
+            if wakeTurn && wakeStandbyEnabled && localReply?.end != true,
+               let started = wakeSessionStarted,
+               Date().timeIntervalSince(started) < wakeSessionLimit,
+               wakeSessionTurns < 30 {
+                wakeSessionTurns += 1
+                status = "다음 질문 듣기"
+                // Output has ended. A short acoustic tail is allowed to decay.
+                try? await Task.sleep(for: .milliseconds(250))
+                guard token == generation && !Task.isCancelled else { return }
+                activateListening()
+            } else if singleTurnCapture {
                 status = "대기 중 · 마이크 버튼 또는 Option+Space"
                 finishMiniTurn()
             } else {
@@ -865,7 +896,7 @@ final class JarvisOverlayConversation: ObservableObject {
             // Keep usable answers until a larger-budget mode is benchmarked.
             "think": false,
             "stream": false,
-            "keep_alive": "30m",
+            "keep_alive": "2m",
             "options": ["num_ctx": thinkingMode == .fast ? 4096 : 6144,
                         "num_predict": thinkingMode == .deliberate ? 380 : 260,
                         "temperature": 0.1]
@@ -1102,7 +1133,7 @@ final class JarvisOverlayConversation: ObservableObject {
                 ["role": "system", "content": policy],
                 ["role": "user", "content": source]
             ],
-            "think": false, "stream": false, "keep_alive": "10m",
+            "think": false, "stream": false, "keep_alive": "2m",
             "options": ["num_ctx": 4096, "num_predict": 320, "temperature": 0.1]
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -1164,6 +1195,8 @@ final class JarvisOverlayConversation: ObservableObject {
 
     func cancel() {
         wakeTurn = false
+        wakeSessionStarted = nil
+        wakeSessionTurns = 0
         generation = UUID()
         dialogueTask?.cancel()
         listeningTask?.cancel()

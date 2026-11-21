@@ -29,6 +29,14 @@ import Foundation
         precondition(JarvisDialogueInput.asksTodayTasks("자비스 오늘 할일 알려줘"))
         precondition(JarvisDialogueInput.asksTodayTasks("데카, 오늘 할 일 뭐야?"))
         precondition(!JarvisDialogueInput.asksTodayTasks("오늘 할 일 알려주지 마"))
+        for input in ["자비스 깨어 있어?", "데카, 거기 있어?", "듣고 있어?", "잘 들려?"] {
+            precondition(JarvisDialogueInput.presenceOrEnd(input)?.end == false)
+        }
+        for input in ["데카, 이제 쉬어", "이제 대기해", "나중에 이야기하자"] {
+            precondition(JarvisDialogueInput.presenceOrEnd(input)?.end == true)
+        }
+        precondition(JarvisDialogueInput.presenceOrEnd("오늘 날씨 어때?") == nil)
+        precondition(JarvisDialogueInput.presenceOrEnd("프로그램 대기해") == nil)
         let now=Date()
         let live=JarvisLocalClock.answer(.date,now:now)
         print("MAC_CLOCK:",live)

@@ -20,9 +20,51 @@ def assess(model, owner, raw, threshold, min_seconds):
     except ValueError:
         return False, None
 
+# A deliberately conservative energy gate, not a speech classifier.
+# Quiet input bypasses neural inference; retain pre-roll and a long tail
+# so quiet initial/final consonants and model context are not discarded.
+class QuietWake:
+    def __init__(self, detector, low_power=True):
+        self.detector=detector
+        self.low_power=low_power
+        self.history=deque(maxlen=20)
+        self.tail=0
+        self.calls=0
+        self.skipped=0
+
+    def push(self, pcm):
+        self.history.append(pcm.copy())
+        audible=float(np.sqrt(np.mean(pcm.astype(np.float32)**2))) >= 30.0
+        if not self.low_power:
+            return self.predict(pcm)
+        if audible:
+            if self.tail == 0:
+                self.detector.reset()
+                # Replay precisely the recent frames, including the onset.
+                frames=[np.zeros(1280,dtype=np.int16)]*(20-len(self.history))+list(self.history)
+                score=0.
+                for frame in frames:
+                    score=self.predict(frame)
+                self.tail=25
+                return score
+            self.tail=25
+        elif self.tail == 0:
+            self.skipped+=1
+            return 0.
+        else:
+            self.tail-=1
+        return self.predict(pcm)
+
+    def predict(self,pcm):
+        self.calls+=1
+        score=float(max(self.detector.predict(pcm).values()))
+        if not np.isfinite(score):raise ValueError("wake score")
+        return score
+
 def wake(model,owner):
     from openwakeword.model import Model
-    detector=Model(wakeword_models=[str(WAKE_MODEL)],inference_framework="onnx")
+    detector=Model(wakeword_models=[str(WAKE_MODEL)],inference_framework="onnx",ncpu=1)
+    gate=QuietWake(detector)
     ring=deque(maxlen=20) # most recent 1.6s only
     pending=0
     peak=0.0
@@ -32,8 +74,7 @@ def wake(model,owner):
         raw=sys.stdin.buffer.read(CHUNK)
         if len(raw)!=CHUNK:return
         ring.append(raw)
-        score=float(max(detector.predict(np.frombuffer(raw,dtype="<i2")).values()))
-        if not np.isfinite(score):raise ValueError("wake score")
+        score=gate.push(np.frombuffer(raw,dtype="<i2"))
         if cooldown:
             cooldown-=1
             continue

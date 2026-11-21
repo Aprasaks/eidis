@@ -1289,6 +1289,8 @@ final class JarvisFullscreenOverlay: ObservableObject {
         dekaEnabled = false
         dekaMonitorTask?.cancel()
         dekaMonitorTask = nil
+        dialogue?.endWakeSession()
+        miniDialogue?.endWakeSession()
         dialogue?.wakeStandbyEnabled = false
         miniDialogue?.wakeStandbyEnabled = false
         if deka.armed { deka.stop(reason) }

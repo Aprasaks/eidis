@@ -22,7 +22,7 @@ final class JarvisLocalModelWarmup {
             request.httpBody=try? JSONSerialization.data(withJSONObject:[
                 "model":"qwen3.5:9b-q4_K_M",
                 "stream":false,
-                "keep_alive":"30m"
+                "keep_alive":"2m"
             ])
             do {
                 let config=URLSessionConfiguration.ephemeral

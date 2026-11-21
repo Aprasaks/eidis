@@ -75,6 +75,17 @@ enum JarvisDialogueInput {
             .replacingOccurrences(of: #"^(데카|자비스|jarvis)(?=$|[\s,，.!！?？])[,，.!！?？\s]*"#,
                                   with: "", options: [.regularExpression,.caseInsensitive])
     }
+    static func presenceOrEnd(_ text:String) -> (reply:String, end:Bool)? {
+        let compact=command(text).filter{!$0.isWhitespace}.trimmingCharacters(in:CharacterSet(charactersIn:".!?？!！"))
+        if compact.isEmpty || ["있어","거기있어","깨어있어","듣고있어","듣고있니","거기있니","깨어있니","자니","안녕","안녕하세요","내말들려","잘들려"].contains(compact) {
+            return ("네, 주인님. 듣고 있어요.",false)
+        }
+        if ["이제쉬어","대화끝","대화종료","대기해","이제대기해","잠깐쉬어","나중에얘기하자","나중에이야기하자","그만듣고있어","그만들어"].contains(compact) {
+            return ("네, 필요하면 다시 불러 주세요.",true)
+        }
+        return nil
+    }
+
     static func asksTodayTasks(_ text: String) -> Bool {
         let compact = command(text).filter { !$0.isWhitespace }.trimmingCharacters(in: CharacterSet(charactersIn: ".!?？!！요"))
         return ["오늘할일", "오늘할일알려줘", "오늘할일뭐야", "오늘할일보여줘",
