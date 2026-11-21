@@ -775,6 +775,7 @@ final class JarvisOverlayConversation: ObservableObject {
                         (useFastStream ? shortDialoguePolicy :
                             JarvisCommand.systemInstructions + "\n" + panelContext) +
                         "\n" + reasoningGuidance +
+                        "\n[대화 표현] 실제 비서처럼 질문에 바로 답하세요. 오늘·내일·지금처럼 맥락상 분명한 날짜는 자연스러운 상대 표현을 사용하고, 연월일과 기준 시각은 사용자가 묻거나 정확한 구분이 필요할 때만 말하세요. 실제 수치와 출처, 지연·불확실성은 바꾸거나 숨기지 마세요. 불필요한 보고서체, 반복적인 화면 안내는 피하세요." +
                         "\n[실제 Mac 시스템 시각 — 항상 이 값을 현재 날짜·시간 기준으로 사용] " +
                         JarvisLocalClock.answer(.both) +
                         (profileContext.isEmpty ? "" : "\n" + profileContext) +

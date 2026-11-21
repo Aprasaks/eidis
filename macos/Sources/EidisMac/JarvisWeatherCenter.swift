@@ -170,15 +170,76 @@ final class WeatherClient {
         }
     }
     private func summary(_ result:WeatherSnapshot)->String {
-        let d=result.data
-        func temp(_ n:Double?)->String{n.map{String(format:"%.1f도",$0)} ?? "미확인"}
-        if tomorrow {
-            guard d.daily.time.count>1 else{return "주인님, \(result.town.name)의 내일 예보가 확인되지 않았습니다."}
-            return "주인님, \(result.town.name) \(d.daily.time[1]) 예보입니다. \(WeatherPayload.description(d.daily.weather_code[1])), 최저 \(temp(d.daily.temperature_2m_min[1])), 최고 \(temp(d.daily.temperature_2m_max[1])), 최대 강수확률 \(d.daily.precipitation_probability_max[1].map{String($0)+"퍼센트"} ?? "미확인")입니다. Open-Meteo 예보 기준입니다."
-        }
-        return "주인님, \(result.town.name) \(d.current.time.replacingOccurrences(of:"T",with:" ")) 기준 날씨입니다. \(WeatherPayload.description(d.current.weather_code)), 기온 \(temp(d.current.temperature_2m)), 체감 \(temp(d.current.apparent_temperature))입니다. 시간별 예보는 화면에서 확인하세요. 기상 모델 기준입니다."
+        WeatherConversation.answer(result, tomorrow:tomorrow)
     }
 }
+
+/// Present verified weather values conversationally without a second model
+/// call. Relative dates are permitted only after matching the KST calendar.
+enum WeatherConversation {
+    static func answer(_ result:WeatherSnapshot, tomorrow:Bool, now:Date=Date())->String {
+        let d=result.data
+        let town=result.town.name
+        let today=WeatherPayload.kstDay(now)
+        var calendar=Calendar(identifier:.gregorian)
+        calendar.timeZone=TimeZone(identifier:"Asia/Seoul")!
+        let next=calendar.date(byAdding:.day,value:1,to:now).map(WeatherPayload.kstDay)
+        func temp(_ n:Double?)->String? {
+            guard let n,n.isFinite else{return nil}
+            return (n < 0 ? "영하 " : "")+String(format:"%.1f도",abs(n))
+        }
+        func sky(_ code:Int?)->String? {
+            switch WeatherPayload.description(code) {
+            case "상태 미확인":return nil
+            case "맑음":return "맑습니다."
+            case "대체로 맑음":return "대체로 맑습니다."
+            case "구름 조금":return "구름이 조금 끼어 있습니다."
+            case "흐림":return "흐립니다."
+            case let s:return s+" 상태입니다."
+            }
+        }
+        if tomorrow {
+            guard d.valid,d.daily.time.count>1,d.daily.time.first==today,d.daily.time[1]==next else {
+                return "주인님, "+town+"의 내일 예보 날짜를 확인하지 못했습니다."
+            }
+            var sentences=["주인님, 내일 "+town+" 날씨 예보입니다."]
+            switch WeatherPayload.description(d.daily.weather_code[1]) {
+            case "맑음": sentences.append("맑을 것으로 예상됩니다.")
+            case "대체로 맑음": sentences.append("대체로 맑을 것으로 예상됩니다.")
+            case "구름 조금": sentences.append("구름이 조금 낄 것으로 예상됩니다.")
+            case "흐림": sentences.append("흐릴 것으로 예상됩니다.")
+            case "상태 미확인": break
+            case let condition: sentences.append(condition+" 예보가 있습니다.")
+            }
+            let low=temp(d.daily.temperature_2m_min[1]), high=temp(d.daily.temperature_2m_max[1])
+            if let low,let high {sentences.append("최저 "+low+", 최고 "+high+"로 예상됩니다.")}
+            else if let low {sentences.append("최저 기온은 "+low+"로 예상됩니다.")}
+            else if let high {sentences.append("최고 기온은 "+high+"로 예상됩니다.")}
+            if let rain=d.daily.precipitation_probability_max[1],(0...100).contains(rain) {
+                sentences.append("하루 중 최대 강수확률은 "+String(rain)+"%입니다.")
+            }
+            if sentences.count==1 {sentences.append("확인된 예보 수치가 없습니다.")}
+            return sentences.joined(separator:" ")
+        }
+        guard d.daily.time.first==today,d.current.time.hasPrefix(today+"T") else {
+            return "주인님, "+town+"의 오늘 날씨를 확인하지 못했습니다. 화면에 자료의 기준 시각을 표시했습니다."
+        }
+        var sentences:[String]=[]
+        if let condition=sky(d.current.weather_code) {
+            sentences.append("주인님, 지금 "+town+" 지역은 "+condition)
+        } else {
+            sentences.append("주인님, 지금 "+town+"의 날씨 정보입니다.")
+        }
+        let actual=temp(d.current.temperature_2m), feels=temp(d.current.apparent_temperature)
+        if let actual,let feels {sentences.append("기온은 "+actual+", 체감온도는 "+feels+"입니다.")}
+        else if let actual {sentences.append("기온은 "+actual+"입니다.")}
+        else if let feels {sentences.append("체감온도는 "+feels+"입니다.")}
+        else {sentences.append("기온과 체감온도는 확인되지 않았습니다.")}
+        sentences.append("기상 모델 기준입니다.")
+        return sentences.joined(separator:" ")
+    }
+}
+
 struct JarvisWeatherCenterView:View {
     @ObservedObject var model:JarvisWeatherCenter
     private func run(_ intent:WeatherIntent){Task{_ = await model.handle(intent)}}
