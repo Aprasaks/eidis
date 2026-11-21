@@ -51,6 +51,16 @@ struct JarvisLiveDialoguePanel: View {
                 .accessibilityIdentifier("dechive-study-notice")
             }
 
+            if !dialogue.actionNotice.isEmpty {
+                HStack(spacing: 6) {
+                    Image(systemName: "list.bullet.rectangle")
+                    Text(dialogue.actionNotice)
+                }
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(amber)
+                .accessibilityIdentifier("dechive-action-notice")
+            }
+
             ScrollViewReader { proxy in
                 ScrollView(.vertical) {
                     VStack(alignment: .leading, spacing: 13) {

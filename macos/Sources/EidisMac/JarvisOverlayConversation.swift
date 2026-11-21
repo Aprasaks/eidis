@@ -27,6 +27,7 @@ final class JarvisOverlayConversation: ObservableObject {
     @Published private(set) var isActive = false
     @Published private(set) var continuityNotice = ""
     @Published private(set) var studyNotice = ""
+    @Published private(set) var actionNotice = ""
     private var continuityMonitor: Task<Void, Never>?
     @Published private(set) var liveTranscript = ""
     @Published private(set) var dialogueTurns: [JarvisLiveDialogueTurn] = []
@@ -50,6 +51,7 @@ final class JarvisOverlayConversation: ObservableObject {
     let vault = JarvisKnowledgeVault()
     private let thinkingCore = JarvisThinkingCore()
     private let studyClient = JarvisStudyClient()
+    private let actionClient = JarvisActionClient()
     let liveDashboard = JarvisLiveDashboard()
     private let elevenLabs = ElevenLabsVoiceService.shared
     private let session: URLSession
@@ -121,6 +123,8 @@ final class JarvisOverlayConversation: ObservableObject {
         } else {
             studyNotice = ""
         }
+        let notice = await actionClient.notice()
+        if !Task.isCancelled { actionNotice = notice }
     }
 
     func toggleMicrophone() {
@@ -275,14 +279,19 @@ final class JarvisOverlayConversation: ObservableObject {
             if JarvisVaultIntent.parse(prompt) == nil &&
                JarvisPersonalProfile.parse(prompt) == nil &&
                JarvisThoughtIntent.parse(prompt) == nil &&
-               JarvisStudyIntent.parse(prompt) == nil {
+               JarvisStudyIntent.parse(prompt) == nil &&
+               JarvisActionIntent.parse(prompt) == nil {
                 lastAssistantContent = response
                 lastDiscussionTopic = prompt
             }
             status = "답변 읽는 중… Esc로 즉시 종료할 수 있습니다."
             isSpeaking = true
             // Pronunciation rule: DECHIVE is addressed as 데카이브 in speech.
-            let spoken = response.replacingOccurrences(of: "DECHIVE", with: "데카이브", options: .caseInsensitive)
+            let speechText: String
+            if case .report = JarvisActionIntent.parse(prompt), response.count > 650 {
+                speechText = String(response.prefix(550)) + ". 자세한 보고서는 화면에서 확인하실 수 있습니다."
+            } else { speechText = response }
+            let spoken = speechText.replacingOccurrences(of: "DECHIVE", with: "데카이브", options: .caseInsensitive)
             await elevenLabs.speak(spoken, fallback: macVoice)
             guard token == generation && !Task.isCancelled else { return }
             await elevenLabs.waitForOutputToFinish(fallback: macVoice)
@@ -301,6 +310,14 @@ final class JarvisOverlayConversation: ObservableObject {
     /// Qwen selects tools through the local Ollama API. This client only runs
     /// audited, read-only actions from JarvisCommand, never generated code.
     private func planAndRespond(_ prompt: String, token: UUID) async throws -> String {
+        if let intent = JarvisActionIntent.parse(prompt) {
+            let outcome = await actionClient.handle(intent)
+            guard !Task.isCancelled && token == generation else { return "" }
+            conversation.append(["role": "user", "content": String(prompt.prefix(500))])
+            conversation.append(["role": "assistant", "content": String(outcome.prefix(1600))])
+            if conversation.count > 8 { conversation.removeFirst(conversation.count - 8) }
+            return outcome
+        }
         if let intent = JarvisStudyIntent.parse(prompt) {
             let outcome: String
             switch intent {
@@ -767,6 +784,8 @@ final class JarvisOverlayConversation: ObservableObject {
         studyNotice = ""
         thinkingCore.cancel()
         studyClient.cancel()
+        actionClient.cancelSession()
+        actionNotice = ""
         lastAssistantContent = ""
         lastDiscussionTopic = ""
         status = "DECHIVE 대화 종료"

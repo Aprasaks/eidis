@@ -75,6 +75,10 @@ jobs:
         run: |
           swiftc -parse-as-library -o /tmp/dechive-thinking-smoke macos/tests/thinking/main.swift macos/Sources/EidisMac/JarvisThinkingCore.swift
           /tmp/dechive-thinking-smoke
+      - name: Test Action Core explicit delegation and query parsing
+        run: |
+          swiftc -parse-as-library -o /tmp/dechive-action-smoke macos/tests/action/main.swift macos/Sources/EidisMac/JarvisActionCore.swift
+          /tmp/dechive-action-smoke
       - name: Test fixed-command local Git reader
         run: |
           swiftc -o /tmp/jarvis-local-git-test macos/tests/git/main.swift macos/Sources/EidisMac/LocalGitInspector.swift
