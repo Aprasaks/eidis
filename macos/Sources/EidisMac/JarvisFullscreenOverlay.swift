@@ -182,8 +182,7 @@ private struct JarvisMiniCoreView: View {
         if dialogue.isListening { return dialogue.liveTranscript.isEmpty ? "듣는 중…" : dialogue.liveTranscript }
         if dialogue.isThinking { return dialogue.streamingAnswer.isEmpty ? dialogue.status : dialogue.streamingAnswer }
         if dialogue.isSpeaking { return dialogue.answer }
-        if dialogue.status.hasPrefix("호출 대기") || dialogue.status.hasPrefix("데카") ||
-            dialogue.status.hasPrefix("마이크·") || dialogue.status.contains("권한") ||
+        if dialogue.status.hasPrefix("마이크·") || dialogue.status.contains("권한") ||
             dialogue.status.contains("실패") ||
             dialogue.status.contains("수 없습니다") || dialogue.status.contains("문장이 없습니다") {
             return dialogue.status
@@ -1271,27 +1270,75 @@ private struct JarvisSummonedView: View {
 final class JarvisFullscreenOverlay: ObservableObject {
     @Published private(set) var miniEnabled =
         UserDefaults.standard.bool(forKey: "jarvis.mini.enabled")
+    // Explicit session opt-in; restart never silently opens the microphone.
+    @Published private(set) var dekaEnabled = false
     @Published private(set) var dekaArmed = false
-    @Published private(set) var dekaStatus = "데카 호출 실험 꺼짐"
+    @Published private(set) var dekaStatus = "데카 상시 대기 꺼짐"
     private let deka = JarvisDekaWake()
     private var dekaSleepObserver: NSObjectProtocol?
-    func stopDeka(_ reason: String = "데카 호출 실험 꺼짐") {
+    private var dekaMonitorTask: Task<Void, Never>?
+    private var dekaNotBefore = Date.distantPast
+
+    // Pause capture without revoking the opt-in during a normal dialogue.
+    private func pauseDeka(_ reason: String = "대화 중 · 호출 감지 일시정지") {
         if deka.armed { deka.stop(reason) }
+        else if dekaEnabled && dekaStatus != reason { dekaStatus = reason }
+        dekaNotBefore = Date().addingTimeInterval(0.6)
+    }
+    func stopDeka(_ reason: String = "데카 상시 대기 꺼짐") {
+        dekaEnabled = false
+        dekaMonitorTask?.cancel()
+        dekaMonitorTask = nil
+        dialogue?.wakeStandbyEnabled = false
+        miniDialogue?.wakeStandbyEnabled = false
+        if deka.armed { deka.stop(reason) }
+        dekaStatus = reason
+    }
+    private func bindDeka(_ voice: JarvisOverlayConversation) {
+        voice.wakeStandbyEnabled = dekaEnabled
+        voice.onBeforeQuestion = { [weak self] in self?.pauseDeka() }
     }
     func toggleDeka() {
-        if deka.armed { stopDeka(); return }
-        guard panel == nil else { dekaStatus = "전체 화면을 닫고 데카 실험을 시작하세요."; return }
-        guard !NSApp.windows.contains(where: { $0 !== miniPanel && $0.isVisible && $0.level == .normal && $0.canBecomeKey }) else {
-            dekaStatus = "작업 및 음성 설정 창을 닫고 시험하세요."; return
+        if dekaEnabled { stopDeka(); return }
+        guard !NSApp.windows.contains(where: { $0 !== miniPanel && $0 !== panel && $0.isVisible && $0.level == .normal && $0.canBecomeKey }) else {
+            dekaStatus = "작업 및 음성 설정 창을 닫고 시작하세요."; return
         }
-        if !miniEnabled { toggleMini() }
-        guard let voice=miniDialogue, !voice.wakeCaptureBusy else {
-            dekaStatus = "작은 코어 대화가 끝난 후 시험하세요."; return
+        // Keep a visible companion when the fullscreen workspace is closed.
+        if !miniEnabled {
+            miniEnabled = true
+            UserDefaults.standard.set(true, forKey: "jarvis.mini.enabled")
         }
-        Task { [weak self, weak voice] in
-            guard let self, let voice, self.panel == nil, self.miniDialogue === voice, !voice.wakeCaptureBusy else { return }
-            await self.deka.start()
+        if panel == nil && miniPanel == nil { showMini() }
+        guard let voice = dialogue ?? miniDialogue else {
+            dekaStatus = "코어를 열 수 없습니다."; return
         }
+        dekaEnabled = true
+        bindDeka(voice)
+        // Explicitly switch an empty continuous-listening turn into wake
+        // standby. A turn containing words is allowed to finish normally.
+        if voice.isListening && voice.liveTranscript.isEmpty { voice.pauseMicrophone() }
+        dekaStatus = "데카 상시 대기 준비 중…"
+        dekaNotBefore = Date()
+        dekaMonitorTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self, self.dekaEnabled else { return }
+                await self.reconcileDeka()
+                do { try await Task.sleep(for: .milliseconds(400)) } catch { return }
+            }
+        }
+    }
+    private func reconcileDeka() async {
+        guard dekaEnabled, !Task.isCancelled else { return }
+        guard let voice = dialogue ?? miniDialogue else {
+            pauseDeka("코어 전환 중"); return
+        }
+        if voice.wakeCaptureBusy || greetingTask != nil ||
+            greetingFallback.isSpeaking || ElevenLabsVoiceService.shared.outputActive {
+            pauseDeka()
+            return
+        }
+        guard Date() >= dekaNotBefore, !deka.armed else { return }
+        await deka.start()
     }
 
     private var hotkey: JarvisOverlayHotkey?
@@ -1319,16 +1366,17 @@ final class JarvisFullscreenOverlay: ObservableObject {
             guard let self else { return }
             self.dekaArmed = self.deka.armed
             self.dekaStatus = text
-            self.miniDialogue?.setWakeStatus(text)
+            // System telemetry belongs in the menu, not the core caption.
         }
+        deka.onFailure = { [weak self] reason in self?.stopDeka(reason) }
         deka.onHit = { [weak self] in
-            guard let self, self.panel == nil, let voice=self.miniDialogue, !voice.wakeCaptureBusy else { return }
+            guard let self, self.dekaEnabled, let voice=self.dialogue ?? self.miniDialogue, !voice.wakeCaptureBusy, self.greetingTask == nil else { return }
             self.onPresentationChanged?(true)
             voice.beginDekaWakeTurn()
         }
-        LocalSpeechListener.beforeCapture = { [weak self] in self?.stopDeka("기존 음성 인식으로 전환") }
+        LocalSpeechListener.beforeCapture = { [weak self] in self?.pauseDeka("질문 듣는 중 · 호출 감지 일시정지") }
         dekaSleepObserver = NSWorkspace.shared.notificationCenter.addObserver(forName:NSWorkspace.willSleepNotification,object:nil,queue:.main) { [weak self] _ in
-            Task { @MainActor in self?.stopDeka("절전으로 시험 종료") }
+            Task { @MainActor in self?.stopDeka("절전으로 상시 대기 종료") }
         }
         NSLog("JARVIS: overlay start, args=%@", ProcessInfo.processInfo.arguments.joined(separator: ","))
         let key = JarvisOverlayHotkey()
@@ -1367,6 +1415,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
         if miniEnabled {
             if panel == nil { showMini() }
         } else {
+            if panel == nil { stopDeka("작은 코어 숨김 · 상시 대기 종료") }
             hideMini()
         }
     }
@@ -1401,6 +1450,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
         mini.isMovableByWindowBackground = true
         let voice = JarvisOverlayConversation()
         voice.miniSingleTurn = true
+        bindDeka(voice)
         voice.prepareMiniStandby()
         voice.onMiniTurnEnded = { [weak self] in
             if self?.panel == nil { self?.onPresentationChanged?(false) }
@@ -1480,7 +1530,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
     }
 
     private func hideMini(preserveDialogue: Bool = false) {
-        stopDeka("작은 코어 전환 · 시험 종료")
+        pauseDeka("코어 전환 중")
         guard let miniPanel else { return }
         saveMiniFrame()
         for observer in miniObservers { NotificationCenter.default.removeObserver(observer) }
@@ -1502,7 +1552,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
     }
 
     private func handleMicrophoneShortcut() {
-        stopDeka("수동 마이크 전환 · 시험 종료")
+        pauseDeka("수동 마이크 전환")
         guard panel != nil || miniPanel != nil, Date().timeIntervalSince(lastMicrophoneShortcut) > 0.25 else {
             return
         }
@@ -1555,6 +1605,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
         window.setFrame(screen.frame, display: true)
         let dialogue = fullscreenDialogue ?? JarvisOverlayConversation()
         dialogue.miniSingleTurn = false
+        bindDeka(dialogue)
         dialogue.onWorkspaceRequested = nil
         dialogue.onMiniTurnEnded = nil
         self.dialogue = dialogue
@@ -1686,6 +1737,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
     /// Immediate dismissal: do not wait for a fade when the user presses Esc.
     func dismiss() {
         guard let window = panel else { return }
+        pauseDeka("전체 화면 닫기 · 코어 전환")
         hotkey?.uninstallEscape()
         hotkey?.uninstallMicrophone()
         // Highest priority: stop audio and cancel outstanding greeting requests.
@@ -1703,12 +1755,12 @@ final class JarvisFullscreenOverlay: ObservableObject {
         window.orderOut(nil)
         window.contentView = nil // releases video layer and pauses AVPlayerLooper
         onPresentationChanged?(false)
-        if miniEnabled { showMini() }
+        if miniEnabled { showMini() } else { stopDeka("코어 닫힘 · 상시 대기 종료") }
     }
 
     func stop() {
-        hideMini()
         stopDeka()
+        hideMini()
         LocalSpeechListener.beforeCapture = nil
         if let dekaSleepObserver { NSWorkspace.shared.notificationCenter.removeObserver(dekaSleepObserver) }
         dekaSleepObserver = nil

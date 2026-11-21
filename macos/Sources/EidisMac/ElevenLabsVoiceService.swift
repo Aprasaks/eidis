@@ -409,6 +409,9 @@ final class ElevenLabsVoiceService: ObservableObject {
 
     /// Wait for either ElevenLabs or the offline Mac fallback to finish speaking.
     /// Each 150ms pause is cancellable; Esc stops playback and the next question.
+    var outputActive: Bool {
+        isBusy || player?.isPlaying == true || (samplePlayer?.rate ?? 0) != 0
+    }
     func waitForOutputToFinish(fallback: JarvisVoiceService) async {
         for _ in 0..<400 {
             if Task.isCancelled { return }

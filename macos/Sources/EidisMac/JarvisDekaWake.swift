@@ -56,7 +56,7 @@ final class DekaPCMRelay: @unchecked Sendable {
 
 @MainActor final class JarvisDekaWake: ObservableObject {
     @Published private(set) var armed = false
-    @Published private(set) var status = "데카 호출 실험 꺼짐"
+    @Published private(set) var status = "데카 상시 대기 꺼짐"
     private let engine = AVAudioEngine()
     private var tapInstalled = false
     private var process: Process?
@@ -68,22 +68,23 @@ final class DekaPCMRelay: @unchecked Sendable {
     private var outputBuffer = Data()
     private var ready = false
     var onHit: (() -> Void)?
+    var onFailure: ((String) -> Void)?
     var onStatus: ((String) -> Void)?
 
     private func update(_ value: String) { status = value; onStatus?(value) }
     func start() async {
         guard !armed else { return }
         let id = UUID(); epoch = id; armed = true
-        update("데카 호출 실험 준비 중…")
+        update("데카 호출 준비 중…")
         let allowed = await AVCaptureDevice.requestAccess(for: .audio)
         guard epoch == id, armed else { return }
-        guard allowed else { stop("데카 마이크 권한 필요"); return }
+        guard allowed else { fail("데카 마이크 권한 필요"); return }
         let root = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".jarvis-lab/wakeword")
         let python = root.appendingPathComponent("venv/bin/python")
         guard FileManager.default.isExecutableFile(atPath: python.path),
               FileManager.default.fileExists(atPath: root.appendingPathComponent("deka_ko_experimental.onnx").path),
               let script = Bundle.main.url(forResource:"deka_worker",withExtension:"py") else {
-            stop("데카 실험 모델 또는 로컬 환경 없음"); return
+            fail("데카 실험 모델 또는 로컬 환경 없음"); return
         }
         let child = Process(), stdin = Pipe(), stdout = Pipe()
         child.executableURL = python
@@ -97,21 +98,21 @@ final class DekaPCMRelay: @unchecked Sendable {
             Task { @MainActor [weak self] in self?.receive(data, id: id) }
         }
         do { try child.run() }
-        catch { stop("데카 모델 실행 실패"); return }
+        catch { fail("데카 모델 실행 실패"); return }
         deadline = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(15)) } catch { return }
             guard let self, self.epoch == id, !self.ready else { return }
-            self.stop("데카 모델 준비 시간 초과")
+            self.fail("데카 모델 준비 시간 초과")
         }
     }
     private func receive(_ data: Data, id: UUID) {
         guard epoch == id, armed else { return }
         if data.isEmpty {
-            if armed { stop("데카 모델 스트림 종료") }
+            if armed { fail("데카 모델 스트림 종료") }
             return
         }
         outputBuffer.append(data)
-        guard outputBuffer.count <= 4096 else { stop("데카 모델 응답 오류"); return }
+        guard outputBuffer.count <= 4096 else { fail("데카 모델 응답 오류"); return }
         while let end = outputBuffer.firstIndex(of: 10) {
             let line = String(decoding: outputBuffer[..<end], as: UTF8.self)
             outputBuffer.removeSubrange(...end)
@@ -124,7 +125,7 @@ final class DekaPCMRelay: @unchecked Sendable {
                 onHit?()
                 return
             } else {
-                stop("데카 모델 응답 오류"); return
+                fail("데카 모델 응답 오류"); return
             }
         }
     }
@@ -135,23 +136,23 @@ final class DekaPCMRelay: @unchecked Sendable {
         guard let relay = DekaPCMRelay(handle: input.fileHandleForWriting, source: source, onFailure: { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self, self.epoch == id else { return }
-                self.stop("데카 오디오 전달 오류 · 시험 종료")
+                self.fail("데카 오디오 전달 오류 · 상시 대기 종료")
             }
-        }) else { stop("데카 마이크 변환 실패"); return }
+        }) else { fail("데카 마이크 변환 실패"); return }
         self.relay = relay
         node.installTap(onBus: 0, bufferSize: 1024, format: source) { buffer,_ in relay.append(buffer) }
         tapInstalled = true
         do { engine.prepare(); try engine.start() }
-        catch { stop("데카 마이크 시작 실패"); return }
-        update("호출 대기 · 데카 · 최대 3분")
+        catch { fail("데카 마이크 시작 실패"); return }
+        update("호출 대기 · 데카")
         deadline?.cancel()
-        deadline = Task { [weak self] in
-            do { try await Task.sleep(for: .seconds(180)) } catch { return }
-            guard let self, self.epoch == id else { return }
-            self.stop("데카 호출 시험 시간 종료")
-        }
+        deadline = nil // only worker startup is time-limited
     }
-    func stop(_ reason: String = "데카 호출 실험 꺼짐") {
+    private func fail(_ reason: String) {
+        stop(reason)
+        onFailure?(reason)
+    }
+    func stop(_ reason: String = "데카 상시 대기 꺼짐") {
         epoch = UUID()
         deadline?.cancel(); deadline = nil
         if engine.isRunning { engine.stop() }

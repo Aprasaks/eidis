@@ -43,7 +43,8 @@ class MiniCoreTests(unittest.TestCase):
         self.assertIn('voice.miniSingleTurn = true',OVERLAY)
         self.assertIn('voice.prepareMiniStandby()',OVERLAY)
         self.assertIn('miniDialogue.toggleMicrophone()',OVERLAY)
-        self.assertIn('if miniSingleTurn {',CHAT)
+        self.assertIn('if singleTurnCapture {',CHAT)
+        self.assertIn('miniSingleTurn || wakeStandbyEnabled || wakeTurn',CHAT)
         self.assertIn('finishMiniTurn()',CHAT)
         self.assertIn('elapsed >= 30 && self.listener.transcript.isEmpty',CHAT)
         self.assertIn('elapsed >= 120',CHAT)
@@ -59,6 +60,6 @@ class MiniCoreTests(unittest.TestCase):
         self.assertIn('if !preserveDialogue {',OVERLAY)
         self.assertIn('miniDialogue?.cancel()',OVERLAY)
         self.assertGreaterEqual(CHAT.count('onWorkspaceRequested?()'),6)
-        self.assertIn('func stop() {\n        hideMini()',OVERLAY)
+        self.assertIn('func stop() {\n        stopDeka()\n        hideMini()',OVERLAY)
 
 if __name__=="__main__":unittest.main()
