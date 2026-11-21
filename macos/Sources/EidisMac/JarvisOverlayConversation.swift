@@ -553,18 +553,6 @@ final class JarvisOverlayConversation: ObservableObject {
         }
     }
 
-    func openCommandCenterDirectly() async {
-        weatherCenter.hide()
-        stockBoard.hide()
-        briefingVisible = false
-        _ = browser.hide()
-        _ = dashboard.hide()
-        _ = vault.hide()
-        if !liveDashboard.isVisible || liveDashboard.mode != .overview {
-            _ = await liveDashboard.show(.overview)
-        }
-    }
-
     /// Qwen selects tools through the local Ollama API. This client only runs
     /// audited, read-only actions from JarvisCommand, never generated code.
     private func planAndRespond(_ prompt: String, token: UUID) async throws -> String {

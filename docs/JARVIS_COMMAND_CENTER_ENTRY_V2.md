@@ -1,5 +1,0 @@
-# Command Center entry and verified source state
-- Preserve the existing one-screen Command Center, gold core, left dialogue and real check log, individually scrollable source panels, and existing read-only connectors.
-- Menu "전체 대시보드 열기" opens directly without a spoken/synthetic question, model generation or greeting. Existing mini dialogue is promoted rather than duplicated; existing wake preference remains. Explicit --command-center launch argument opens the same view for inspection; ordinary app launch unchanged.
-- Refresh button shares the existing visibility/revision guards and prevents overlapping refreshes. GitHub/Vercel cooldowns remain intact. Header cannot say all sources online if remote data is missing or disconnected. System card lists actual individual connection status and available timestamps. Vercel count is unknown on failure, not a fake zero.
-- Source-specific queries still require existing authentication. No new integrations, schedule data, credentials or mutation endpoints. Voice model and calibration are unchanged for morning testing.

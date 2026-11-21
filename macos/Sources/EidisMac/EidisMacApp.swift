@@ -52,8 +52,6 @@ private struct JarvisMenuCommands: View {
         }
         Text(fullscreen.dekaStatus)
         Divider()
-        Button("전체 대시보드 열기") { fullscreen.openCommandCenter() }
-        Divider()
         Button("작업 및 설정 열기") {
             fullscreen.stopDeka("설정 창 열기 · 상시 대기 종료")
             openWindow(id: "jarvis-tools")
