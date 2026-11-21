@@ -17,7 +17,7 @@ from .vision import VisionError, VisionRemoteError, vision_ready, analyze_screen
 from .storage import MemoryStore
 from .thinking import related_context
 from .continuity import scan, snapshot, acknowledge, SCAN_INTERVAL
-from . import study, action
+from . import study, action, research
 from .projects import ProjectCheckError, verify_public_github
 from .tools import ToolRunner, ToolDenied, ToolExecutionError
 from .google_youtube import GoogleYouTubeConnection, YouTubeConnectionError
@@ -123,6 +123,14 @@ class JarvisHandler(BaseHTTPRequestHandler):
             return self._json(200, {"items": self.store.list_profile()})
         if path == "/api/memories":
             return self._json(200, {"items": self.store.recent_memories()})
+        if path == "/api/research":
+            return self._json(200, research.status(self.store))
+        if path == "/api/research/job":
+            try:
+                values = parse_qs(urlsplit(self.path).query)
+                return self._json(200, research.get_job(self.store, int(values.get("id", [""])[0])))
+            except (ValueError, IndexError) as exc:
+                return self._json(400, {"error": str(exc)})
         if path == "/api/action":
             return self._json(200, action.status(self.store))
         if path == "/api/action/job":
@@ -183,7 +191,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
                          "/api/youtube/connect", "/api/thinking/context",
                          "/api/thoughts", "/api/thoughts/review", "/api/continuity/acknowledge",
                          "/api/study/topic", "/api/study/stop", "/api/study/enabled",
-                         "/api/study/claim", "/api/study/finish", "/api/action/submit", "/api/action/cancel"):
+                         "/api/study/claim", "/api/study/finish", "/api/action/submit", "/api/action/cancel",
+                         "/api/research/submit", "/api/research/cancel"):
             return self._json(404, {"error": "알 수 없는 경로"})
         if not self._same_origin():
             return self._json(403, {"error": "로컬 앱에서만 요청할 수 있습니다."})
@@ -198,6 +207,12 @@ class JarvisHandler(BaseHTTPRequestHandler):
                 raise ValueError("JSON 객체로 요청해야 합니다.")
             if path == "/api/youtube/connect":
                 return self._json(200, self.youtube.begin(self.server.server_port))
+            if path == "/api/research/submit":
+                if set(data) != {"query"}:
+                    raise ValueError("조사 질문만 전송해 주세요.")
+                return self._json(200, {"job": research.submit(self.store, data.get("query"))})
+            if path == "/api/research/cancel":
+                return self._json(200, {"cancelled": research.cancel(self.store, data.get("id"))})
             if path == "/api/action/submit":
                 if set(data) != {"workflow"}:
                     return self._json(400, {"error": "보고서 종류만 지정해 주세요."})
@@ -349,6 +364,10 @@ class ContinuityServer(HTTPServer):
             self.action_runner.tick()
         except Exception:
             logging.warning("DECHIVE action queue tick failed")
+        try:
+            self.research_runner.tick()
+        except Exception:
+            logging.warning("DECHIVE research queue tick failed")
         now = time.monotonic()
         if now - self._last_scan < self.continuity_interval:
             return
@@ -375,6 +394,7 @@ def make_server(host: str = "127.0.0.1", port: int = 8765, db_path: Path | None 
     server = ContinuityServer(("127.0.0.1", port), handler)
     server.vision_calls = 0
     server.action_runner = action.ActionRunner(store, youtube)
+    server.research_runner = research.ResearchRunner(store)
     # Complete the initial check before accepting requests. Diagnostics and
     # other read-only requests do not themselves cause database writes.
     server.service_actions()

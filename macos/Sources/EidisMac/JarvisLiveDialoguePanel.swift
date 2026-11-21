@@ -61,6 +61,54 @@ struct JarvisLiveDialoguePanel: View {
                 .accessibilityIdentifier("dechive-action-notice")
             }
 
+            if !dialogue.researchNotice.isEmpty {
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "globe.americas.fill")
+                        Text("RESEARCH FIELD / 실제 발견 자료")
+                            .fontWeight(.semibold)
+                        Spacer(minLength: 0)
+                        Text(dialogue.researchNotice)
+                            .lineLimit(1)
+                    }
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundStyle(amber)
+                    ScrollView(.vertical) {
+                        VStack(alignment: .leading, spacing: 5) {
+                            ForEach(dialogue.researchSources) { source in
+                                HStack(alignment: .top, spacing: 7) {
+                                    Circle().fill(source.state == "retrieved" ? Color.green :
+                                        source.state == "blocked" || source.state == "unavailable" ? amber : muted)
+                                        .frame(width: 5, height: 5)
+                                        .padding(.top, 5)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        if let url = URL(string: source.url),
+                                           url.scheme == "https" {
+                                            Link(source.title, destination: url)
+                                                .font(.system(size: 10, weight: .medium))
+                                                .lineLimit(2)
+                                        } else {
+                                            Text(source.title).font(.system(size: 10)).lineLimit(2)
+                                        }
+                                        Text(source.domain + " · " + source.stateLabel)
+                                            .font(.system(size: 9, design: .monospaced))
+                                            .foregroundStyle(muted)
+                                        if !source.claimedPublishedAt.isEmpty {
+                                            Text("출처 표시 날짜(미검증): " + source.claimedPublishedAt)
+                                                .font(.system(size: 8))
+                                                .foregroundStyle(muted)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .frame(maxHeight: 126)
+                    .scrollIndicators(.visible)
+                }
+                .accessibilityIdentifier("dechive-research-field")
+            }
+
             ScrollViewReader { proxy in
                 ScrollView(.vertical) {
                     VStack(alignment: .leading, spacing: 13) {
