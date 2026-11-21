@@ -191,32 +191,34 @@ enum WeatherConversation {
         func sky(_ code:Int?)->String? {
             switch WeatherPayload.description(code) {
             case "상태 미확인":return nil
-            case "맑음":return "맑습니다."
-            case "대체로 맑음":return "대체로 맑습니다."
-            case "구름 조금":return "구름이 조금 끼어 있습니다."
-            case "흐림":return "흐립니다."
-            case let s:return s+" 상태입니다."
+            case "맑음":return "맑네요."
+            case "대체로 맑음":return "대체로 맑네요."
+            case "구름 조금":return "구름이 조금 끼어 있어요."
+            case "흐림":return "흐리네요."
+            case "비","소나기":return "비가 오는 것으로 나와요."
+            case "눈","눈 소나기":return "눈이 오는 것으로 나와요."
+            case let s:return s+" 상태로 나와요."
             }
         }
         if tomorrow {
             guard d.valid,d.daily.time.count>1,d.daily.time.first==today,d.daily.time[1]==next else {
                 return "주인님, "+town+"의 내일 예보 날짜를 확인하지 못했습니다."
             }
-            var sentences=["주인님, 내일 "+town+" 날씨 예보입니다."]
+            var sentences=["주인님, 내일 "+town+"은"]
             switch WeatherPayload.description(d.daily.weather_code[1]) {
-            case "맑음": sentences.append("맑을 것으로 예상됩니다.")
-            case "대체로 맑음": sentences.append("대체로 맑을 것으로 예상됩니다.")
-            case "구름 조금": sentences.append("구름이 조금 낄 것으로 예상됩니다.")
-            case "흐림": sentences.append("흐릴 것으로 예상됩니다.")
-            case "상태 미확인": break
-            case let condition: sentences.append(condition+" 예보가 있습니다.")
+            case "맑음": sentences[0] += " 맑을 것 같아요."
+            case "대체로 맑음": sentences[0] += " 대체로 맑을 것 같아요."
+            case "구름 조금": sentences[0] += " 구름이 조금 낄 것 같아요."
+            case "흐림": sentences[0] += " 흐릴 것 같아요."
+            case "상태 미확인": sentences[0] += " 날씨 상태를 아직 확인하지 못했어요."
+            case let condition: sentences[0] += " "+condition+" 예보가 있어요."
             }
             let low=temp(d.daily.temperature_2m_min[1]), high=temp(d.daily.temperature_2m_max[1])
-            if let low,let high {sentences.append("최저 "+low+", 최고 "+high+"로 예상됩니다.")}
-            else if let low {sentences.append("최저 기온은 "+low+"로 예상됩니다.")}
-            else if let high {sentences.append("최고 기온은 "+high+"로 예상됩니다.")}
+            if let low,let high {sentences.append("최저 "+low+", 최고 "+high+"로 예상돼요.")}
+            else if let low {sentences.append("최저 기온은 "+low+"로 예상돼요.")}
+            else if let high {sentences.append("최고 기온은 "+high+"로 예상돼요.")}
             if let rain=d.daily.precipitation_probability_max[1],(0...100).contains(rain) {
-                sentences.append("하루 중 최대 강수확률은 "+String(rain)+"%입니다.")
+                sentences.append("하루 중 최대 강수확률은 "+String(rain)+"%예요.")
             }
             if sentences.count==1 {sentences.append("확인된 예보 수치가 없습니다.")}
             return sentences.joined(separator:" ")
@@ -226,16 +228,19 @@ enum WeatherConversation {
         }
         var sentences:[String]=[]
         if let condition=sky(d.current.weather_code) {
-            sentences.append("주인님, 지금 "+town+" 지역은 "+condition)
+            sentences.append("주인님, 지금 "+town+"은 "+condition)
         } else {
             sentences.append("주인님, 지금 "+town+"의 날씨 정보입니다.")
         }
         let actual=temp(d.current.temperature_2m), feels=temp(d.current.apparent_temperature)
-        if let actual,let feels {sentences.append("기온은 "+actual+", 체감온도는 "+feels+"입니다.")}
-        else if let actual {sentences.append("기온은 "+actual+"입니다.")}
-        else if let feels {sentences.append("체감온도는 "+feels+"입니다.")}
+        if let actual,let feels {sentences.append("기온은 "+actual+"인데, 체감온도는 "+feels+"예요.")}
+        else if let actual {sentences.append("기온은 "+actual+"예요.")}
+        else if let feels {sentences.append("체감온도는 "+feels+"예요.")}
         else {sentences.append("기온과 체감온도는 확인되지 않았습니다.")}
-        sentences.append("기상 모델 기준입니다.")
+        if let apparent=d.current.apparent_temperature,apparent.isFinite,apparent < 5 {
+            sentences.append("나가실 땐 따뜻하게 입으세요.")
+        }
+        sentences.append("기상 모델 기준이에요.")
         return sentences.joined(separator:" ")
     }
 }

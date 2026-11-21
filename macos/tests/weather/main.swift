@@ -33,8 +33,8 @@ import Foundation
         let coldFixture=String(decoding:fixture,as:UTF8.self).replacingOccurrences(of:"8.5",with:"0.7").replacingOccurrences(of:"\"temperature_2m\":0.7",with:"\"temperature_2m\":0.7,\"apparent_temperature\":-2.2,\"weather_code\":2")
         let cold=try JSONDecoder().decode(WeatherPayload.self,from:Data(coldFixture.utf8))
         let coldAnswer=WeatherConversation.answer(.init(town:gunsan,data:cold,fetched:now),tomorrow:false,now:now)
-        precondition(coldAnswer.contains("0.7도") && coldAnswer.contains("영하 2.2도") && coldAnswer.contains("구름이 조금 끼어 있습니다.") && !coldAnswer.contains("2026"))
-        print("PASS: 21 weather routing, data validation, and contextual conversation assertions")
+        precondition(coldAnswer.contains("0.7도") && coldAnswer.contains("영하 2.2도") && coldAnswer.contains("구름이 조금 끼어 있어요.") && coldAnswer.contains("따뜻하게 입으세요.") && !coldAnswer.contains("2026"))
+        print("PASS: 21 weather routing, data validation, and warm conversational presentation assertions")
         print("EXAMPLE:",coldAnswer)
         if CommandLine.arguments.contains("--live"){
             let client=WeatherClient()
