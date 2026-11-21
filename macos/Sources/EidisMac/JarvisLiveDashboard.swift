@@ -294,9 +294,16 @@ final class JarvisLiveDashboard: ObservableObject {
             : "\(selected.koreanName) 대시보드를 열었지만 일부 데이터를 가져오지 못했습니다. 연결 상태를 표시했습니다."
     }
 
+    /// Explicit refresh uses the same provider cooldowns and cancellation
+    /// guards as polling. It cannot bypass authentication or quotas.
+    func refreshVisible() async {
+        guard isVisible, !isRefreshing else { return }
+        _ = await refresh(id: revision)
+    }
+
     @discardableResult
     private func refresh(id: UUID) async -> Bool {
-        guard isVisible && revision == id && !Task.isCancelled else { return false }
+        guard isVisible && revision == id && !Task.isCancelled && !isRefreshing else { return false }
         isRefreshing = true
         let selected = mode
         // Only fetch the data sources needed for the active dashboard.

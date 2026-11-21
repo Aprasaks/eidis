@@ -1429,6 +1429,11 @@ final class JarvisFullscreenOverlay: ObservableObject {
         if !ProcessInfo.processInfo.arguments.contains("--overlay-preview") {
             startPreferredDeka()
         }
+        if ProcessInfo.processInfo.arguments.contains("--command-center") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                self?.openCommandCenter()
+            }
+        }
         // Manual invocation used only for test builds; production launch remains quiet.
         if ProcessInfo.processInfo.arguments.contains("--overlay-preview") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { [self] in
@@ -1615,7 +1620,14 @@ final class JarvisFullscreenOverlay: ObservableObject {
         else { present(fullscreenDialogue: nil) }
     }
 
-    private func present(fullscreenDialogue: JarvisOverlayConversation?) {
+    /// Explicit menu entry: no synthetic voice or typed question and no greeting.
+    func openCommandCenter() {
+        if panel == nil { present(fullscreenDialogue: miniDialogue, silent: true) }
+        guard let voice = dialogue else { return }
+        Task { await voice.openCommandCenterDirectly() }
+    }
+
+    private func present(fullscreenDialogue: JarvisOverlayConversation?, silent: Bool = false) {
         NSLog("JARVIS: show requested")
         guard panel == nil,
               let screen = NSScreen.main ?? NSScreen.screens.first,
@@ -1718,6 +1730,10 @@ final class JarvisFullscreenOverlay: ObservableObject {
         // Speak only after the core is onscreen. This reuses the already
         // consented ElevenLabs service; no wake-word/microphone runs here.
         greetingTask?.cancel()
+        if silent {
+            dialogue.resumeFullWorkspace()
+            return
+        }
         if continuingActiveTurn {
             dialogue.resumeFullWorkspace()
             return

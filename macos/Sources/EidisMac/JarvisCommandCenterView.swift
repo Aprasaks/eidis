@@ -163,16 +163,28 @@ struct JarvisCommandCenterView: View {
             Spacer(minLength: 2)
             VStack(alignment: .trailing, spacing: 5) {
                 HStack(spacing: 5) {
-                    Circle().fill(model.errorText == nil ? mint : amber)
+                    Circle().fill(allSourcesHealthy ? mint : amber)
                         .frame(width: 6, height: 6)
-                    Text(model.errorText == nil ? "SOURCE CHECKS ONLINE" : "PARTIAL CONNECTION")
+                    Text(model.isLoading ? "CHECKING SOURCES" : (allSourcesHealthy ? "SOURCE CHECKS ONLINE" : "CHECK SOURCE STATUS"))
                 }
-                .foregroundStyle(model.errorText == nil ? mint : amber)
+                .foregroundStyle(allSourcesHealthy ? mint : amber)
                 .font(.system(size: 10 * scale, weight: .medium, design: .monospaced))
                 Text(model.refreshedAt.map { "확인: " + $0.formatted(date: .omitted, time: .standard) } ?? "조회 중")
                     .font(.system(size: 10 * scale, design: .monospaced))
                     .foregroundStyle(muted)
             }
+            Button {
+                Task { await model.refreshVisible() }
+            } label: {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 13, weight: .medium))
+                    .frame(width: 26, height: 26)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(amber)
+            .disabled(model.isRefreshing || model.isLoading)
+            .help("로컬 자료 새로고침 · 외부 API 갱신 제한 유지")
+            .accessibilityIdentifier("jarvis-command-center-refresh")
             Button(action: close) {
                 Image(systemName: "xmark")
                     .font(.system(size: 14, weight: .medium))
@@ -184,6 +196,35 @@ struct JarvisCommandCenterView: View {
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 7)
+    }
+
+    private var allSourcesHealthy: Bool {
+        model.refreshedAt != nil && model.errorText == nil &&
+        model.databaseStatus == "ok" && model.ollamaVersion != nil &&
+        model.gitSnapshot.map { $0.error == nil } == true &&
+        model.githubSnapshot.map { $0.error == nil } == true &&
+        model.vercelSnapshot.map { $0.error == nil } == true &&
+        model.youtubeSummary?.connected == true &&
+        model.instagramSnapshot?.connected == true
+    }
+
+    private func sourceRow(_ name: String, state: String, checkedAt: Date?, scale: CGFloat) -> some View {
+        HStack(spacing: 5) {
+            Circle().fill(state == "연결" ? mint : (state == "조회 중" ? muted : amber))
+                .frame(width: 5, height: 5)
+            Text(name).foregroundStyle(.white.opacity(0.87)).lineLimit(1)
+            Spacer(minLength: 2)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(state).foregroundStyle(state == "연결" ? mint : muted)
+                if let checkedAt {
+                    Text(checkedAt.formatted(date: .omitted, time: .shortened))
+                        .foregroundStyle(muted)
+                        .font(.system(size: 9 * scale, design: .monospaced))
+                }
+            }
+        }
+        .font(.system(size: 10 * scale))
+        .accessibilityElement(children: .combine)
     }
 
     private func keyMetrics(scale: CGFloat) -> some View {
@@ -499,6 +540,14 @@ struct JarvisCommandCenterView: View {
         panel("SYSTEM / 상태", symbol: "waveform.path.ecg", scale: scale) {
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: 8) {
+                    Text("CONNECTIONS / 실제 확인 상태")
+                        .font(.system(size: 9 * scale, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(amber)
+                    sourceRow("GitHub", state: model.githubSnapshot.map { $0.error == nil ? "연결" : "오류" } ?? (model.githubIsLoading ? "조회 중" : "미확인"), checkedAt: model.githubSnapshot?.checkedAt, scale: scale)
+                    sourceRow("Vercel", state: model.vercelSnapshot.map { $0.error == nil ? "연결" : "오류" } ?? (model.vercelIsLoading ? "조회 중" : "미확인"), checkedAt: model.vercelSnapshot?.checkedAt, scale: scale)
+                    sourceRow("YouTube", state: model.youtubeSummary.map { $0.connected ? "연결" : "연결 확인 필요" } ?? "미확인", checkedAt: nil, scale: scale)
+                    sourceRow("Instagram", state: model.instagramSnapshot.map { $0.connected ? "연결" : "연결 확인 필요" } ?? (model.instagramIsLoading ? "조회 중" : "미확인"), checkedAt: model.instagramSnapshot?.checkedAt, scale: scale)
+                    Rectangle().fill(amber.opacity(0.2)).frame(height: 1)
                     systemRow("SQLite", model.databaseStatus == "ok" ? "OK" : "확인 불가", scale: scale)
                     systemRow("Ollama", model.ollamaVersion.map { "v\($0)" } ?? "연결 안 됨", scale: scale)
                     systemRow("프로필", model.profileCount.map { "\($0)건" } ?? "확인 불가", scale: scale)
@@ -507,7 +556,7 @@ struct JarvisCommandCenterView: View {
                         if let error = vercel.error {
                             status("Vercel: " + error, scale: scale)
                         }
-                        systemRow("Vercel 프로젝트", "\(vercel.projects.count)개", scale: scale)
+                        systemRow("Vercel 프로젝트", vercel.error == nil ? "\(vercel.projects.count)개" : "확인 불가", scale: scale)
                         if vercel.error == nil {
                             let ready = vercel.deployments.filter { $0.state == "READY" }.count
                             let failed = vercel.deployments.filter { $0.state == "ERROR" }.count
