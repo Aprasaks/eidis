@@ -363,6 +363,13 @@ final class ElevenLabsVoiceService: ObservableObject {
     /// The fullscreen summon is explicitly initiated by the user. A saved opt-in
     /// is required; do not claim listening or start the microphone.
     func speakSummonGreeting(fallback: JarvisVoiceService) async {
+        guard !Task.isCancelled else { return }
+        // A previous canceled generation may still be unwinding. Never drop
+        // the greeting just because the provider is busy.
+        if isBusy {
+            fallback.speak(Self.summonGreeting)
+            return
+        }
         if !keyPresent { await refreshSavedKeyAvailability() }
         guard !Task.isCancelled else { return }
         if enabled, let cached = greetingCache,
@@ -371,7 +378,12 @@ final class ElevenLabsVoiceService: ObservableObject {
                 let audio = try AVAudioPlayer(data: cached.audio)
                 fallback.stop()
                 player?.stop()
-                guard audio.prepareToPlay(), !Task.isCancelled, audio.play() else { return }
+                guard !Task.isCancelled else { return }
+                guard audio.prepareToPlay(), audio.play() else {
+                    greetingCache = nil
+                    fallback.speak(Self.summonGreeting)
+                    return
+                }
                 player = audio
                 status = "소환 인사 재생 중 · 저장된 오디오 재사용 (추가 크레딧 없음)"
                 NSLog("JARVIS: fullscreen greeting played from in-memory cache")

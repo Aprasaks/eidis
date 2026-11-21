@@ -173,7 +173,7 @@ final class JarvisOverlayConversation: ObservableObject {
     }
 
     func showSummonCaption() {
-        guard question.isEmpty, answer.isEmpty else { return }
+        guard !isListening, !isThinking, !isSpeaking else { return }
         answer = "주인님, 자비스입니다."
         dialogueTurns.append(JarvisLiveDialogueTurn(role: "DECHIVE", content: answer))
     }
@@ -311,8 +311,8 @@ final class JarvisOverlayConversation: ObservableObject {
             self.activeMicrophone = self.listener.activeMicrophone
             self.isActive = self.listener.isListening
             if self.listener.isListening {
-                self.liveTranscript = ""
-                self.lastPartialAt = nil
+                self.liveTranscript = String(self.listener.transcript.prefix(6000))
+                self.lastPartialAt = self.liveTranscript.isEmpty ? nil : Date()
                 self.startSilenceDetection(token: token)
             }
             self.status = self.listener.isListening
@@ -345,8 +345,15 @@ final class JarvisOverlayConversation: ObservableObject {
                         return
                     }
                 }
-                guard self.autoTurnEnabled || self.wakeTurn, !self.listener.transcript.isEmpty,
-                      let lastPartialAt = self.lastPartialAt else { continue }
+                // Recover a recognizer that ended unexpectedly; don't leave a
+                // fullscreen turn waiting forever for a callback that cannot arrive.
+                if !self.listener.isListening {
+                    self.completeUtterance()
+                    return
+                }
+                guard self.autoTurnEnabled || self.wakeTurn, !self.listener.transcript.isEmpty else { continue }
+                if self.lastPartialAt == nil { self.lastPartialAt = Date() }
+                guard let lastPartialAt = self.lastPartialAt else { continue }
                 if Date().timeIntervalSince(lastPartialAt) >= self.silenceWaitSeconds {
                     self.completeUtterance()
                     return
@@ -422,7 +429,8 @@ final class JarvisOverlayConversation: ObservableObject {
         isThinking = true
         status = "질문 처리 중…"
         do {
-            let response = try await planAndRespond(prompt, token: token)
+            let command = JarvisDialogueInput.command(prompt)
+            let response = command.isEmpty ? "네, 주인님." : try await planAndRespond(command, token: token)
             guard !response.isEmpty else { return }
             guard token == generation && !Task.isCancelled else { return }
             NSLog("DECHIVE response text ready elapsed_ms=%.1f",
@@ -688,6 +696,27 @@ final class JarvisOverlayConversation: ObservableObject {
         if profileIntent == .needsField {
             return "기억할 사용자 프로필 항목을 구체적으로 알려주세요. 일반 메모는 내용 뒤에 저장해 줘라고 말씀하시면 보관함에 정리합니다."
         }
+        // Today's schedule is not the same as undated local project tasks.
+        // Read actual work records, but never label an undated task as due today.
+        if JarvisDialogueInput.asksTodayTasks(prompt) {
+            weatherCenter.hide()
+            stockBoard.hide()
+            hideBriefing()
+            _ = liveDashboard.hide()
+            _ = browser.hide()
+            _ = vault.hide()
+            onWorkspaceRequested?()
+            _ = await dashboard.show()
+            guard token == generation, !Task.isCancelled else { return "" }
+            if dashboard.errorText != nil { return "할 일 기록을 지금 불러오지 못했어요." }
+            let open = dashboard.totalTodo + dashboard.totalDoing
+            if open == 0 {
+                return "아직 오늘 일정은 연결되어 있지 않아요. 등록된 프로젝트에도 예정이나 진행 중인 할 일은 없네요."
+            }
+            let names = dashboard.projects.flatMap { $0.nextTasks }.prefix(2).map { $0.title }
+            let examples = names.isEmpty ? "" : " 예를 들면 " + names.joined(separator: ", ") + "이 있어요."
+            return "오늘 일정은 아직 연결되지 않았어요. 등록된 프로젝트에는 예정·진행 중인 할 일이 \(open)건 있어요." + examples + " 화면에서 보실 수 있어요."
+        }
         // Route connected, grounded dashboard requests BEFORE Qwen can choose
         // the generic internet browser. No synthetic numbers or external APIs.
         if liveDashboard.isVisible && Self.isGenericPanelClose(prompt) {
@@ -788,10 +817,11 @@ final class JarvisOverlayConversation: ObservableObject {
                             JarvisCommand.systemInstructions + "\n" + panelContext) +
                         "\n" + reasoningGuidance +
                         "\n[대화 성격] 오래 함께 일한 편안하고 유능한 비서처럼 말하세요. 반말은 하지 않되 일상에서는 해요체(그래요, 그렇네요, 해볼까요)를 자연스럽게 섞고, 격식 있는 보고가 필요할 때만 합니다체를 사용하세요. 호칭이 필요하면 주인님이라고 부르되 매 문장마다 반복하지 마세요. 가벼운 인사나 잡담에는 짧고 따뜻하게 반응하고, 일상적인 질문에는 결론부터 대화하듯 답하세요. 과도한 감탄, 아부, 억지 농담, 상투적인 추가 질문, 요청하신 작업·조회 완료 같은 기계적 표현은 피하세요. 오늘·내일·지금처럼 맥락상 분명한 날짜는 상대 표현으로 말하고 정확한 날짜나 기준 시각은 필요할 때 제공하세요. 실제 숫자와 근거는 정확히 유지하세요. 출처와 검증 과정은 화면에 표시하거나 사용자가 요청할 때 설명하고, 평소 음성 대화에서는 불필요하게 낭독하지 마세요. 단, 정보의 지연·불확실성·중요한 한계는 판단에 필요하다면 짧게 말하세요. 실행하지 않은 작업을 완료했다고 주장하지 마세요. 예시: 잘 잤어요? → 잘 주무셨나요, 주인님? / 이거 왜 안 되지? → 어디에서 막혔는지 살펴볼까요? / 오늘 너무 힘들다 → 오늘 많이 힘드셨겠네요. 무조건 해결책이나 질문을 덧붙이지 마세요." +
-                        "\n[실제 Mac 시스템 시각 — 항상 이 값을 현재 날짜·시간 기준으로 사용] " +
-                        JarvisLocalClock.answer(.both) +
+                        "\n[내부 기준 시각: 답변에 복사하거나 낭독하지 말 것] " +
+                        JarvisLocalClock.context() +
                         (profileContext.isEmpty ? "" : "\n" + profileContext) +
-                        (recalledContext.isEmpty ? "" : "\n" + recalledContext)]]
+                        (recalledContext.isEmpty ? "" : "\n" + recalledContext) +
+                        "\n[최종 답변 규칙] 평소 대화는 편안한 해요체 한두 문장. 시각과 출처를 묻지 않았다면 답변 첫머리에 날짜, 시스템 시각, 근거를 읊지 마세요. 필요한 답부터 말하세요."]]
         messages.append(contentsOf: conversation.suffix(8))
         messages.append(["role": "user", "content": String(prompt.prefix(900))])
         var body: [String: Any] = [

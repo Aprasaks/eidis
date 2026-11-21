@@ -24,7 +24,7 @@ class LiveClockAndSpeedTests(unittest.TestCase):
         self.assertIn("now: Date = Date()",CLOCK)
         self.assertIn("zone: TimeZone = .current",CLOCK)
         self.assertNotIn("2026년 5월",CLOCK)
-        self.assertIn("JarvisLocalClock.answer(.both)",CHAT)
+        self.assertIn("JarvisLocalClock.context()",CHAT)
         self.assertIn("macos/tests/clock-speed/main.swift",CI)
 
     def test_regular_chat_streams_without_tools_and_actions_keep_registry(self):

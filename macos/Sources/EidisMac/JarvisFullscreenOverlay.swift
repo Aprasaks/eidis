@@ -1507,6 +1507,12 @@ final class JarvisFullscreenOverlay: ObservableObject {
             return
         }
         lastMicrophoneShortcut = Date()
+        if greetingTask != nil {
+            greetingTask?.cancel()
+            greetingTask = nil
+            ElevenLabsVoiceService.shared.stopSpeakingNow()
+            greetingFallback.stop()
+        }
         if let dialogue { dialogue.toggleMicrophone() }
         else if let miniDialogue {
             onPresentationChanged?(true)
@@ -1530,6 +1536,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
         }
         // Release the small video player before the fullscreen player starts.
         // The opt-in preference is retained and the mini recreates on dismiss.
+        let continuingActiveTurn = fullscreenDialogue?.wakeCaptureBusy == true
         hideMini(preserveDialogue: fullscreenDialogue != nil)
         // Cancel a background study request before starting live interaction.
         onPresentationChanged?(true)
@@ -1620,7 +1627,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
         // Speak only after the core is onscreen. This reuses the already
         // consented ElevenLabs service; no wake-word/microphone runs here.
         greetingTask?.cancel()
-        if fullscreenDialogue != nil {
+        if continuingActiveTurn {
             dialogue.resumeFullWorkspace()
             return
         }
@@ -1631,6 +1638,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
             await ElevenLabsVoiceService.shared.waitForOutputToFinish(fallback: self.greetingFallback)
             guard !Task.isCancelled, self.panel != nil, self.dialogue === dialogue else { return }
             await dialogue.afterGreeting()
+            self.greetingTask = nil
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
             NSLog("JARVIS: overlay stable, isVisible=%@ alpha=%.2f appHidden=%@",

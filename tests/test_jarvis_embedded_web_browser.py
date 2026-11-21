@@ -20,7 +20,8 @@ class JarvisEmbeddedBrowserContract(unittest.TestCase):
         self.assertIn('case .searchWeb(let query, let engine)', CHAT)
         self.assertIn('result = browser.search(query, engine: engine)', CHAT)
         self.assertIn('case .browser: result = browser.hide()',CHAT)
-        self.assertIn('planAndRespond(prompt, token: token)',CHAT)
+        self.assertIn('planAndRespond(command, token: token)',CHAT)
+        self.assertIn('JarvisDialogueInput.command(prompt)',CHAT)
         self.assertIn('browser.openHome(engine: engine)',CHAT)
         self.assertIn('browser.cancel()',CHAT)
     def test_real_webview_with_no_page_to_command_bridge(self):

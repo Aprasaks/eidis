@@ -1,0 +1,7 @@
+# Conversation stability — first pass
+- Correct idle mini to fullscreen promotion: greet and then listen rather than treating every mini promotion as an active conversation. Active turns remain uninterrupted. Manual mic shortcut cancels pending greeting first. Busy/cached playback failure has a local greeting fallback.
+- Automatic turn completion remains enabled by default with user-adjustable 1.8s transcript pause. Recover from unexpected recognizer termination and missing initial transcript timestamp. Actual endpoint latency and continuous microphone behavior still need live tests; no claim of audio VAD or instantaneous replies.
+- DEKA is accepted as a standalone addressing prefix during an active turn (also accepts existing JARVIS prefix), and added to Korean vocabulary hints. Unmodified user transcript stays visible. Always-on wake detection stays a separate future stage; existing bounded opt-in test unchanged.
+- Explicit today's-task queries read registered project records through the existing local dashboard. No due date exists in WorkTask; do not pretend these are scheduled for today. Calendar integration not added.
+- Qwen receives machine clock metadata, not a spoken answer template. Final instruction emphasizes warm concise Korean and no unnecessary date/source recitation.
+- First-screen layout unchanged. Actual greeting audibility, automatic turn completion, response latency and conversational style require repeated user trials.

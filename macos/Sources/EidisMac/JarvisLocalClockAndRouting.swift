@@ -35,6 +35,15 @@ enum JarvisLocalClock {
         return nil
     }
 
+    static func context(now:Date=Date(),zone:TimeZone = .current) -> String {
+        let formatter=DateFormatter()
+        formatter.locale=Locale(identifier:"en_US_POSIX")
+        formatter.calendar=Calendar(identifier:.gregorian)
+        formatter.timeZone=zone
+        formatter.dateFormat="yyyy-MM-dd HH:mm Z"
+        return formatter.string(from:now)
+    }
+
     static func answer(_ intent: Intent, now: Date = Date(),
                        zone: TimeZone = .current) -> String {
         let formatter=DateFormatter()
@@ -55,6 +64,22 @@ enum JarvisLocalClock {
         }
         let label=zone.abbreviation(for: now) ?? zone.identifier
         return "주인님, Mac 시스템 시각 기준 \(result)입니다. (\(zone.identifier), \(label))"
+    }
+}
+
+/// Strip only an explicit standalone addressing prefix, never DECHIVE or
+/// a substring of an ordinary word. Preserve the original transcript in UI.
+enum JarvisDialogueInput {
+    static func command(_ text: String) -> String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: #"^(데카|자비스|jarvis)(?=$|[\s,，.!！?？])[,，.!！?？\s]*"#,
+                                  with: "", options: [.regularExpression,.caseInsensitive])
+    }
+    static func asksTodayTasks(_ text: String) -> Bool {
+        let compact = command(text).filter { !$0.isWhitespace }.trimmingCharacters(in: CharacterSet(charactersIn: ".!?？!！요"))
+        return ["오늘할일", "오늘할일알려줘", "오늘할일뭐야", "오늘할일보여줘",
+                "오늘해야할일", "오늘해야할일알려줘", "오늘뭐해야돼", "오늘뭐해야해",
+                "오늘할일이뭐야", "오늘할일정리해줘"].contains(compact)
     }
 }
 
