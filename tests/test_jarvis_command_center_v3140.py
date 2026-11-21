@@ -39,7 +39,8 @@ class CommandCenterContract(unittest.TestCase):
         for forbidden in ('"auth", "token"', '"push"', '"fetch"', '"checkout"'):
             self.assertNotIn(forbidden, github)
         self.assertIn('startGitHubScanIfNeeded(id: id)', LIVE)
-        self.assertIn('Date().timeIntervalSince($0) > 60', LIVE)
+        self.assertIn('Date().timeIntervalSince($0) >= Self.githubRefreshSeconds', LIVE)
+        self.assertIn('githubRefreshSeconds: TimeInterval = 600', LIVE)
 
     def test_vercel_read_only_project_and_deployment_status(self):
         vercel = (R/'macos/Sources/EidisMac/JarvisVercelRemoteScanner.swift').read_text()
@@ -50,7 +51,8 @@ class CommandCenterContract(unittest.TestCase):
         for forbidden in ('"deploy"', '"promote"', '"rollback"', '"remove"'):
             self.assertNotIn(forbidden,vercel)
         self.assertIn('startVercelScanIfNeeded(id: id)',LIVE)
-        self.assertIn('Date().timeIntervalSince($0) > 120',LIVE)
+        self.assertIn('Date().timeIntervalSince($0) >= Self.vercelRefreshSeconds',LIVE)
+        self.assertIn('vercelRefreshSeconds: TimeInterval = 900', LIVE)
         self.assertIn('model.vercelSnapshot',COMMAND)
 
     def test_tv_readable_layout_and_provenance(self):

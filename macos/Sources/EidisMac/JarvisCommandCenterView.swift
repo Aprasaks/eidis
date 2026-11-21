@@ -530,6 +530,8 @@ struct JarvisCommandCenterView: View {
                         status(model.vercelIsLoading ? "Vercel 프로젝트·배포 조회 중…" : "Vercel 조회 준비 중", scale: scale)
                     }
                     systemRow("로컬 갱신 주기", "약 7초", scale: scale)
+                    systemRow("GitHub 원격 조회", "10분 / 캐시 재사용", scale: scale)
+                    systemRow("Vercel 원격 조회", "15분 / 캐시 재사용", scale: scale)
                     Text("실제 연결 상태만 표시 · 사용량 미측정")
                         .font(.system(size: 9 * scale))
                         .foregroundStyle(muted)

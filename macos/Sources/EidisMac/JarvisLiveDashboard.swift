@@ -194,12 +194,26 @@ final class JarvisLiveDashboard: ObservableObject {
     private var pollingTask: Task<Void, Never>?
     private var revision = UUID()
     static let intervalNanoseconds: UInt64 = 7_000_000_000
+    // External provider calls are deliberately much less frequent than local UI polling.
+    static let githubRefreshSeconds: TimeInterval = 600  // 10 minutes
+    static let vercelRefreshSeconds: TimeInterval = 900  // 15 minutes
+    // A fullscreen overlay can be destroyed and recreated without quitting the
+    // app. Keep the last remote result and attempt times across those instances.
+    // This is RAM only: credentials or private repo data are never written here.
+    private static var latestGitHubSnapshot: JarvisGitHubRemoteSnapshot?
+    private static var latestGitHubAttemptAt: Date?
+    private static var latestVercelSnapshot: JarvisVercelSnapshot?
+    private static var latestVercelAttemptAt: Date?
 
     init() {
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 4
         config.timeoutIntervalForResource = 6
         session = URLSession(configuration: config)
+        githubSnapshot = Self.latestGitHubSnapshot
+        githubLastCheckedAt = Self.latestGitHubAttemptAt
+        vercelSnapshot = Self.latestVercelSnapshot
+        vercelLastCheckedAt = Self.latestVercelAttemptAt
     }
 
     var taskTotal: Int { projects.reduce(0) { $0 + $1.tasks.count } }
@@ -255,11 +269,9 @@ final class JarvisLiveDashboard: ObservableObject {
         gitSnapshot = nil
         gitLastCheckedAt = nil
         gitIsLoading = false
-        githubSnapshot = nil
-        githubLastCheckedAt = nil
+        // Keep remote snapshots and last-attempt timestamps across dashboard
+        // close/reopen. Otherwise toggling the panel bypasses the cooldown.
         githubIsLoading = false
-        vercelSnapshot = nil
-        vercelLastCheckedAt = nil
         vercelIsLoading = false
         youtubeSummary = nil
         youtubeConnectMessage = nil
@@ -278,7 +290,7 @@ final class JarvisLiveDashboard: ObservableObject {
                 _ = await self.refresh(id: id)
             }
         }
-        return loaded ? "주인님, 실제 로컬 데이터를 바탕으로 \(selected.koreanName) 대시보드를 열었습니다. 표시된 동안 약 7초 간격으로 갱신됩니다."
+        return loaded ? "주인님, \(selected.koreanName) 대시보드를 열었습니다. 로컬 데이터는 약 7초마다 갱신하고 GitHub는 10분, Vercel은 15분 간격으로 확인합니다."
             : "\(selected.koreanName) 대시보드를 열었지만 일부 데이터를 가져오지 못했습니다. 연결 상태를 표시했습니다."
     }
 
@@ -427,10 +439,17 @@ final class JarvisLiveDashboard: ObservableObject {
     }
 
     private func startGitHubScanIfNeeded(id: UUID) {
+        // A previous overlay's scan might finish after the overlay closed.
+        // Reuse that result instead of launching another authenticated request.
+        if let cached = Self.latestGitHubSnapshot,
+           cached.checkedAt > (githubSnapshot?.checkedAt ?? .distantPast) {
+            githubSnapshot = cached
+        }
         guard githubTask == nil,
-              githubLastCheckedAt.map({ Date().timeIntervalSince($0) > 60 }) ?? true else { return }
+              githubLastCheckedAt.map({ Date().timeIntervalSince($0) >= Self.githubRefreshSeconds }) ?? true else { return }
         githubIsLoading = true
         githubLastCheckedAt = Date()
+        Self.latestGitHubAttemptAt = githubLastCheckedAt
         githubTask = Task { [weak self] in
             let worker = Task.detached(priority: .utility) {
                 JarvisGitHubRemoteScanner.scan()
@@ -440,6 +459,9 @@ final class JarvisLiveDashboard: ObservableObject {
             } onCancel: {
                 worker.cancel()
             }
+            // Cache a completed provider result even if the old overlay was
+            // dismissed while the CLI request was in progress.
+            Self.latestGitHubSnapshot = snapshot
             guard let self, !Task.isCancelled, self.isVisible, self.revision == id else { return }
             self.githubSnapshot = snapshot
             self.githubIsLoading = false
@@ -450,10 +472,15 @@ final class JarvisLiveDashboard: ObservableObject {
     }
 
     private func startVercelScanIfNeeded(id: UUID) {
+        if let cached = Self.latestVercelSnapshot,
+           cached.checkedAt > (vercelSnapshot?.checkedAt ?? .distantPast) {
+            vercelSnapshot = cached
+        }
         guard vercelTask == nil,
-              vercelLastCheckedAt.map({ Date().timeIntervalSince($0) > 120 }) ?? true else { return }
+              vercelLastCheckedAt.map({ Date().timeIntervalSince($0) >= Self.vercelRefreshSeconds }) ?? true else { return }
         vercelIsLoading = true
         vercelLastCheckedAt = Date()
+        Self.latestVercelAttemptAt = vercelLastCheckedAt
         vercelTask = Task { [weak self] in
             let worker = Task.detached(priority: .utility) {
                 JarvisVercelRemoteScanner.scan()
@@ -463,6 +490,7 @@ final class JarvisLiveDashboard: ObservableObject {
             } onCancel: {
                 worker.cancel()
             }
+            Self.latestVercelSnapshot = snapshot
             guard let self, !Task.isCancelled, self.isVisible, self.revision == id else { return }
             self.vercelSnapshot = snapshot
             self.vercelIsLoading = false
