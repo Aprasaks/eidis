@@ -263,6 +263,11 @@ private struct JarvisSummonedView: View {
     @State private var typedText = ""
     @FocusState private var isInputFocused: Bool
     @State private var appeared = false
+    @State private var controlsHovered = false
+    @State private var closeHovered = false
+    @State private var showDetails = false
+    @State private var showDiagnostics = false
+    @State private var captionExpired = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         GeometryReader { area in
@@ -302,136 +307,35 @@ private struct JarvisSummonedView: View {
                     .opacity(appeared ? (workspaceActive ? 0.65 : 1) : 0)
                     .animation(reduceMotion ? nil : .easeInOut(duration: 0.72), value: compactCore)
                     .allowsHitTesting(false)
+                // The cinematic resting surface contains only the core.
+                // Controls are revealed intentionally at the screen edge.
                 VStack {
                     HStack {
                         Spacer()
                         if !commandCenter {
-                        Button(action: dismiss) {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(.white.opacity(0.36))
-                                .padding(16)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("DECHIVE 화면 닫기")
+                            Button(action: dismiss) {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(.white.opacity(0.8))
+                                    .padding(16)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("DECHIVE 화면 닫기")
+                            .opacity(workspaceActive || closeHovered ? 1 : 0)
+                            .onHover { closeHovered = $0 }
                         }
                     }
                     Spacer()
-                    // The original film and its core remain untouched.
-                    // When working, the composer lives INSIDE the left fixed
-                    // dialogue sidebar, never underneath a native WKWebView.
-                    if !workspaceActive {
-                    VStack(spacing: 8) {
-                        HStack(spacing: 8) {
-                            Text(dialogue.status)
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundStyle(dialogue.isListening ? Color(red: 1, green: 0.72, blue: 0.28) : .white.opacity(0.8))
-                                .lineLimit(2)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            voicePauseMenu
-                        }
-                        if !dialogue.activeMicrophone.isEmpty {
-                            Text(dialogue.activeMicrophone)
-                                .font(.system(size: 9))
-                                .foregroundStyle(.white.opacity(0.62))
-                                .lineLimit(1)
-                                .accessibilityIdentifier("jarvis-active-microphone")
-                        }
-                        if !dialogue.speechCaptureNotice.isEmpty {
-                            Text(dialogue.speechCaptureNotice)
-                                .font(.system(size: 9))
-                                .foregroundStyle(.orange.opacity(0.84))
-                                .lineLimit(1)
-                                .accessibilityIdentifier("jarvis-speech-evidence")
-                        }
-                        HStack(spacing: 9) {
-                            Button {
-                                dialogue.toggleMicrophone()
-                            } label: {
-                                Label(dialogue.isListening ? "질문 마치기" :
-                                      (dialogue.isThinking || dialogue.isSpeaking ? "끼어들기" : "대화 시작"),
-                                      systemImage: dialogue.isListening ? "stop.circle.fill" : "mic.fill")
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(Color(red: 0.68, green: 0.37, blue: 0.06))
-                            .accessibilityIdentifier("jarvis-overlay-microphone")
-                            TextField("텍스트로도 질문할 수 있어요", text: $typedText)
-                                .textFieldStyle(.roundedBorder)
-                                .font(.system(size: 12))
-                                .focused($isInputFocused)
-                                .onChange(of: isInputFocused) { _, focused in
-                                    dialogue.textInputFocused = focused
-                                }
-                                .onSubmit { sendTyped() }
-                                .disabled(dialogue.isListening)
-                                .accessibilityIdentifier("jarvis-overlay-text-input")
-                            Button("보내기") { sendTyped() }
-                                .buttonStyle(.bordered)
-                                .disabled(typedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                                          dialogue.isListening)
-                                .accessibilityIdentifier("jarvis-overlay-send")
-                        }
-                    }
-                    .frame(maxWidth: 620)
-                    .padding(12)
-                    .background(.black.opacity(0.68), in: RoundedRectangle(cornerRadius: 16))
-                    .padding(.bottom, 15)
+                    if !workspaceActive && !commandCenter {
+                        restingControls
                     }
                 }
                 .padding(.horizontal, 30)
-                .zIndex(12) // Voice/text stays accessible above the scrollable control room.
+                .zIndex(12)
 
-                // Keep the original JARVIS title unobstructed even for long
-                // answers: subtitles sit on the left, not atop the gold core.
-                if (!dialogue.answer.isEmpty || !dialogue.streamingAnswer.isEmpty)
-                   && !commandCenter && !workspaceActive {
-                    HStack(alignment: .bottom) {
-                        VStack(alignment: .leading, spacing: 7) {
-                            Text(dialogue.question)
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(Color.orange.opacity(0.85))
-                            if dialogue.sourceURL != nil || dialogue.isMemoryAnswer {
-                                // Web analysis or verified saved memories can be
-                                // longer than a short spoken reply.
-                                // Keep its full text scrollable, never truncate
-                                // the user's researched answer with an ellipsis.
-                                ScrollView(.vertical) {
-                                    Text(dialogue.answer.isEmpty ? dialogue.streamingAnswer :
-                                         dialogue.answer)
-                                        .font(.system(size: 13))
-                                        .foregroundStyle(.white.opacity(0.93))
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .textSelection(.enabled)
-                                }
-                                .frame(maxHeight: min(210, area.size.height * 0.25))
-                                .scrollIndicators(.visible)
-                            } else {
-                                Text(dialogue.answer.isEmpty ? dialogue.streamingAnswer :
-                                     dialogue.answer)
-                                    .font(.system(size: 14))
-                                    .foregroundStyle(.white.opacity(0.93))
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .lineLimit(6)
-                            }
-                            if let source = dialogue.sourceURL {
-                                Text("출처: \(dialogue.sourceTitle) · \(source.host ?? "웹페이지")")
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundStyle(Color.orange.opacity(0.83))
-                                    .lineLimit(2)
-                                    .accessibilityLabel("웹페이지 출처: \(source.absoluteString)")
-                            }
-                        }
-                        .frame(width: min(440, area.size.width * 0.34), alignment: .leading)
-                        .padding(13)
-                        .background(.black.opacity(0.82), in: RoundedRectangle(cornerRadius: 13))
-                        .overlay(RoundedRectangle(cornerRadius: 13)
-                            .stroke(.white.opacity(0.12), lineWidth: 1))
-                        Spacer(minLength: 0)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                    .padding(.leading, 30)
-                    .padding(.bottom, 89)
-                    .allowsHitTesting(dialogue.sourceURL != nil || dialogue.isMemoryAnswer)
+                if !commandCenter && !workspaceActive {
+                    restingCaption(size: area.size)
+                        .zIndex(2)
                 }
 
                 if commandCenter && (!dialogue.answer.isEmpty ||
@@ -455,10 +359,9 @@ private struct JarvisSummonedView: View {
                     .allowsHitTesting(false)
                 }
 
-                // Live dialogue remains a separate session-only panel beside
-                // the original core; never overlaps a focused dashboard.
-                if !commandCenter && !liveDashboard.isVisible &&
-                   !dashboard.isVisible && !browser.isVisible && !vault.isVisible {
+                // Full session and actual research evidence are available on
+                // demand, never as a duplicate window over a dashboard.
+                if !commandCenter && !workspaceActive && (showDetails || activeResearch) {
                     HStack {
                         Spacer(minLength: 0)
                         JarvisLiveDialoguePanel(dialogue: dialogue)
@@ -468,7 +371,7 @@ private struct JarvisSummonedView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                     .padding(.bottom, 55)
-                    .transition(.opacity.combined(with: .move(edge: .trailing)))
+                    .transition(.opacity)
                     .zIndex(3)
                 }
 
@@ -538,12 +441,152 @@ private struct JarvisSummonedView: View {
                 // Never leave Space permanently disabled by a stale FocusState.
                 isInputFocused = false
                 dialogue.textInputFocused = false
+                showDetails = false
+                showDiagnostics = false
             }
+        }
+        .task(id: captionRevision) {
+            captionExpired = false
+            guard !dialogue.isThinking && !dialogue.isSpeaking else { return }
+            do { try await Task.sleep(for: .seconds(12)) } catch { return }
+            guard !Task.isCancelled else { return }
+            captionExpired = true
         }
         .onAppear {
             if reduceMotion { appeared = true }
             else { withAnimation(.easeInOut(duration: 0.36)) { appeared = true } }
         }
+    }
+
+    private var activeResearch: Bool {
+        dialogue.isThinking && (JarvisResearchIntent.parse(dialogue.question) != nil ||
+            JarvisVerificationIntent.parse(dialogue.question) != nil)
+    }
+
+    private var captionRevision: String {
+        [dialogue.question, dialogue.answer, dialogue.liveTranscript,
+         String(dialogue.isThinking), String(dialogue.isSpeaking), captionIssue].joined(separator: "\u{1F}")
+    }
+
+    // Actionable failures may be shown in plain language; routine technical
+    // telemetry remains in the dedicated diagnostics surface.
+    private var captionIssue: String {
+        if dialogue.status.hasPrefix("로컬 Qwen에 연결할 수 없습니다") {
+            return "지금은 대답하기 어려워요. 잠시 후 다시 말씀해 주세요."
+        }
+        if dialogue.status.contains("마이크 권한") && dialogue.status.contains("확인") {
+            return "대화하려면 마이크 권한을 확인해 주세요."
+        }
+        return ""
+    }
+
+    @ViewBuilder private func restingCaption(size: CGSize) -> some View {
+        let live = dialogue.liveTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+        let question = live.isEmpty ? dialogue.question : live
+        let answer = live.isEmpty ? (dialogue.answer.isEmpty ? captionIssue : dialogue.answer) : ""
+        if (!captionExpired || !live.isEmpty || dialogue.isSpeaking) &&
+            (!question.isEmpty || !answer.isEmpty) {
+            VStack {
+                Spacer(minLength: 0)
+                VStack(spacing: 10) {
+                    if !question.isEmpty {
+                        Text(question)
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(Color.orange.opacity(0.9))
+                            .lineLimit(2)
+                            .accessibilityIdentifier("jarvis-core-user-caption")
+                    }
+                    if !answer.isEmpty {
+                        Text(answer)
+                            .font(.system(size: 20, weight: .regular))
+                            .foregroundStyle(.white.opacity(0.97))
+                            .lineLimit(4)
+                            .accessibilityIdentifier("jarvis-core-answer-caption")
+                    }
+                }
+                .multilineTextAlignment(.center)
+                .lineSpacing(4)
+                .frame(maxWidth: min(780, size.width * 0.72))
+                .padding(.horizontal, 22)
+                .padding(.vertical, 12)
+                .background(.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 12))
+                .padding(.bottom, max(100, size.height * 0.12))
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .allowsHitTesting(false)
+            .transition(.opacity)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: captionExpired)
+        }
+    }
+
+    private var restingControls: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 9) {
+                Button { dialogue.toggleMicrophone() } label: {
+                    Label(dialogue.isListening ? "질문 마치기" :
+                          (dialogue.isThinking || dialogue.isSpeaking ? "끼어들기" : "대화 시작"),
+                          systemImage: dialogue.isListening ? "stop.circle.fill" : "mic.fill")
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("jarvis-overlay-microphone")
+                TextField("자비스에게 질문", text: $typedText)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 12))
+                    .focused($isInputFocused)
+                    .onChange(of: isInputFocused) { _, focused in
+                        dialogue.textInputFocused = focused
+                    }
+                    .onSubmit { sendTyped() }
+                    .disabled(dialogue.isListening)
+                    .accessibilityIdentifier("jarvis-overlay-text-input")
+                Button("보내기") { sendTyped() }
+                    .buttonStyle(.bordered)
+                    .disabled(typedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || dialogue.isListening)
+                    .accessibilityIdentifier("jarvis-overlay-send")
+                Button { showDetails.toggle() } label: {
+                    Image(systemName: "text.bubble")
+                }
+                .help("대화 기록 및 출처")
+                .accessibilityLabel("대화 기록 및 출처")
+                Button { showDiagnostics.toggle() } label: {
+                    Image(systemName: "terminal")
+                }
+                .help("시스템 진단")
+                .accessibilityLabel("시스템 진단")
+                .popover(isPresented: $showDiagnostics, arrowEdge: .top) {
+                    diagnosticsPanel
+                }
+            }
+            .frame(maxWidth: 720)
+            .padding(12)
+            .background(.black.opacity(0.88), in: RoundedRectangle(cornerRadius: 12))
+            .opacity(controlsHovered || isInputFocused || showDiagnostics || !typedText.isEmpty ? 1 : 0)
+        }
+        .frame(maxWidth: 760)
+        .padding(.vertical, 14)
+        .contentShape(Rectangle())
+        .onHover { controlsHovered = $0 }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: controlsHovered)
+    }
+
+    private var diagnosticsPanel: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Label("SYSTEM / VOICE", systemImage: "terminal")
+                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+            Text(dialogue.status)
+            if !dialogue.activeMicrophone.isEmpty {
+                Text(dialogue.activeMicrophone)
+                    .accessibilityIdentifier("jarvis-active-microphone")
+            }
+            if !dialogue.speechCaptureNotice.isEmpty {
+                Text(dialogue.speechCaptureNotice)
+                    .accessibilityIdentifier("jarvis-speech-evidence")
+            }
+            voicePauseMenu
+        }
+        .font(.system(size: 11, design: .monospaced))
+        .padding(16)
+        .frame(width: 340, alignment: .leading)
     }
 
     private var voicePauseMenu: some View {
@@ -586,31 +629,27 @@ private struct JarvisSummonedView: View {
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.92))
                 Spacer(minLength: 0)
-                Circle()
-                    .fill(dialogue.isListening ? Color.green : .orange.opacity(0.65))
-                    .frame(width: 6, height: 6)
-            }
-            HStack(spacing: 8) {
-                Text(dialogue.status)
-                    .font(.system(size: 10))
-                    .foregroundStyle(dialogue.isListening ? .orange : .white.opacity(0.67))
-                    .lineLimit(2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                voicePauseMenu
-            }
-            if !dialogue.activeMicrophone.isEmpty {
-                Text(dialogue.activeMicrophone)
-                    .font(.system(size: 9))
-                    .foregroundStyle(.white.opacity(0.62))
-                    .lineLimit(2)
-                    .accessibilityIdentifier("jarvis-workspace-active-microphone")
-            }
-            if !dialogue.speechCaptureNotice.isEmpty {
-                Text(dialogue.speechCaptureNotice)
-                    .font(.system(size: 9))
-                    .foregroundStyle(.orange.opacity(0.84))
-                    .lineLimit(2)
-                    .accessibilityIdentifier("jarvis-workspace-speech-evidence")
+                Button { showDiagnostics.toggle() } label: {
+                    Image(systemName: "terminal")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.55))
+                }
+                .buttonStyle(.plain)
+                .help("시스템 진단")
+                .accessibilityLabel("시스템 진단")
+                .popover(isPresented: $showDiagnostics, arrowEdge: .top) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(dialogue.status)
+                        Text(dialogue.activeMicrophone)
+                            .accessibilityIdentifier("jarvis-workspace-active-microphone")
+                        Text(dialogue.speechCaptureNotice)
+                            .accessibilityIdentifier("jarvis-workspace-speech-evidence")
+                        voicePauseMenu
+                    }
+                    .font(.system(size: 11, design: .monospaced))
+                    .padding(16)
+                    .frame(width: 320, alignment: .leading)
+                }
             }
             Rectangle().fill(.orange.opacity(0.24)).frame(height: 1)
             ScrollViewReader { proxy in
@@ -642,13 +681,12 @@ private struct JarvisSummonedView: View {
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
-                        if dialogue.isListening || !dialogue.liveTranscript.isEmpty {
+                        if !dialogue.liveTranscript.isEmpty {
                             VStack(alignment: .leading, spacing: 5) {
-                                Text("LIVE TRANSCRIPT")
+                                Text("YOU")
                                     .font(.system(size: 9, weight: .semibold, design: .monospaced))
                                     .foregroundStyle(.orange)
-                                Text(dialogue.liveTranscript.isEmpty ?
-                                     "말씀하시면 여기에 표시됩니다…" : dialogue.liveTranscript)
+                                Text(dialogue.liveTranscript)
                                     .font(.system(size: 12))
                                     .foregroundStyle(.white.opacity(0.82))
                                     .fixedSize(horizontal: false, vertical: true)
@@ -676,6 +714,12 @@ private struct JarvisSummonedView: View {
                 .onChange(of: dialogue.streamingAnswer) { _, _ in
                     proxy.scrollTo("workspace-end", anchor: .bottom)
                 }
+            }
+            if let source = dialogue.sourceURL {
+                Link(dialogue.sourceTitle.isEmpty ? (source.host ?? "원문") : dialogue.sourceTitle, destination: source)
+                    .font(.caption)
+                    .foregroundStyle(.orange.opacity(0.85))
+                    .lineLimit(2)
             }
             Rectangle().fill(.white.opacity(0.13)).frame(height: 1)
             HStack(spacing: 7) {
@@ -1663,6 +1707,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
         }
         greetingTask = Task { [weak self] in
             guard let self, self.panel != nil else { return }
+            dialogue.showSummonCaption()
             await ElevenLabsVoiceService.shared.speakSummonGreeting(fallback: self.greetingFallback)
             await ElevenLabsVoiceService.shared.waitForOutputToFinish(fallback: self.greetingFallback)
             guard !Task.isCancelled, self.panel != nil, self.dialogue === dialogue else { return }

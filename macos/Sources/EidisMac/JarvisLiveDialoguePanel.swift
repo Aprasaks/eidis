@@ -146,6 +146,14 @@ struct JarvisLiveDialoguePanel: View {
                 .accessibilityIdentifier("dechive-verification-field")
             }
 
+            if let source = dialogue.sourceURL {
+                Link(dialogue.sourceTitle.isEmpty ? (source.host ?? "원문") : dialogue.sourceTitle, destination: source)
+                    .font(.system(size: 10))
+                    .foregroundStyle(amber)
+                    .lineLimit(2)
+                    .accessibilityLabel("웹페이지 출처: "+source.absoluteString)
+            }
+
             ScrollViewReader { proxy in
                 ScrollView(.vertical) {
                     VStack(alignment: .leading, spacing: 13) {

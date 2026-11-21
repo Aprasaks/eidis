@@ -40,9 +40,9 @@ class OnDemandDashboard(unittest.TestCase):
             self.assertIn(marker, OVERLAY)
         self.assertIn('DECHIVE_FullHD_Loop', OVERLAY)
         self.assertIn('hotkey?.uninstallEscape()', OVERLAY)
-        self.assertIn('if (!dialogue.answer.isEmpty || !dialogue.streamingAnswer.isEmpty)', OVERLAY)
-        self.assertIn('subtitles sit on the left', OVERLAY)
-        self.assertIn('.padding(.bottom, 89)', OVERLAY)
+        self.assertIn('if !commandCenter && !workspaceActive {', OVERLAY)
+        self.assertIn('restingCaption(size: area.size)', OVERLAY)
+        self.assertIn('.padding(.bottom, max(100, size.height * 0.12))', OVERLAY)
     def test_voice_request_cap_removed_without_removing_safety(self):
         self.assertNotIn('private static let maxRequests = 5', VOICE)
         self.assertNotIn('guard remaining > 0', VOICE)

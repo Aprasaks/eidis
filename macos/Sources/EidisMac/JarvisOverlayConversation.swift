@@ -172,6 +172,11 @@ final class JarvisOverlayConversation: ObservableObject {
         SFSpeechRecognizer.authorizationStatus() == .authorized
     }
 
+    func showSummonCaption() {
+        guard question.isEmpty, answer.isEmpty else { return }
+        answer = "주인님, 자비스입니다."
+    }
+
     func afterGreeting() async {
         guard !Task.isCancelled else { return }
         startContinuityMonitor()
