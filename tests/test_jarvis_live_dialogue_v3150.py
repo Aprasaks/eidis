@@ -40,7 +40,8 @@ class JarvisLiveDialogueContract(unittest.TestCase):
                       'activateListening()'):
             self.assertIn(value, CHAT)
         self.assertIn('dialogue.toggleMicrophone()', OVERLAY)
-        self.assertIn('self.dialogue?.toggleMicrophone()', OVERLAY)
+        self.assertIn('private func handleMicrophoneShortcut()', OVERLAY)
+        self.assertIn('onMicrophone = { [weak self] in self?.handleMicrophoneShortcut() }', OVERLAY)
         self.assertIn('dialogue.isSpeaking ? "끼어들기"', OVERLAY)
         self.assertIn('Label(dialogue.isListening ? "질문 마치기"', OVERLAY)
         self.assertNotIn('.disabled(dialogue.isThinking || dialogue.isSpeaking)', OVERLAY)
@@ -54,7 +55,7 @@ class JarvisLiveDialogueContract(unittest.TestCase):
         self.assertIn('JarvisLiveDialoguePanel(dialogue: dialogue)', OVERLAY)
         self.assertIn('JarvisLiveDialoguePanel(dialogue: dialogue)', ROOM)
         self.assertIn('activityCard(scale: scale)', ROOM)
-        self.assertIn('JarvisLoopingCore(videoURL: videoURL, compact: commandCenter)', OVERLAY)
+        self.assertIn('JarvisLoopingCore(videoURL: videoURL, compact: compactCore)', OVERLAY)
         self.assertIn('jarvis-live-dialogue-panel', PANEL)
         self.assertIn('window.orderOut(nil)', OVERLAY)
 

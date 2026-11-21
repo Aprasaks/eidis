@@ -35,8 +35,8 @@ class SpeechContinuityContract(unittest.TestCase):
         self.assertIn("sessionId = UUID()", SPEECH)
 
     def test_longer_pause_and_manual_finish_mode(self):
-        self.assertIn("savedPause ?? 6.5", CHAT)
-        self.assertIn("min(max(silenceWaitSeconds, 5.0), 12.0)", CHAT)
+        self.assertIn("savedPause ?? 1.8", CHAT)
+        self.assertIn("min(max(silenceWaitSeconds, 1.2), 8.0)", CHAT)
         self.assertIn(">= self.silenceWaitSeconds", CHAT)
         self.assertNotIn('Toggle(isOn: $dialogue.autoTurnEnabled)', PANEL)
         self.assertIn("func completeUtterance()", CHAT)

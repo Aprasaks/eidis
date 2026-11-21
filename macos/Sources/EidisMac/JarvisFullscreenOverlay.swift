@@ -8,9 +8,11 @@ import SwiftUI
 private final class JarvisOverlayHotkey {
     private var hotkey: EventHotKeyRef?
     private var escapeHotkey: EventHotKeyRef?
+    private var microphoneHotkey: EventHotKeyRef?
     private var handler: EventHandlerRef?
     var onPress: (() -> Void)?
     var onEscape: (() -> Void)?
+    var onMicrophone: (() -> Void)?
 
     func install() -> Bool {
         var event = EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
@@ -31,6 +33,7 @@ private final class JarvisOverlayHotkey {
                 switch hotkeyID {
                 case 51: key.onPress?()
                 case 52: key.onEscape?()
+                case 53: key.onMicrophone?()
                 default: break
                 }
             }
@@ -59,8 +62,23 @@ private final class JarvisOverlayHotkey {
         escapeHotkey = nil
     }
 
+    /// Opt-Space remains available when the embedded WebKit view owns focus.
+    /// This shortcut is installed ONLY while the overlay is visible.
+    func installMicrophone() -> Bool {
+        guard microphoneHotkey == nil else { return true }
+        let identifier = EventHotKeyID(signature: 0x4A415256, id: 53)
+        return RegisterEventHotKey(UInt32(kVK_Space), UInt32(optionKey), identifier,
+            GetApplicationEventTarget(), 0, &microphoneHotkey) == noErr
+    }
+
+    func uninstallMicrophone() {
+        if let microphoneHotkey { UnregisterEventHotKey(microphoneHotkey) }
+        microphoneHotkey = nil
+    }
+
     func uninstall() {
         uninstallEscape()
+        uninstallMicrophone()
         if let hotkey { UnregisterEventHotKey(hotkey) }
         if let handler { RemoveEventHandler(handler) }
         hotkey = nil
@@ -137,6 +155,10 @@ private struct JarvisSummonedView: View {
     var body: some View {
         GeometryReader { area in
             let commandCenter = liveDashboard.isVisible && liveDashboard.mode == .overview
+            let workspaceActive = !commandCenter && (browser.isVisible ||
+                vault.isVisible || liveDashboard.isVisible || dashboard.isVisible)
+            let compactCore = commandCenter || workspaceActive
+            let conversationWidth = min(max(area.size.width * 0.30, 255), 470)
             let wide = area.size.width >= 1120
             let smallCore = min(area.size.width * (wide ? 0.253 : 0.34),
                                 area.size.height * (wide ? 0.44 : 0.37))
@@ -145,13 +167,13 @@ private struct JarvisSummonedView: View {
                 // chroma-key artifacts or a visibly scaled transparency matte.
                 Color.black.opacity(appeared ? 1 : 0)
                     .ignoresSafeArea()
-                JarvisLoopingCore(videoURL: videoURL, compact: commandCenter)
-                    .frame(width: commandCenter ? smallCore : area.size.width,
-                           height: commandCenter ? smallCore : area.size.height)
+                JarvisLoopingCore(videoURL: videoURL, compact: compactCore)
+                    .frame(width: compactCore ? smallCore : area.size.width,
+                           height: compactCore ? smallCore : area.size.height)
                     // The 10-second film has the original JARVIS caption at its
                     // bottom. Mask ONLY the compact crop, never alter the source.
                     .mask {
-                        if commandCenter {
+                        if compactCore {
                             LinearGradient(stops: [
                                 .init(color: .white, location: 0.0),
                                 .init(color: .white, location: 0.72),
@@ -163,9 +185,10 @@ private struct JarvisSummonedView: View {
                         }
                     }
                     .position(x: commandCenter ? area.size.width * (wide ? 0.143 : 0.24) : area.size.width / 2,
-                              y: commandCenter ? area.size.height * (wide ? 0.235 : 0.18) : area.size.height / 2)
-                    .opacity(appeared ? 1 : 0)
-                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.72), value: commandCenter)
+                              y: commandCenter ? area.size.height * (wide ? 0.235 : 0.18) :
+                                workspaceActive ? area.size.height * 0.17 : area.size.height / 2)
+                    .opacity(appeared ? (workspaceActive ? 0.65 : 1) : 0)
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.72), value: compactCore)
                     .allowsHitTesting(false)
                 VStack {
                     HStack {
@@ -182,14 +205,19 @@ private struct JarvisSummonedView: View {
                         }
                     }
                     Spacer()
-                    // The original film and its core remain untouched. Dialogue
-                    // controls are compact and confined to the bottom edge.
+                    // The original film and its core remain untouched.
+                    // When working, the composer lives INSIDE the left fixed
+                    // dialogue sidebar, never underneath a native WKWebView.
+                    if !workspaceActive {
                     VStack(spacing: 8) {
-                        Text(dialogue.status)
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(dialogue.isListening ? Color(red: 1, green: 0.72, blue: 0.28) : .white.opacity(0.8))
-                            .lineLimit(2)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        HStack(spacing: 8) {
+                            Text(dialogue.status)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(dialogue.isListening ? Color(red: 1, green: 0.72, blue: 0.28) : .white.opacity(0.8))
+                                .lineLimit(2)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            voicePauseMenu
+                        }
                         HStack(spacing: 9) {
                             Button {
                                 dialogue.toggleMicrophone()
@@ -222,13 +250,14 @@ private struct JarvisSummonedView: View {
                     .padding(12)
                     .background(.black.opacity(0.68), in: RoundedRectangle(cornerRadius: 16))
                     .padding(.bottom, 15)
+                    }
                 }
                 .padding(.horizontal, 30)
                 .zIndex(12) // Voice/text stays accessible above the scrollable control room.
 
                 // Keep the original JARVIS title unobstructed even for long
                 // answers: subtitles sit on the left, not atop the gold core.
-                if !dialogue.answer.isEmpty && !commandCenter {
+                if !dialogue.answer.isEmpty && !commandCenter && !workspaceActive {
                     HStack(alignment: .bottom) {
                         VStack(alignment: .leading, spacing: 7) {
                             Text(dialogue.question)
@@ -319,46 +348,34 @@ private struct JarvisSummonedView: View {
                         _ = liveDashboard.hide()
                     }
                     .transition(.opacity)
-                } else if liveDashboard.isVisible {
-                    HStack {
-                        Spacer(minLength: 0)
-                        liveDashboardPanel
-                            .frame(width: min(520, max(340, area.size.width * 0.30)),
-                                   height: min(830, max(440, area.size.height - 120)))
-                            .padding(.trailing, 24)
+                } else if workspaceActive {
+                    // A dedicated two-column workspace: the browser, even as
+                    // an NSView, can never overlap text history or the composer.
+                    HStack(spacing: 16) {
+                        workspaceConversationPanel
+                            .frame(width: conversationWidth)
+                            .frame(maxHeight: .infinity)
+                        Group {
+                            if browser.isVisible, let url = browser.currentURL {
+                                embeddedBrowserPanel(url: url)
+                            } else if liveDashboard.isVisible {
+                                liveDashboardPanel
+                            } else if vault.isVisible {
+                                knowledgeVaultPanel
+                            } else if dashboard.isVisible {
+                                dashboardPanel
+                            } else {
+                                Color.clear
+                            }
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    .padding(.horizontal, max(18, area.size.width * 0.017))
+                    .padding(.top, 38)
+                    .padding(.bottom, 16)
+                    .frame(width: area.size.width, height: area.size.height)
                     .transition(.opacity.combined(with: .move(edge: .trailing)))
-                } else if browser.isVisible, let url = browser.currentURL {
-                    HStack {
-                        Spacer(minLength: 0)
-                        embeddedBrowserPanel(url: url)
-                            .frame(width: min(790, max(510, area.size.width * 0.29)),
-                                   height: min(900, max(540, area.size.height - 95)))
-                            .padding(.trailing, 23)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                    .transition(.opacity.combined(with: .move(edge: .trailing)))
-                } else if vault.isVisible {
-                    HStack {
-                        Spacer(minLength: 0)
-                        knowledgeVaultPanel
-                            .frame(width: min(540, max(340, area.size.width * 0.31)),
-                                   height: min(860, max(450, area.size.height - 115)))
-                            .padding(.trailing, 22)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                    .transition(.opacity.combined(with: .move(edge: .trailing)))
-                } else if dashboard.isVisible {
-                    HStack {
-                        Spacer(minLength: 0)
-                        dashboardPanel
-                            .frame(width: min(405, max(295, area.size.width * 0.29)),
-                                   height: min(800, max(350, area.size.height - 130)))
-                            .padding(.trailing, 27)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                    .transition(.opacity.combined(with: .move(edge: .trailing)))
+                    .zIndex(8)
                 }
             }
             .frame(width: area.size.width, height: area.size.height)
@@ -369,19 +386,176 @@ private struct JarvisSummonedView: View {
                     .onEnded { value in
                         // Browsing gestures inside the right-side panel must
                         // navigate that page, not move JARVIS to another monitor.
-                        if (browser.isVisible || vault.isVisible || liveDashboard.isVisible) &&
-                           value.startLocation.x > area.size.width * 0.54 { return }
+                        // Dragging the fixed conversation workspace should
+                        // never move the entire fullscreen panel away.
+                        if workspaceActive || commandCenter { return }
                         if abs(value.translation.width) > 100 &&
                            abs(value.translation.width) > abs(value.translation.height) * 1.25 {
                             moveToAdjacentScreen(value.translation.width < 0 ? 1 : -1)
                         }
                     }
             )
+            .onChange(of: workspaceActive) { _, _ in
+                // Old text field was unmounted as we switched workspaces.
+                // Never leave Space permanently disabled by a stale FocusState.
+                isInputFocused = false
+                dialogue.textInputFocused = false
+            }
         }
         .onAppear {
             if reduceMotion { appeared = true }
             else { withAnimation(.easeInOut(duration: 0.36)) { appeared = true } }
         }
+    }
+
+    private var voicePauseMenu: some View {
+        Menu {
+            Button("빠르게 · 1.8초") {
+                dialogue.silenceWaitSeconds = 1.8
+                dialogue.autoTurnEnabled = true
+            }
+            Button("보통 · 2.8초") {
+                dialogue.silenceWaitSeconds = 2.8
+                dialogue.autoTurnEnabled = true
+            }
+            Button("천천히 · 4.0초") {
+                dialogue.silenceWaitSeconds = 4.0
+                dialogue.autoTurnEnabled = true
+            }
+            Divider()
+            Button("수동 종료 · Space") {
+                dialogue.autoTurnEnabled = false
+            }
+        } label: {
+            Text(dialogue.autoTurnEnabled ?
+                "자동 \(dialogue.silenceWaitSeconds.formatted(.number.precision(.fractionLength(1))))초" :
+                "수동")
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(.orange.opacity(0.87))
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .accessibilityLabel("질문 자동 종료 시간 선택")
+        .accessibilityIdentifier("jarvis-voice-silence-control")
+    }
+
+    private var workspaceConversationPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "waveform.circle.fill")
+                    .foregroundStyle(.orange)
+                Text("JARVIS / CONVERSATION")
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.92))
+                Spacer(minLength: 0)
+                Circle()
+                    .fill(dialogue.isListening ? Color.green : .orange.opacity(0.65))
+                    .frame(width: 6, height: 6)
+            }
+            HStack(spacing: 8) {
+                Text(dialogue.status)
+                    .font(.system(size: 10))
+                    .foregroundStyle(dialogue.isListening ? .orange : .white.opacity(0.67))
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                voicePauseMenu
+            }
+            Rectangle().fill(.orange.opacity(0.24)).frame(height: 1)
+            ScrollViewReader { proxy in
+                ScrollView(.vertical) {
+                    LazyVStack(alignment: .leading, spacing: 14) {
+                        ForEach(dialogue.dialogueTurns) { turn in
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(turn.role == "YOU" ? "YOU" :
+                                     turn.interrupted ? "JARVIS / INTERRUPTED" : "JARVIS")
+                                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                                    .foregroundStyle(turn.role == "YOU" ? .orange : .green)
+                                Text(turn.content)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.white.opacity(turn.interrupted ? 0.6 : 0.92))
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .textSelection(.enabled)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .id(turn.id)
+                        }
+                        if dialogue.isListening || !dialogue.liveTranscript.isEmpty {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text("LIVE TRANSCRIPT")
+                                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                                    .foregroundStyle(.orange)
+                                Text(dialogue.liveTranscript.isEmpty ?
+                                     "말씀하시면 여기에 표시됩니다…" : dialogue.liveTranscript)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.white.opacity(0.82))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        if dialogue.dialogueTurns.isEmpty && !dialogue.isListening {
+                            Text("브라우저를 열어도 대화 내용은 여기 남아 있습니다.")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.white.opacity(0.57))
+                        }
+                        Color.clear.frame(height: 1).id("workspace-end")
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 5)
+                }
+                .scrollIndicators(.visible)
+                .onChange(of: dialogue.dialogueTurns.count) { _, _ in
+                    withAnimation(.easeOut(duration: 0.15)) {
+                        proxy.scrollTo("workspace-end", anchor: .bottom)
+                    }
+                }
+                .onChange(of: dialogue.liveTranscript) { _, _ in
+                    proxy.scrollTo("workspace-end", anchor: .bottom)
+                }
+            }
+            Rectangle().fill(.white.opacity(0.13)).frame(height: 1)
+            HStack(spacing: 7) {
+                Button {
+                    dialogue.toggleMicrophone()
+                } label: {
+                    Image(systemName: dialogue.isListening ? "stop.circle.fill" : "mic.fill")
+                        .font(.system(size: 14))
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color(red: 0.68, green: 0.37, blue: 0.06))
+                .accessibilityLabel(dialogue.isListening ? "질문 마치기" : "마이크 시작 또는 끼어들기")
+                .accessibilityIdentifier("jarvis-workspace-microphone")
+                TextField("자비스에게 질문", text: $typedText)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 12))
+                    .focused($isInputFocused)
+                    .onChange(of: isInputFocused) { _, focused in
+                        dialogue.textInputFocused = focused
+                    }
+                    .onSubmit { sendTyped() }
+                    .disabled(dialogue.isListening)
+                    .accessibilityIdentifier("jarvis-workspace-text-input")
+                Button { sendTyped() } label: {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 18))
+                }
+                .buttonStyle(.plain)
+                .disabled(typedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                          dialogue.isListening)
+                .accessibilityLabel("질문 보내기")
+                .accessibilityIdentifier("jarvis-workspace-send")
+            }
+            Text("⌥ Space: 언제든 음성 · Space: 입력 중이 아닐 때")
+                .font(.system(size: 9, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.52))
+                .lineLimit(2)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Color(red: 0.035, green: 0.042, blue: 0.055).opacity(0.97),
+                    in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16)
+            .stroke(Color.orange.opacity(0.34), lineWidth: 1))
+        .accessibilityIdentifier("jarvis-workspace-conversation")
     }
 
     private func embeddedBrowserPanel(url: URL) -> some View {
@@ -973,6 +1147,7 @@ final class JarvisFullscreenOverlay {
     private var horizontalScrollTotal: CGFloat = 0
     private var lastMove = Date.distantPast
     private var lastToggle = Date.distantPast
+    private var lastMicrophoneShortcut = Date.distantPast
     private var hiddenAppWindows: [NSWindow] = []
     private let greetingFallback = JarvisVoiceService()
     private var greetingTask: Task<Void, Never>?
@@ -984,6 +1159,7 @@ final class JarvisFullscreenOverlay {
         let key = JarvisOverlayHotkey()
         key.onPress = { [weak self] in self?.toggle() }
         key.onEscape = { [weak self] in self?.dismiss() }
+        key.onMicrophone = { [weak self] in self?.handleMicrophoneShortcut() }
         if key.install() {
             hotkey = key
             NSLog("JARVIS: Command-Option-J fullscreen shortcut registered")
@@ -1003,6 +1179,14 @@ final class JarvisFullscreenOverlay {
         guard Date().timeIntervalSince(lastToggle) > 0.45 else { return }
         lastToggle = Date()
         if panel == nil { show() } else { dismiss() }
+    }
+
+    private func handleMicrophoneShortcut() {
+        guard panel != nil, Date().timeIntervalSince(lastMicrophoneShortcut) > 0.25 else {
+            return
+        }
+        lastMicrophoneShortcut = Date()
+        dialogue?.toggleMicrophone()
     }
 
     func show() {
@@ -1048,6 +1232,9 @@ final class JarvisFullscreenOverlay {
         if hotkey?.installEscape() != true {
             NSLog("JARVIS: global Esc hotkey unavailable; local Esc remains enabled")
         }
+        if hotkey?.installMicrophone() != true {
+            NSLog("JARVIS: global Option-Space hotkey unavailable; local key monitor remains enabled")
+        }
         NSLog("JARVIS: panel created, frame=%@", NSStringFromRect(window.frame))
         interactionMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .scrollWheel]) { [weak self] event in
             guard let self, self.panel != nil else { return event }
@@ -1057,11 +1244,19 @@ final class JarvisFullscreenOverlay {
                     self.dismiss()
                     return nil
                 }
-                // Space is the manual start/finish microphone control.
-                // Do not intercept spaces typed into the text input.
-                if event.keyCode == 49 && self.dialogue?.textInputFocused != true &&
-                   self.dialogue?.browser.isVisible != true {
-                    self.dialogue?.toggleMicrophone()
+                // Option-Space is always voice-first, even when WKWebView has
+                // key focus. Normal Space is typing when an editable field is
+                // focused (either local composer or the embedded website).
+                let nativeEditorFocused = event.window?.firstResponder is NSTextView ||
+                    event.window?.firstResponder is NSTextField
+                if JarvisVoiceShortcutPolicy.handles(
+                    keyCode: event.keyCode,
+                    modifiers: event.modifierFlags,
+                    composerEditing: self.dialogue?.textInputFocused == true || nativeEditorFocused,
+                    browserEditing: self.dialogue?.browser.isEditingWebText == true,
+                    isRepeat: event.isARepeat
+                ) {
+                    self.handleMicrophoneShortcut()
                     return nil
                 }
                 // Reliable fallback when trackpad gestures are unavailable.
@@ -1143,6 +1338,7 @@ final class JarvisFullscreenOverlay {
     func dismiss() {
         guard let window = panel else { return }
         hotkey?.uninstallEscape()
+        hotkey?.uninstallMicrophone()
         // Highest priority: stop audio and cancel outstanding greeting requests.
         greetingTask?.cancel()
         greetingTask = nil
@@ -1162,6 +1358,7 @@ final class JarvisFullscreenOverlay {
 
     func stop() {
         hotkey?.uninstallEscape()
+        hotkey?.uninstallMicrophone()
         greetingTask?.cancel()
         greetingTask = nil
         dialogue?.cancel()

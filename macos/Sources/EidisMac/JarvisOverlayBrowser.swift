@@ -35,6 +35,7 @@ final class JarvisOverlayBrowser: ObservableObject {
     @Published private(set) var canGoBack = false
     @Published private(set) var canGoForward = false
     @Published private(set) var errorText: String?
+    @Published private(set) var isEditingWebText = false
     @Published private(set) var observedLinks: [JarvisObservedLink] = []
     @Published private(set) var lastControlReceipt = ""
     @Published private(set) var navigationCompletionCount = 0
@@ -339,7 +340,13 @@ final class JarvisOverlayBrowser: ObservableObject {
 
     func attach(_ view: WKWebView) {
         webView = view
+        isEditingWebText = false
         updateState(view)
+    }
+
+    func updateWebTextEditing(_ editing: Bool, in view: WKWebView?) {
+        guard isVisible, webView === view else { return }
+        isEditingWebText = editing
     }
 
     func rejectHTTPPage(_ statusCode: Int) {
@@ -362,6 +369,7 @@ final class JarvisOverlayBrowser: ObservableObject {
 
     func hide() -> String {
         isVisible = false
+        isEditingWebText = false
         webView?.stopLoading()
         webView?.loadHTMLString("", baseURL: nil)
         webView = nil
@@ -389,6 +397,34 @@ struct JarvisEmbeddedBrowser: NSViewRepresentable {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
+        // The bridge reports only whether an editable input owns focus.
+        // It does not read keystrokes, text, cookies, or page contents.
+        let webInputFocusScript = """
+        (() => {
+            if (window.__dechiveFocusInstalled) return;
+            window.__dechiveFocusInstalled = true;
+            const notify = () => {
+                let active = document.activeElement;
+                while (active && active.shadowRoot && active.shadowRoot.activeElement) {
+                    active = active.shadowRoot.activeElement;
+                }
+                const editing = !!active && (
+                    active.matches?.('input, textarea, select, [role="textbox"], [role="searchbox"]') ||
+                    active.isContentEditable === true
+                );
+                window.webkit.messageHandlers.dechiveInputFocus.postMessage(Boolean(editing));
+            };
+            document.addEventListener('focusin', notify, true);
+            document.addEventListener('focusout', () => setTimeout(notify, 0), true);
+            window.addEventListener('blur', notify);
+            notify();
+        })();
+        """
+        configuration.userContentController.add(context.coordinator,
+            name: "dechiveInputFocus")
+        configuration.userContentController.addUserScript(
+            WKUserScript(source: webInputFocusScript, injectionTime: .atDocumentEnd,
+                         forMainFrameOnly: true))
         let view = WKWebView(frame: .zero, configuration: configuration)
         view.navigationDelegate = context.coordinator
         view.uiDelegate = context.coordinator
@@ -407,13 +443,27 @@ struct JarvisEmbeddedBrowser: NSViewRepresentable {
         view.stopLoading()
         view.navigationDelegate = nil
         view.uiDelegate = nil
+        view.configuration.userContentController.removeScriptMessageHandler(
+            forName: "dechiveInputFocus")
         view.loadHTMLString("", baseURL: nil)
     }
 
-    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
+    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate,
+                              WKScriptMessageHandler {
         let browser: JarvisOverlayBrowser
         var lastRequestedURL: URL?
         init(browser: JarvisOverlayBrowser) { self.browser = browser }
+
+        func userContentController(_ userContentController: WKUserContentController,
+                                   didReceive message: WKScriptMessage) {
+            guard message.name == "dechiveInputFocus",
+                  message.frameInfo.isMainFrame,
+                  let focused = message.body as? Bool else { return }
+            let view = message.webView
+            Task { @MainActor in
+                browser.updateWebTextEditing(focused, in: view)
+            }
+        }
 
         func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
                      decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
@@ -440,7 +490,10 @@ struct JarvisEmbeddedBrowser: NSViewRepresentable {
             Task { @MainActor in browser.navigationFinished(webView) }
         }
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-            Task { @MainActor in browser.updateState(webView) }
+            Task { @MainActor in
+                browser.updateWebTextEditing(false, in: webView)
+                browser.updateState(webView)
+            }
         }
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
             Task { @MainActor in browser.failed(error) }

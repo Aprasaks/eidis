@@ -8,7 +8,7 @@ LIVE=(R/'macos/Sources/EidisMac/JarvisLiveDashboard.swift').read_text()
 INFO=(R/'macos/Resources/Info.plist').read_text()
 class CommandCenterContract(unittest.TestCase):
     def test_original_core_only_changes_position_not_video_asset(self):
-        for text in ('JarvisLoopingCore(videoURL: videoURL, compact: commandCenter)',
+        for text in ('JarvisLoopingCore(videoURL: videoURL, compact: compactCore)',
                      'AVPlayerLooper(player: player', 'videoGravity = compact ? .resizeAspectFill : .resizeAspect',
                      '.animation(reduceMotion ? nil : .easeInOut(duration: 0.72)',
                      'JarvisCommandCenterView(model: liveDashboard, dialogue: dialogue)',

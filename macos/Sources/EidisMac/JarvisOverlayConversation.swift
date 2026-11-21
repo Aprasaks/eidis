@@ -40,7 +40,7 @@ final class JarvisOverlayConversation: ObservableObject {
     }
     @Published var silenceWaitSeconds: Double {
         didSet {
-            silenceWaitSeconds = min(max(silenceWaitSeconds, 5.0), 12.0)
+            silenceWaitSeconds = min(max(silenceWaitSeconds, 1.2), 8.0)
             UserDefaults.standard.set(silenceWaitSeconds, forKey: "jarvis.dialogue.silenceWaitSeconds")
         }
     }
@@ -78,12 +78,26 @@ final class JarvisOverlayConversation: ObservableObject {
         session = URLSession(configuration: config)
         autoTurnEnabled = UserDefaults.standard.object(forKey: "jarvis.dialogue.autoTurn") as? Bool ?? true
         let savedPause = UserDefaults.standard.object(forKey: "jarvis.dialogue.silenceWaitSeconds") as? Double
-        // Earlier builds offered only 2.5–5 seconds; migrate that setting
-        // upward so a natural thinking pause does not prematurely end a turn.
-        silenceWaitSeconds = min(max(savedPause ?? 6.5, 6.5), 12.0)
+        // Versioned migration: old default 6.5 s made every normal question
+        // feel stalled. Preserve deliberately customized values, migrate only
+        // the old implicit default and keep the preference adjustable.
+        let migratedPause: Double
+        if UserDefaults.standard.bool(forKey: "jarvis.dialogue.fastPauseV1") {
+            migratedPause = savedPause ?? 1.8
+        } else {
+            if let savedPause, abs(savedPause - 6.5) >= 0.01 {
+                migratedPause = savedPause
+            } else {
+                migratedPause = 1.8
+            }
+            UserDefaults.standard.set(true, forKey: "jarvis.dialogue.fastPauseV1")
+        }
+        silenceWaitSeconds = min(max(migratedPause, 1.2), 8.0)
+        UserDefaults.standard.set(silenceWaitSeconds, forKey: "jarvis.dialogue.silenceWaitSeconds")
         transcriptObserver = listener.$transcript.sink { [weak self] partial in
             guard let self else { return }
-            guard self.isListening, !partial.isEmpty else { return }
+            guard self.isListening, !partial.isEmpty,
+                  String(partial.prefix(6000)) != self.liveTranscript else { return }
             self.liveTranscript = String(partial.prefix(6000))
             self.lastPartialAt = Date()
         }

@@ -33,7 +33,8 @@ class OllamaFullscreenConversationContract(unittest.TestCase):
                        'if event.keyCode == 53', 'dialogue?.toggleMicrophone()',
                        'jarvis-overlay-microphone', 'jarvis-overlay-text-input',
                        '.focused($isInputFocused)', 'dialogue.textInputFocused = focused',
-                       'self.dialogue?.textInputFocused != true',
+                       'composerEditing: self.dialogue?.textInputFocused == true',
+                       'browserEditing: self.dialogue?.browser.isEditingWebText == true',
                        'window.orderOut(nil)', 'videoURL: url',
                        'RegisterEventHotKey(UInt32(kVK_Escape)',
                        'hotkey?.uninstallEscape()', 'case 52: key.onEscape?()']:

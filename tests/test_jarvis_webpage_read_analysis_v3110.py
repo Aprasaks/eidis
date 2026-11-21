@@ -23,7 +23,10 @@ class JarvisWebPageAnalysisContract(unittest.TestCase):
             else: self.assertIn(text,BROWSER)
         self.assertNotIn('document.cookie',BROWSER)
         self.assertNotIn('localStorage',BROWSER)
-        self.assertNotIn('WKScriptMessageHandler',BROWSER)
+        # Focus bridge emits a Boolean only; page contents are still read
+        # only by explicit snapshotVisiblePage() user action.
+        self.assertIn('let focused = message.body as? Bool',BROWSER)
+        self.assertIn('configuration.websiteDataStore = .nonPersistent()',BROWSER)
     def test_qwen_analysis_does_not_offer_tools_and_labels_untrusted(self):
         self.assertIn('summarize_current_page',ENGINE)
         self.assertIn('case summarizePage',ENGINE)

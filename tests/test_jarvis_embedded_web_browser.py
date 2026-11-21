@@ -31,7 +31,12 @@ class JarvisEmbeddedBrowserContract(unittest.TestCase):
                       'decisionHandler(.cancel)', 'webView.load(URLRequest(url: url))',
                       'view.stopLoading()', 'view.allowsBackForwardNavigationGestures = true']:
             self.assertIn(token, WEB)
-        self.assertNotIn('WKScriptMessageHandler',WEB)
+        # A focus-only Boolean bridge is allowed. No website text or commands
+        # may be sent to a privileged tool dispatcher.
+        self.assertIn('WKScriptMessageHandler',WEB)
+        self.assertIn('let focused = message.body as? Bool',WEB)
+        self.assertIn('browser.updateWebTextEditing(focused, in: view)',WEB)
+        self.assertNotIn('eval(message.body)',WEB)
         self.assertIn('view.evaluateJavaScript(js)', WEB)
         self.assertIn('document.querySelector', WEB)
         self.assertNotIn('Process()',WEB)
@@ -40,7 +45,8 @@ class JarvisEmbeddedBrowserContract(unittest.TestCase):
         for token in ['if browser.isVisible, let url = browser.currentURL',
                       'JarvisEmbeddedBrowser(browser: browser, url: url)',
                       'jarvis-internal-web-browser', 'jarvis-browser-close',
-                      '.frame(width: min(790, max(510, area.size.width * 0.29))',
+                      'workspaceConversationPanel',
+                      '.frame(width: conversationWidth)',
                       'browser: dialogue.browser', 'hotkey?.uninstallEscape()',
                       'self.dialogue?.browser.isVisible != true', 'DECHIVE_FullHD_Loop']:
             self.assertIn(token,OVERLAY)
