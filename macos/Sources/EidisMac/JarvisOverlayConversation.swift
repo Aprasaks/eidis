@@ -30,6 +30,8 @@ final class JarvisOverlayConversation: ObservableObject {
     @Published private(set) var actionNotice = ""
     @Published private(set) var researchNotice = ""
     @Published private(set) var researchSources: [JarvisResearchSource] = []
+    @Published private(set) var verificationNotice = ""
+    @Published private(set) var verificationClaims: [JarvisVerifiedClaim] = []
     private var continuityMonitor: Task<Void, Never>?
     @Published private(set) var liveTranscript = ""
     @Published private(set) var dialogueTurns: [JarvisLiveDialogueTurn] = []
@@ -55,6 +57,7 @@ final class JarvisOverlayConversation: ObservableObject {
     private let studyClient = JarvisStudyClient()
     private let actionClient = JarvisActionClient()
     private let researchClient = JarvisResearchClient()
+    private let verificationClient = JarvisVerificationClient()
     let liveDashboard = JarvisLiveDashboard()
     private let elevenLabs = ElevenLabsVoiceService.shared
     private let session: URLSession
@@ -129,6 +132,20 @@ final class JarvisOverlayConversation: ObservableObject {
         let notice = await actionClient.notice()
         if !Task.isCancelled { actionNotice = notice }
         await refreshResearchField()
+        await refreshVerificationField()
+    }
+
+    private func refreshVerificationField() async {
+        guard let snapshot = try? await verificationClient.snapshot(), !Task.isCancelled else {
+            return
+        }
+        guard let latest = snapshot.latestResult else {
+            verificationNotice = ""
+            verificationClaims = []
+            return
+        }
+        verificationNotice = "검증 \(latest.id)번 · 조사 \(latest.researchId)번 · \(latest.state)"
+        verificationClaims = Array((latest.result.claims ?? []).prefix(3))
     }
 
     private func refreshResearchField() async {
@@ -296,7 +313,8 @@ final class JarvisOverlayConversation: ObservableObject {
                JarvisThoughtIntent.parse(prompt) == nil &&
                JarvisStudyIntent.parse(prompt) == nil &&
                JarvisActionIntent.parse(prompt) == nil &&
-               JarvisResearchIntent.parse(prompt) == nil {
+               JarvisResearchIntent.parse(prompt) == nil &&
+               JarvisVerificationIntent.parse(prompt) == nil {
                 lastAssistantContent = response
                 lastDiscussionTopic = prompt
             }
@@ -304,8 +322,9 @@ final class JarvisOverlayConversation: ObservableObject {
             isSpeaking = true
             // Pronunciation rule: DECHIVE is addressed as 데카이브 in speech.
             let speechText: String
-            if (JarvisActionIntent.parse(prompt) != nil || JarvisResearchIntent.parse(prompt) != nil)
-                && response.count > 650 {
+            if (JarvisActionIntent.parse(prompt) != nil ||
+                JarvisResearchIntent.parse(prompt) != nil ||
+                JarvisVerificationIntent.parse(prompt) != nil) && response.count > 650 {
                 speechText = String(response.prefix(550)) + ". 자세한 보고서는 화면에서 확인하실 수 있습니다."
             } else { speechText = response }
             let spoken = speechText.replacingOccurrences(of: "DECHIVE", with: "데카이브", options: .caseInsensitive)
@@ -327,6 +346,16 @@ final class JarvisOverlayConversation: ObservableObject {
     /// Qwen selects tools through the local Ollama API. This client only runs
     /// audited, read-only actions from JarvisCommand, never generated code.
     private func planAndRespond(_ prompt: String, token: UUID) async throws -> String {
+        if let intent = JarvisVerificationIntent.parse(prompt) {
+            let outcome = await verificationClient.handle(intent)
+            guard !Task.isCancelled && token == generation else { return "" }
+            await refreshVerificationField()
+            guard !Task.isCancelled && token == generation else { return "" }
+            conversation.append(["role": "user", "content": String(prompt.prefix(500))])
+            conversation.append(["role": "assistant", "content": String(outcome.prefix(1600))])
+            if conversation.count > 8 { conversation.removeFirst(conversation.count - 8) }
+            return outcome
+        }
         if let intent = JarvisResearchIntent.parse(prompt) {
             let outcome = await researchClient.handle(intent)
             guard !Task.isCancelled && token == generation else { return "" }
@@ -816,6 +845,9 @@ final class JarvisOverlayConversation: ObservableObject {
         researchClient.cancelSession()
         researchNotice = ""
         researchSources = []
+        verificationClient.cancelSession()
+        verificationNotice = ""
+        verificationClaims = []
         lastAssistantContent = ""
         lastDiscussionTopic = ""
         status = "DECHIVE 대화 종료"

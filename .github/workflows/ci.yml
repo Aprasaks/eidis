@@ -83,6 +83,10 @@ jobs:
         run: |
           swiftc -parse-as-library -o /tmp/dechive-research-smoke macos/tests/research/main.swift macos/Sources/EidisMac/JarvisResearchCore.swift
           /tmp/dechive-research-smoke
+      - name: Test Research 1.1 verification intents and shared model gate
+        run: |
+          swiftc -parse-as-library -o /tmp/dechive-verification-smoke macos/tests/research/verification-smoke.swift macos/Sources/EidisMac/JarvisResearchVerification.swift macos/Sources/EidisMac/JarvisThinkingCore.swift
+          /tmp/dechive-verification-smoke
       - name: Test fixed-command local Git reader
         run: |
           swiftc -o /tmp/jarvis-local-git-test macos/tests/git/main.swift macos/Sources/EidisMac/LocalGitInspector.swift

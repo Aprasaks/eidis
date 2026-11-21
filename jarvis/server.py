@@ -17,7 +17,7 @@ from .vision import VisionError, VisionRemoteError, vision_ready, analyze_screen
 from .storage import MemoryStore
 from .thinking import related_context
 from .continuity import scan, snapshot, acknowledge, SCAN_INTERVAL
-from . import study, action, research
+from . import study, action, research, verification
 from .projects import ProjectCheckError, verify_public_github
 from .tools import ToolRunner, ToolDenied, ToolExecutionError
 from .google_youtube import GoogleYouTubeConnection, YouTubeConnectionError
@@ -123,6 +123,15 @@ class JarvisHandler(BaseHTTPRequestHandler):
             return self._json(200, {"items": self.store.list_profile()})
         if path == "/api/memories":
             return self._json(200, {"items": self.store.recent_memories()})
+        if path == "/api/research/verification":
+            try:
+                data = parse_qs(urlsplit(self.path).query)
+                return self._json(200, verification.get_job(
+                    self.store, int(data.get("id", [""])[0])))
+            except (ValueError, IndexError) as exc:
+                return self._json(400, {"error": str(exc)})
+        if path == "/api/research/verification/status":
+            return self._json(200, verification.status(self.store))
         if path == "/api/research":
             return self._json(200, research.status(self.store))
         if path == "/api/research/job":
@@ -192,7 +201,11 @@ class JarvisHandler(BaseHTTPRequestHandler):
                          "/api/thoughts", "/api/thoughts/review", "/api/continuity/acknowledge",
                          "/api/study/topic", "/api/study/stop", "/api/study/enabled",
                          "/api/study/claim", "/api/study/finish", "/api/action/submit", "/api/action/cancel",
-                         "/api/research/submit", "/api/research/cancel"):
+                         "/api/research/submit", "/api/research/cancel",
+                         "/api/research/verification/submit",
+                         "/api/research/verification/cancel",
+                         "/api/research/verification/claim",
+                         "/api/research/verification/finish"):
             return self._json(404, {"error": "알 수 없는 경로"})
         if not self._same_origin():
             return self._json(403, {"error": "로컬 앱에서만 요청할 수 있습니다."})
@@ -207,6 +220,23 @@ class JarvisHandler(BaseHTTPRequestHandler):
                 raise ValueError("JSON 객체로 요청해야 합니다.")
             if path == "/api/youtube/connect":
                 return self._json(200, self.youtube.begin(self.server.server_port))
+            if path == "/api/research/verification/submit":
+                if set(data) != {"research_id"}:
+                    raise ValueError("조사 번호만 지정해 주세요.")
+                return self._json(200, {"verification": verification.enqueue(
+                    self.store, data.get("research_id"))})
+            if path == "/api/research/verification/cancel":
+                return self._json(200, {"cancelled": verification.cancel(
+                    self.store, data.get("id"))})
+            if path == "/api/research/verification/claim":
+                if data:
+                    raise ValueError("검토 작업 요청에 추가 데이터가 있으면 안 됩니다.")
+                return self._json(200, {"job": verification.claim(self.store)})
+            if path == "/api/research/verification/finish":
+                if set(data) != {"id","lease","outcome","output"}:
+                    raise ValueError("검증 실행 결과의 필드가 잘못되었습니다.")
+                return self._json(200, {"accepted": verification.finish(
+                    self.store, data["id"], data["lease"],data["outcome"],data["output"])})
             if path == "/api/research/submit":
                 if set(data) != {"query"}:
                     raise ValueError("조사 질문만 전송해 주세요.")

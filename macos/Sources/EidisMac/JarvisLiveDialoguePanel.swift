@@ -109,6 +109,43 @@ struct JarvisLiveDialoguePanel: View {
                 .accessibilityIdentifier("dechive-research-field")
             }
 
+            if !dialogue.verificationNotice.isEmpty {
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.shield")
+                        Text("VERIFICATION / 인용 원문 대조")
+                            .fontWeight(.semibold)
+                        Spacer(minLength: 0)
+                        Text(dialogue.verificationNotice)
+                            .lineLimit(1)
+                    }
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundStyle(amber)
+                    if !dialogue.verificationClaims.isEmpty {
+                        ScrollView(.vertical) {
+                            VStack(alignment: .leading, spacing: 5) {
+                                ForEach(dialogue.verificationClaims) { claim in
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text(claim.statement)
+                                            .font(.system(size: 10, weight: .medium))
+                                            .foregroundStyle(.white.opacity(0.88))
+                                            .lineLimit(2)
+                                        Text("원문 대조: " +
+                                             claim.evidence.map { "#\($0.rank)" }.joined(separator: ", ") +
+                                             " · 사실성 미검증")
+                                            .font(.system(size: 9))
+                                            .foregroundStyle(muted)
+                                    }
+                                }
+                            }
+                        }
+                        .frame(maxHeight: 86)
+                        .scrollIndicators(.visible)
+                    }
+                }
+                .accessibilityIdentifier("dechive-verification-field")
+            }
+
             ScrollViewReader { proxy in
                 ScrollView(.vertical) {
                     VStack(alignment: .leading, spacing: 13) {

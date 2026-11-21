@@ -490,6 +490,9 @@ final class JarvisStudyRunner {
     }
 
     private func runOne() async {
+        let gateID = UUID()
+        guard JarvisLocalModelGate.acquire(gateID) else { return }
+        defer { JarvisLocalModelGate.release(gateID) }
         do {
             let response: JarvisStudyClaim = try await client.call("api/study/claim", body:[:])
             guard let job = response.job else { return }
@@ -557,5 +560,19 @@ final class JarvisStudyRunner {
         monitor?.cancel()
         current?.cancel()
         ollama.invalidateAndCancel()
+    }
+}
+
+/// One shared model slot between background study and evidence verification.
+@MainActor
+enum JarvisLocalModelGate {
+    private static var owner: UUID?
+    static func acquire(_ id: UUID) -> Bool {
+        guard owner == nil else { return false }
+        owner = id
+        return true
+    }
+    static func release(_ id: UUID) {
+        if owner == id { owner = nil }
     }
 }

@@ -181,15 +181,20 @@ final class JarvisAppLifecycle: NSObject, NSApplicationDelegate {
     let server = JarvisBundledServer()
     let fullscreen = JarvisFullscreenOverlay()
     private let studyRunner = JarvisStudyRunner()
+    private let verificationRunner = JarvisVerificationRunner()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         fullscreen.onPresentationChanged = { [weak self] active in
             self?.studyRunner.setConversationActive(active)
+            self?.verificationRunner.setConversationActive(active)
         }
         fullscreen.start()
         Task {
             await server.connectOnLaunch()
-            if server.ready { studyRunner.start() }
+            if server.ready {
+                studyRunner.start()
+                verificationRunner.start()
+            }
         }
     }
 
@@ -201,6 +206,7 @@ final class JarvisAppLifecycle: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        verificationRunner.stop()
         studyRunner.stop()
         fullscreen.stop()
         server.stopOwnedServer()
