@@ -102,12 +102,12 @@ struct JarvisCommandCenterView: View {
         let spacing: CGFloat = compact ? 8 : 11
         let remaining = max(0, height - 2 * spacing)
         let projectHeight = remaining * 0.31
-        let gitHeight = remaining * 0.36
-        let socialHeight = remaining - projectHeight - gitHeight
+        let metaHeight = remaining * 0.36
+        let youtubeHeight = remaining - projectHeight - metaHeight
         return VStack(spacing: spacing) {
             projectsCard(scale: scale).frame(height: projectHeight)
-            gitCard(scale: scale).frame(height: gitHeight)
-            youtubeCard(scale: scale).frame(height: socialHeight)
+            metaCard(scale: scale).frame(height: metaHeight)
+            youtubeCard(scale: scale).frame(height: youtubeHeight)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .clipped()
@@ -410,8 +410,8 @@ struct JarvisCommandCenterView: View {
         }
     }
 
-    private func youtubeCard(scale: CGFloat) -> some View {
-        panel("SOCIAL / YouTube · Instagram", symbol: "play.rectangle", scale: scale) {
+    private func metaCard(scale: CGFloat) -> some View {
+        panel("META / Instagram · Facebook · Threads", symbol: "person.2", scale: scale) {
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: 7) {
                     Text("INSTAGRAM / DECHIVE.WIKI")
@@ -437,6 +437,27 @@ struct JarvisCommandCenterView: View {
                         status(message, scale: scale)
                     }
                     Rectangle().fill(amber.opacity(0.2)).frame(height: 1)
+                    Text("FACEBOOK")
+                        .font(.system(size: 10 * scale, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(mint)
+                    status("API 연동 전 · 실시간 자료 없음", scale: scale)
+                    Rectangle().fill(amber.opacity(0.2)).frame(height: 1)
+                    Text("THREADS")
+                        .font(.system(size: 10 * scale, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(mint)
+                    status("API 연동 전 · 실시간 자료 없음", scale: scale)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxHeight: .infinity)
+            .scrollIndicators(.visible)
+        }
+    }
+
+    private func youtubeCard(scale: CGFloat) -> some View {
+        panel("YOUTUBE / DECHIVE", symbol: "play.rectangle", scale: scale) {
+            ScrollView(.vertical) {
+                VStack(alignment: .leading, spacing: 7) {
                     Text("YOUTUBE / DECHIVE")
                         .font(.system(size: 10 * scale, weight: .semibold, design: .monospaced))
                         .foregroundStyle(mint)
