@@ -319,6 +319,19 @@ private struct JarvisSummonedView: View {
                             Rectangle().fill(.white)
                         }
                     }
+                    .overlay {
+                        if commandCenter {
+                            // The original video includes a tiny wordmark
+                            // below the orbit. Cover just its bounding area,
+                            // not the complete lower half of the gold ring.
+                            Ellipse()
+                                .fill(Color.black)
+                                .frame(width: overviewCoreSize * 0.34,
+                                       height: overviewCoreSize * 0.048)
+                                .blur(radius: overviewCoreSize * 0.018)
+                                .offset(y: overviewCoreSize * 0.414)
+                        }
+                    }
                     .position(x: commandCenter ? overviewFrame.midX : area.size.width / 2,
                               y: commandCenter ? overviewFrame.midY :
                                 workspaceActive ? area.size.height * 0.17 : area.size.height / 2)
