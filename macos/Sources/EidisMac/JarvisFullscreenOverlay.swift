@@ -295,17 +295,17 @@ private struct JarvisSummonedView: View {
                             // hard circular matte used to cut the visible ring.
                             RadialGradient(stops: [
                                 .init(color: .white, location: 0),
-                                .init(color: .white, location: 0.83),
+                                .init(color: .white, location: 0.88),
                                 .init(color: .clear, location: 1)
                             ], center: UnitPoint(x: 0.5, y: 0.47),
-                               startRadius: 0, endRadius: overviewCoreSize * 0.58)
+                               startRadius: 0, endRadius: overviewCoreSize * 0.50)
                                 .mask {
                                     // Hide the film's baked-in DECHIVE caption
                                     // below the orbit, without trimming the ring.
                                     LinearGradient(stops: [
                                         .init(color: .white, location: 0),
-                                        .init(color: .white, location: 0.848),
-                                        .init(color: .clear, location: 0.900)
+                                        .init(color: .white, location: 0.836),
+                                        .init(color: .clear, location: 0.868)
                                     ], startPoint: .top, endPoint: .bottom)
                                 }
                         } else if compactCore {
@@ -1432,6 +1432,22 @@ final class JarvisFullscreenOverlay: ObservableObject {
         if miniEnabled { showMini() }
         if !ProcessInfo.processInfo.arguments.contains("--overlay-preview") {
             startPreferredDeka()
+        }
+        // Explicit local visual inspection: open the live overview without
+        // synthesizing speech, forwarding audio, or beginning a voice turn.
+        // Ordinary launches and the enrolled wake profile are unchanged.
+        if ProcessInfo.processInfo.arguments.contains("--dashboard-inspection") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) { [weak self] in
+                guard let self else { return }
+                self.show()
+                self.greetingTask?.cancel()
+                self.greetingTask = nil
+                ElevenLabsVoiceService.shared.stopSpeakingNow()
+                self.greetingFallback.stop()
+                if let voice = self.dialogue {
+                    Task { _ = await voice.liveDashboard.show(.overview) }
+                }
+            }
         }
         // Manual invocation used only for test builds; production launch remains quiet.
         if ProcessInfo.processInfo.arguments.contains("--overlay-preview") {

@@ -10,8 +10,8 @@ class CoreForeground(unittest.TestCase):
         self.assertIn("jarvis-overview-core-clear-lane",ROOM)
     def test_outer_orbit_is_not_hard_masked(self):
         segment=UI.split("if commandCenter {\n                            // Keep the complete orbit",1)[1].split("} else if compactCore",1)[0]
-        self.assertIn("endRadius: overviewCoreSize * 0.58",segment)
-        self.assertIn("location: 0.848",segment)
-        self.assertIn("location: 0.900",segment)
+        self.assertIn("endRadius: overviewCoreSize * 0.50",segment)
+        self.assertIn("location: 0.836",segment)
+        self.assertIn("location: 0.868",segment)
         self.assertNotIn(".clipShape(Circle())",segment)
 if __name__=="__main__": unittest.main()
