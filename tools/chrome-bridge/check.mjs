@@ -27,7 +27,7 @@ try {
     args: [chromeServer, '--autoConnect', '--no-category-input', '--no-category-network',
       '--no-category-debugging', '--no-category-memory', '--no-category-performance',
       '--no-category-emulation', '--no-file-navigations', '--no-javascript-evaluation',
-      '--no-usage-statistics', '--no-performance-crux'],
+      '--no-usage-statistics', '--no-performance-crux', '--experimentalStructuredContent'],
     cwd: root, env, stderr: 'ignore',
   });
   client = new Client({ name: 'dechive-jarvis-chrome-readonly', version: '0.1.0' });

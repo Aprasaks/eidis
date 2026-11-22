@@ -12,14 +12,23 @@ export function safeChannel(raw) {
   } catch { return null; }
 }
 export function summarizePages(toolResult) {
-  const text = (toolResult.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n');
   const out = new Set();
-  // Never log or return unrelated tab URLs, titles, or tool output.
-  for (const line of text.split('\n')) {
-    const match = line.match(/^\s*\d+:\s+(https:\/\/\S+)/);
-    if (!match) continue;
-    const channel = safeChannel(match[1]);
-    if (channel) out.add(channel);
+  // Use the official structured page list. Never expose tab titles or URLs.
+  const pages = toolResult.structuredContent?.pages;
+  if (Array.isArray(pages)) {
+    for (const page of pages) {
+      const channel = typeof page?.url === 'string' ? safeChannel(page.url) : null;
+      if (channel) out.add(channel);
+    }
+  } else {
+    // Legacy responses can contain either URL or title (URL).
+    const text = (toolResult.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n');
+    for (const line of text.split('\n')) {
+      if (!/^\s*\d+:\s/.test(line)) continue;
+      const match = line.match(/^\s*\d+:\s+(https:\/\/\S+)/) || line.match(/\((https:\/\/[^\s)]+)\)(?:\s+\[selected\])?\s*$/);
+      const channel = match ? safeChannel(match[1]) : null;
+      if (channel) out.add(channel);
+    }
   }
   return [...out].sort();
 }

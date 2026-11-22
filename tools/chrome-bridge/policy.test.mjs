@@ -14,3 +14,7 @@ const data={content:[{type:'text',text:'## Pages\n0: https://www.instagram.com/d
 assert.deepEqual(summarizePages(data),['facebook','instagram','threads']);
 assert.equal(JSON.stringify(summarizePages(data)).includes('google.com'),false);
 console.log('CHROME_BRIDGE_POLICY_12_CHECKS_PASS');
+
+assert.deepEqual(summarizePages({structuredContent:{pages:[{url:'https://www.instagram.com/dechive.wiki/',title:'Instagram'},{url:'https://mail.google.com/',title:'private'}]}}),['instagram']);
+assert.deepEqual(summarizePages({content:[{type:'text',text:'## Pages\n1: Instagram (https://www.instagram.com/dechive.wiki/) [selected]'}]}),['instagram']);
+console.log('STRUCTURED_AND_TITLED_PAGE_FORMAT_PASS');
