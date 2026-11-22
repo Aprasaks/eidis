@@ -528,7 +528,7 @@ final class JarvisLiveDashboard: ObservableObject {
         }
     }
 
-    func connectInstagram(token: String) async {
+    func connectInstagram(token: String, mode: JarvisInstagramLoginMode = .facebookBusiness) async {
         guard !instagramIsLoading else {
             instagramConnectMessage = "이전 검증이 끝난 뒤 다시 시도해 주세요."
             return
@@ -536,7 +536,7 @@ final class JarvisLiveDashboard: ObservableObject {
         instagramIsLoading = true
         instagramConnectMessage = "Meta Graph API에서 계정 일치 여부를 확인 중입니다."
         let checked = await Task.detached(priority: .utility) {
-            await JarvisMetaInstagramService.verify(token: token)
+            await JarvisMetaInstagramService.verify(token: token, mode: mode)
         }.value
         guard checked.connected else {
             instagramSnapshot = checked
@@ -549,6 +549,7 @@ final class JarvisLiveDashboard: ObservableObject {
         }.value
         instagramIsLoading = false
         if persisted {
+            JarvisMetaInstagramService.saveMode(mode)
             instagramSnapshot = checked
             instagramLastCheckedAt = Date()
             instagramConnectMessage = "계정 확인 완료 · Mac Keychain에 토큰 저장됨"

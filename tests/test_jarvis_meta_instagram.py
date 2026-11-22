@@ -25,14 +25,16 @@ class MetaInstagramSecurityContract(unittest.TestCase):
         self.assertNotIn('?access_token=', META)
         self.assertNotIn('request.httpMethod = "POST"', META)
         self.assertNotIn('request.httpMethod = "DELETE"', META)
-        self.assertNotIn('graph.instagram.com', META)
+        self.assertIn('graph.instagram.com', META)
+        self.assertIn('case .instagramLogin:', META)
 
     def test_keychain_persistence_and_verification_first(self):
         for text in ('SecItemCopyMatching(', 'SecItemUpdate(', 'SecItemAdd(',
                      'kSecAttrAccessibleWhenUnlockedThisDeviceOnly',
                      'guard checked.connected else', 'saveVerifiedToken(token)'):
             self.assertIn(text, META + DASH)
-        self.assertNotIn('UserDefaults.standard.set', META)
+        self.assertIn('UserDefaults.standard.set(mode.rawValue, forKey: modePreference)', META)
+        self.assertNotIn('UserDefaults.standard.set(token', META)
         self.assertNotIn('print(token)', META + DASH + UI)
 
     def test_user_direct_token_submission_is_masked(self):

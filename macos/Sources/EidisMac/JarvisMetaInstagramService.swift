@@ -13,7 +13,27 @@ struct JarvisInstagramSnapshot: Sendable {
     let connected: Bool
 }
 
+enum JarvisInstagramLoginMode: String, CaseIterable, Identifiable, Sendable {
+    case facebookBusiness
+    case instagramLogin
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .facebookBusiness: "Facebook Business 토큰"
+        case .instagramLogin: "Instagram 로그인 토큰"
+        }
+    }
+}
+
 enum JarvisMetaInstagramService {
+    nonisolated private static let modePreference = "jarvis.meta.instagram.authMode"
+    nonisolated static func savedMode() -> JarvisInstagramLoginMode {
+        JarvisInstagramLoginMode(rawValue: UserDefaults.standard.string(forKey: modePreference) ?? "") ?? .facebookBusiness
+    }
+    nonisolated static func saveMode(_ mode: JarvisInstagramLoginMode) {
+        UserDefaults.standard.set(mode.rawValue, forKey: modePreference)
+    }
+
     nonisolated static let accountID = "17841447171659454"
     nonisolated static let accountName = "dechive.wiki"
     nonisolated private static let service = "dev.dechive.eidis.meta.instagram.wiki"
@@ -66,17 +86,23 @@ enum JarvisMetaInstagramService {
             return JarvisInstagramSnapshot(username: nil, followersCount: nil,
                   mediaCount: nil, checkedAt: Date(), error: nil, connected: false)
         }
-        return await verify(token: token)
+        return await verify(token: token, mode: savedMode())
     }
 
-    nonisolated static func verify(token: String) async -> JarvisInstagramSnapshot {
+    nonisolated static func verify(token: String, mode: JarvisInstagramLoginMode = .facebookBusiness) async -> JarvisInstagramSnapshot {
         guard token.utf8.count >= 32 && token.utf8.count < 8192,
               !token.contains(where: { $0.isWhitespace || $0.isNewline }) else {
             return failure("토큰 형식이 올바르지 않습니다.")
         }
-        // This is a System User Access Token produced by Business Login for
-        // the Unified Instagram API, not an Instagram-only login token.
-        let url = URL(string: "https://graph.facebook.com/v27.0/\(accountID)?fields=id,username,followers_count,media_count")!
+        // Facebook Business and direct Instagram Login tokens are different
+        // grants. The owner selects the login flow; never guess a token type.
+        let url: URL
+        switch mode {
+        case .facebookBusiness:
+            url = URL(string: "https://graph.facebook.com/v27.0/\(accountID)?fields=id,username,followers_count,media_count")!
+        case .instagramLogin:
+            url = URL(string: "https://graph.instagram.com/v27.0/me?fields=id,username")!
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.addValue("Bearer " + token, forHTTPHeaderField: "Authorization")
@@ -92,11 +118,14 @@ enum JarvisMetaInstagramService {
                 return failure("Meta 응답 형식을 확인할 수 없습니다.")
             }
             guard http.statusCode == 200 else {
-                // Deliberately never return Graph API error body or request URL.
-                return failure("Meta Graph API 요청 실패 (HTTP \(http.statusCode)). 권한·토큰·자산을 확인해 주세요.")
+                // Only numeric error metadata; never surface raw provider
+                // messages that might include user identifiers or tokens.
+                return failure(JarvisMetaChannels.sanitizedFailure(data, status: http.statusCode))
             }
             guard let profile = try? JSONDecoder().decode(Profile.self, from: data),
-                  profile.id == accountID, profile.username?.lowercased() == accountName else {
+                  (mode == .instagramLogin || profile.id == accountID),
+                  !profile.id.isEmpty,
+                  profile.username?.lowercased() == accountName else {
                 return failure("토큰이 DECHIVE.WIKI Instagram 계정과 일치하지 않습니다.")
             }
             return JarvisInstagramSnapshot(

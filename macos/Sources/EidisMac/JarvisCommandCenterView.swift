@@ -9,7 +9,19 @@ struct JarvisCommandCenterView: View {
     let close: () -> Void
     @State private var showInstagramTokenSheet = false
     @State private var instagramTokenInput = ""
+    @State private var instagramLoginMode = JarvisMetaInstagramService.savedMode()
+    @State private var showFacebookConnectionSheet = false
+    @State private var showThreadsConnectionSheet = false
+    @State private var facebookPageIDInput = ""
+    @State private var facebookTokenInput = ""
+    @State private var threadsTokenInput = ""
+    @State private var facebookSnapshot: JarvisMetaChannelSnapshot?
+    @State private var threadsSnapshot: JarvisMetaChannelSnapshot?
+    @State private var facebookVerifying = false
+    @State private var threadsVerifying = false
     @StateObject private var telemetry = JarvisMacSampler()
+    @StateObject private var socialStudio = JarvisWikiSocialStudio()
+    @State private var showSocialStudio = false
 
     private let amber = Color(red: 0.94, green: 0.67, blue: 0.30)
     private let muted = Color(red: 0.64, green: 0.66, blue: 0.68)
@@ -63,13 +75,77 @@ struct JarvisCommandCenterView: View {
                 do { try await Task.sleep(for: .seconds(3)) } catch { return }
             }
         }
+        .task {
+            await refreshMetaAccounts()
+        }
+        .sheet(isPresented: $showSocialStudio) {
+            JarvisWikiSocialStudioView(studio: socialStudio)
+        }
+        .sheet(isPresented: $showFacebookConnectionSheet) {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("DECHIVE.WIKI / Facebook 페이지 연결").font(.headline)
+                Text("Meta에서 DECHIVE.WIKI Facebook 페이지 ID와 해당 페이지의 Page Access Token을 확인해 입력하세요. 개인 Facebook 사용자 토큰과 다릅니다.")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                TextField("Facebook Page ID (숫자)", text: $facebookPageIDInput)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("jarvis-meta-facebook-page-id")
+                SecureField("Facebook Page Access Token", text: $facebookTokenInput)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("jarvis-meta-facebook-page-token")
+                if let error = facebookSnapshot?.error { Text(error).font(.caption).foregroundStyle(.orange) }
+                HStack {
+                    Button("취소") { facebookTokenInput = ""; showFacebookConnectionSheet = false }
+                    Spacer()
+                    Button("DECHIVE.WIKI 페이지 검증 후 저장") {
+                        let pageID = facebookPageIDInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let token = facebookTokenInput
+                        facebookTokenInput = ""
+                        Task { await connectFacebook(pageID: pageID, token: token) }
+                    }
+                    .disabled(facebookTokenInput.isEmpty || facebookVerifying)
+                    .keyboardShortcut(.defaultAction)
+                }
+            }
+            .padding(26).frame(minWidth: 460, idealWidth: 550)
+            .onDisappear { facebookTokenInput = "" }
+        }
+        .sheet(isPresented: $showThreadsConnectionSheet) {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("DECHIVE.WIKI / Threads 연결").font(.headline)
+                Text("Threads API 권한(threads_basic)으로 발급한 Threads 사용자 토큰을 입력하세요. Facebook·Instagram 토큰을 이곳에 재사용하지 않습니다.")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                SecureField("Threads User Access Token", text: $threadsTokenInput)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("jarvis-meta-threads-user-token")
+                if let error = threadsSnapshot?.error { Text(error).font(.caption).foregroundStyle(.orange) }
+                HStack {
+                    Button("취소") { threadsTokenInput = ""; showThreadsConnectionSheet = false }
+                    Spacer()
+                    Button("@dechive.wiki 검증 후 저장") {
+                        let token = threadsTokenInput
+                        threadsTokenInput = ""
+                        Task { await connectThreads(token: token) }
+                    }
+                    .disabled(threadsTokenInput.isEmpty || threadsVerifying)
+                    .keyboardShortcut(.defaultAction)
+                }
+            }
+            .padding(26).frame(minWidth: 440, idealWidth: 520)
+            .onDisappear { threadsTokenInput = "" }
+        }
         .sheet(isPresented: $showInstagramTokenSheet) {
             VStack(alignment: .leading, spacing: 16) {
                 Text("DECHIVE.WIKI Instagram 연결")
                     .font(.headline)
-                Text("Meta 개발자 화면에서 발급한 계정 토큰을 입력하세요. 토큰은 확인 후 이 Mac의 Keychain에만 저장됩니다.")
+                Text("토큰이 발급된 로그인 방식을 선택하세요. Facebook Business 토큰과 Instagram 로그인 토큰은 API 주소와 권한이 다릅니다. 검증에 성공한 토큰만 Mac Keychain에 저장됩니다.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                Picker("Instagram 인증 방식", selection: $instagramLoginMode) {
+                    ForEach(JarvisInstagramLoginMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+                .pickerStyle(.radioGroup)
                 SecureField("Meta 액세스 토큰", text: $instagramTokenInput)
                     .textFieldStyle(.roundedBorder)
                     .accessibilityIdentifier("jarvis-instagram-token-secure-field")
@@ -86,7 +162,7 @@ struct JarvisCommandCenterView: View {
                         let entered = instagramTokenInput
                         instagramTokenInput = ""
                         showInstagramTokenSheet = false
-                        Task { await model.connectInstagram(token: entered) }
+                        Task { await model.connectInstagram(token: entered, mode: instagramLoginMode) }
                     }
                     .disabled(instagramTokenInput.isEmpty || model.instagramIsLoading)
                     .keyboardShortcut(.defaultAction)
@@ -410,10 +486,45 @@ struct JarvisCommandCenterView: View {
         }
     }
 
+    private func refreshMetaAccounts() async {
+        async let facebook = JarvisMetaChannels.scanFacebook()
+        async let threads = JarvisMetaChannels.scanThreads()
+        facebookSnapshot = await facebook
+        threadsSnapshot = await threads
+    }
+
+    private func connectFacebook(pageID: String, token: String) async {
+        guard !facebookVerifying else { return }
+        facebookVerifying = true
+        facebookSnapshot = await JarvisMetaChannels.connectFacebook(pageID: pageID, token: token)
+        facebookVerifying = false
+        if facebookSnapshot?.connected == true { showFacebookConnectionSheet = false }
+    }
+
+    private func connectThreads(token: String) async {
+        guard !threadsVerifying else { return }
+        threadsVerifying = true
+        threadsSnapshot = await JarvisMetaChannels.connectThreads(token: token)
+        threadsVerifying = false
+        if threadsSnapshot?.connected == true { showThreadsConnectionSheet = false }
+    }
+
     private func metaCard(scale: CGFloat) -> some View {
         panel("META / Instagram · Facebook · Threads", symbol: "person.2", scale: scale) {
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: 7) {
+                    Button {
+                        showSocialStudio = true
+                    } label: {
+                        Label("AI 콘텐츠·광고 초안 작업실", systemImage: "square.and.pencil")
+                    }
+                    .buttonStyle(.bordered)
+                    .font(.system(size: 10 * scale))
+                    .accessibilityIdentifier("jarvis-meta-content-studio")
+                    Text("로컬 Qwen 초안 · 승인 전 게시/집행 없음")
+                        .font(.system(size: 9 * scale))
+                        .foregroundStyle(muted)
+                    Rectangle().fill(amber.opacity(0.2)).frame(height: 1)
                     Text("INSTAGRAM / DECHIVE.WIKI")
                         .font(.system(size: 10 * scale, weight: .semibold, design: .monospaced))
                         .foregroundStyle(mint)
@@ -437,15 +548,37 @@ struct JarvisCommandCenterView: View {
                         status(message, scale: scale)
                     }
                     Rectangle().fill(amber.opacity(0.2)).frame(height: 1)
-                    Text("FACEBOOK")
+                    Text("FACEBOOK / DECHIVE.WIKI")
                         .font(.system(size: 10 * scale, weight: .semibold, design: .monospaced))
                         .foregroundStyle(mint)
-                    status("API 연동 전 · 실시간 자료 없음", scale: scale)
+                    if let snap = facebookSnapshot, snap.connected {
+                        systemRow("페이지", snap.handle ?? "이름 미확인", scale: scale)
+                        if let checked = snap.checkedAt {
+                            Text("페이지 토큰 검증 · " + checked.formatted(date: .omitted, time: .shortened))
+                                .font(.system(size: 9 * scale)).foregroundStyle(mint)
+                        }
+                    } else {
+                        status(facebookSnapshot?.error ?? "Facebook 페이지 연결 확인 중…", scale: scale)
+                    }
+                    Button("Facebook 페이지 연결 / 교체") { showFacebookConnectionSheet = true }
+                        .buttonStyle(.bordered).font(.system(size: 10 * scale))
+                        .accessibilityIdentifier("jarvis-meta-facebook-connect")
                     Rectangle().fill(amber.opacity(0.2)).frame(height: 1)
-                    Text("THREADS")
+                    Text("THREADS / DECHIVE.WIKI")
                         .font(.system(size: 10 * scale, weight: .semibold, design: .monospaced))
                         .foregroundStyle(mint)
-                    status("API 연동 전 · 실시간 자료 없음", scale: scale)
+                    if let snap = threadsSnapshot, snap.connected {
+                        systemRow("계정", snap.handle ?? "@dechive.wiki", scale: scale)
+                        if let checked = snap.checkedAt {
+                            Text("Threads API 검증 · " + checked.formatted(date: .omitted, time: .shortened))
+                                .font(.system(size: 9 * scale)).foregroundStyle(mint)
+                        }
+                    } else {
+                        status(threadsSnapshot?.error ?? "Threads API 연결 확인 중…", scale: scale)
+                    }
+                    Button("Threads 연결 / 교체") { showThreadsConnectionSheet = true }
+                        .buttonStyle(.bordered).font(.system(size: 10 * scale))
+                        .accessibilityIdentifier("jarvis-meta-threads-connect")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
