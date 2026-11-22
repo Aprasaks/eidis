@@ -290,18 +290,22 @@ private struct JarvisSummonedView: View {
                     // bottom. Mask ONLY the compact crop, never alter the source.
                     .mask {
                         if commandCenter {
-                            // Soft, radial falloff removes the video rectangle
-                            // without cutting the outer gold orbit. Fade the
-                            // separate baked-in wordmark below the orbit only.
-                            RadialGradient(colors: [.white, .clear],
-                                           center: UnitPoint(x: 0.5, y: 0.468),
-                                           startRadius: overviewCoreSize * 0.38,
-                                           endRadius: overviewCoreSize * 0.49)
+                            // Keep the complete orbit and its outer light
+                            // trails. Only the far edges fade into black; a
+                            // hard circular matte used to cut the visible ring.
+                            RadialGradient(stops: [
+                                .init(color: .white, location: 0),
+                                .init(color: .white, location: 0.83),
+                                .init(color: .clear, location: 1)
+                            ], center: UnitPoint(x: 0.5, y: 0.47),
+                               startRadius: 0, endRadius: overviewCoreSize * 0.58)
                                 .mask {
+                                    // Hide the film's baked-in DECHIVE caption
+                                    // below the orbit, without trimming the ring.
                                     LinearGradient(stops: [
                                         .init(color: .white, location: 0),
-                                        .init(color: .white, location: 0.822),
-                                        .init(color: .clear, location: 0.850)
+                                        .init(color: .white, location: 0.848),
+                                        .init(color: .clear, location: 0.900)
                                     ], startPoint: .top, endPoint: .bottom)
                                 }
                         } else if compactCore {
@@ -320,6 +324,10 @@ private struct JarvisSummonedView: View {
                                 workspaceActive ? area.size.height * 0.17 : area.size.height / 2)
                     .opacity(appeared ? (workspaceActive ? 0.65 : 1) : 0)
                     .animation(reduceMotion ? nil : .easeInOut(duration: 0.72), value: compactCore)
+                    // In the overview this is a foreground hologram, never a
+                    // child of a dashboard card. Its transparent lane keeps
+                    // it away from the interactive side panels.
+                    .zIndex(commandCenter ? 9 : 0)
                     .allowsHitTesting(false)
                 // The cinematic resting surface keeps the core and right dialogue.
                 // Controls are revealed intentionally at the screen edge.
