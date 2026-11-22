@@ -304,8 +304,8 @@ private struct JarvisSummonedView: View {
                                     // below the orbit, without trimming the ring.
                                     LinearGradient(stops: [
                                         .init(color: .white, location: 0),
-                                        .init(color: .white, location: 0.836),
-                                        .init(color: .clear, location: 0.868)
+                                        .init(color: .white, location: 0.813),
+                                        .init(color: .clear, location: 0.845)
                                     ], startPoint: .top, endPoint: .bottom)
                                 }
                         } else if compactCore {
@@ -317,19 +317,6 @@ private struct JarvisSummonedView: View {
                             .clipShape(Circle())
                         } else {
                             Rectangle().fill(.white)
-                        }
-                    }
-                    .overlay {
-                        if commandCenter {
-                            // The original video includes a tiny wordmark
-                            // below the orbit. Cover just its bounding area,
-                            // not the complete lower half of the gold ring.
-                            Ellipse()
-                                .fill(Color.black)
-                                .frame(width: overviewCoreSize * 0.34,
-                                       height: overviewCoreSize * 0.048)
-                                .blur(radius: overviewCoreSize * 0.018)
-                                .offset(y: overviewCoreSize * 0.414)
                         }
                     }
                     .position(x: commandCenter ? overviewFrame.midX : area.size.width / 2,
