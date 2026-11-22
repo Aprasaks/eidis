@@ -16,19 +16,24 @@ class FixedViewportContract(unittest.TestCase):
         self.assertIn('.frame(width: width, height: height, alignment: .top)',outer)
         self.assertIn('.clipped()',outer)
         self.assertNotIn('Color.clear.frame(height: min(365',UI)
-        self.assertIn('let projectHeight = remaining * 0.31',UI)
-        self.assertIn('let metaHeight = remaining * 0.36',UI)
+        self.assertIn('let projectHeight = remaining * 0.27',UI)
+        self.assertIn('let metaHeight = remaining * 0.46',UI)
         self.assertIn('let youtubeHeight = remaining - projectHeight - metaHeight',UI)
         self.assertIn('frame(height: youtubeHeight)',UI)
         self.assertIn('let inputReserve: CGFloat = 116',UI)
         self.assertIn('JarvisCommandCenterView(model: liveDashboard, dialogue: dialogue)',OVERLAY)
         self.assertIn('JarvisOverviewGeometry.coreFrame(width: area.size.width, height: area.size.height)', OVERLAY)
     def test_every_long_list_scrolls_in_its_own_card(self):
-        for name in ('projectsCard','gitCard','metaCard','youtubeCard','knowledgeCard',
+        # Long operational logs still scroll inside their own cards; the new
+        # compact social and YouTube profile summaries intentionally do not scroll.
+        for name in ('projectsCard','gitCard','knowledgeCard',
                      'systemCard','activityCard','recordedCard'):
             segment=UI.split('    private func '+name+'(',1)[1].split('    private func ',1)[0]
             self.assertIn('ScrollView(.vertical)',segment,name)
             self.assertIn('.scrollIndicators(.visible)',segment,name)
+        for name in ('metaCard','youtubeCard'):
+            segment=UI.split('    private func '+name+'(',1)[1].split('    private func ',1)[0]
+            self.assertNotIn('ScrollView(.vertical)',segment,name)
         self.assertIn('jarvis-command-real-checks',UI)
         self.assertIn('RECORDED EVENTS',UI)
     def test_exact_natural_language_opening_and_unmodified_sources(self):

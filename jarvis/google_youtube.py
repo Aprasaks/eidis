@@ -245,6 +245,9 @@ class GoogleYouTubeConnection:
         basic = {
             "channel_id": channel.get("id", ""),
             "channel_title": channel.get("snippet", {}).get("title", ""),
+            "thumbnail_url": next((item.get("url") for quality in ("high", "medium", "default")
+                                   if isinstance((item := channel.get("snippet", {}).get("thumbnails", {}).get(quality)), dict)
+                                   and isinstance(item.get("url"), str) and item.get("url", "").startswith("https://")), None),
             "subscriber_count": channel.get("statistics", {}).get("subscriberCount"),
             "video_count": channel.get("statistics", {}).get("videoCount"),
             "channel_views": channel.get("statistics", {}).get("viewCount"),

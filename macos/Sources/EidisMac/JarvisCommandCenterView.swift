@@ -177,8 +177,8 @@ struct JarvisCommandCenterView: View {
     private func leftColumn(height: CGFloat, scale: CGFloat, compact: Bool) -> some View {
         let spacing: CGFloat = compact ? 8 : 11
         let remaining = max(0, height - 2 * spacing)
-        let projectHeight = remaining * 0.31
-        let metaHeight = remaining * 0.36
+        let projectHeight = remaining * 0.27
+        let metaHeight = remaining * 0.46
         let youtubeHeight = remaining - projectHeight - metaHeight
         return VStack(spacing: spacing) {
             projectsCard(scale: scale).frame(height: projectHeight)
@@ -509,147 +509,210 @@ struct JarvisCommandCenterView: View {
         if threadsSnapshot?.connected == true { showThreadsConnectionSheet = false }
     }
 
-    private func metaCard(scale: CGFloat) -> some View {
-        panel("META / Instagram · Facebook · Threads", symbol: "person.2", scale: scale) {
-            ScrollView(.vertical) {
-                VStack(alignment: .leading, spacing: 7) {
-                    Button {
-                        showSocialStudio = true
-                    } label: {
-                        Label("AI 콘텐츠·광고 초안 작업실", systemImage: "square.and.pencil")
+    private func profileAvatar(_ url: URL?, channel: JarvisSocialProfile, scale: CGFloat) -> some View {
+        ZStack {
+            Circle().fill(amber.opacity(0.10))
+            if let url, url.scheme == "https" {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image.resizable().scaledToFill()
+                    case .empty:
+                        ProgressView().controlSize(.mini)
+                    case .failure:
+                        Image(systemName: "person.crop.circle")
+                            .resizable().scaledToFit().padding(7)
+                            .foregroundStyle(muted)
+                    @unknown default:
+                        Image(systemName: "person.crop.circle")
+                            .foregroundStyle(muted)
                     }
-                    .buttonStyle(.bordered)
-                    .font(.system(size: 10 * scale))
-                    .accessibilityIdentifier("jarvis-meta-content-studio")
-                    Text("로컬 Qwen 초안 · 승인 전 게시/집행 없음")
+                }
+            } else {
+                Image(systemName: "person.crop.circle")
+                    .resizable().scaledToFit().padding(7)
+                    .foregroundStyle(muted)
+            }
+        }
+        .frame(width: 40 * scale, height: 40 * scale)
+        .clipShape(Circle())
+        .overlay(Circle().stroke(amber.opacity(0.40), lineWidth: 1))
+        .accessibilityLabel("\(channel.title) 실제 프로필 사진 또는 기본 아이콘")
+    }
+
+    private func conciseNumber(_ value: Int?) -> String {
+        guard let value, value >= 0 else { return "—" }
+        return value.formatted(.number.grouping(.automatic))
+    }
+
+    private func socialProfileRow(_ channel: JarvisSocialProfile, avatar: URL?,
+                                  followers: Int?, posts: Int?, connected: Bool,
+                                  scale: CGFloat) -> some View {
+        let platform: String = switch channel {
+        case .instagram: "Instagram"
+        case .facebook: "Facebook"
+        case .threads: "Threads"
+        case .youtube: "YouTube"
+        }
+        let name = channel == .facebook ? "Dechive WIKI" : "@dechive.wiki"
+        return Button {
+            _ = dialogue.openSocialProfile(channel)
+        } label: {
+            HStack(spacing: 9 * scale) {
+                profileAvatar(avatar, channel: channel, scale: scale)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(platform)
+                        .font(.system(size: 12 * scale, weight: .semibold))
+                        .foregroundStyle(.white)
+                    Text(name)
                         .font(.system(size: 9 * scale))
                         .foregroundStyle(muted)
-                    Rectangle().fill(amber.opacity(0.2)).frame(height: 1)
-                    Text("INSTAGRAM / DECHIVE.WIKI")
-                        .font(.system(size: 10 * scale, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(mint)
-                    if let insta = model.instagramSnapshot, insta.connected {
-                        systemRow("계정", "@\(insta.username ?? "dechive.wiki")", scale: scale)
-                        systemRow("팔로워", insta.followersCount.map(String.init) ?? "API 미제공", scale: scale)
-                        systemRow("게시물", insta.mediaCount.map(String.init) ?? "API 미제공", scale: scale)
-                        Text("Meta API 확인 · \(insta.checkedAt.formatted(date: .omitted, time: .shortened))")
-                            .font(.system(size: 9 * scale)).foregroundStyle(muted)
-                    } else {
-                        status(model.instagramSnapshot?.error ??
-                               (model.instagramIsLoading ? "Meta 계정 조회 중…" : "Instagram API 토큰 등록 필요"), scale: scale)
-                    }
-                    Button("Meta 토큰 등록 / 교체") {
-                        showInstagramTokenSheet = true
-                    }
-                    .buttonStyle(.bordered)
-                    .font(.system(size: 10 * scale))
-                    .accessibilityIdentifier("jarvis-instagram-token-connect")
-                    if let message = model.instagramConnectMessage {
-                        status(message, scale: scale)
-                    }
-                    Rectangle().fill(amber.opacity(0.2)).frame(height: 1)
-                    Text("FACEBOOK / DECHIVE.WIKI")
-                        .font(.system(size: 10 * scale, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(mint)
-                    if let snap = facebookSnapshot, snap.connected {
-                        systemRow("페이지", snap.handle ?? "이름 미확인", scale: scale)
-                        if let checked = snap.checkedAt {
-                            Text("페이지 토큰 검증 · " + checked.formatted(date: .omitted, time: .shortened))
-                                .font(.system(size: 9 * scale)).foregroundStyle(mint)
-                        }
-                    } else {
-                        status(facebookSnapshot?.error ?? "Facebook 페이지 연결 확인 중…", scale: scale)
-                    }
-                    Button("Facebook 페이지 연결 / 교체") { showFacebookConnectionSheet = true }
-                        .buttonStyle(.bordered).font(.system(size: 10 * scale))
-                        .accessibilityIdentifier("jarvis-meta-facebook-connect")
-                    Rectangle().fill(amber.opacity(0.2)).frame(height: 1)
-                    Text("THREADS / DECHIVE.WIKI")
-                        .font(.system(size: 10 * scale, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(mint)
-                    if let snap = threadsSnapshot, snap.connected {
-                        systemRow("계정", snap.handle ?? "@dechive.wiki", scale: scale)
-                        if let checked = snap.checkedAt {
-                            Text("Threads API 검증 · " + checked.formatted(date: .omitted, time: .shortened))
-                                .font(.system(size: 9 * scale)).foregroundStyle(mint)
-                        }
-                    } else {
-                        status(threadsSnapshot?.error ?? "Threads API 연결 확인 중…", scale: scale)
-                    }
-                    Button("Threads 연결 / 교체") { showThreadsConnectionSheet = true }
-                        .buttonStyle(.bordered).font(.system(size: 10 * scale))
-                        .accessibilityIdentifier("jarvis-meta-threads-connect")
+                        .lineLimit(1)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                Spacer(minLength: 3)
+                VStack(alignment: .trailing, spacing: 4) {
+                    HStack(spacing: 10 * scale) {
+                        VStack(alignment: .trailing, spacing: 1) {
+                            Text("팔로워").font(.system(size: 8 * scale)).foregroundStyle(muted)
+                            Text(conciseNumber(followers))
+                                .font(.system(size: 11 * scale, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(.white)
+                        }
+                        VStack(alignment: .trailing, spacing: 1) {
+                            Text("게시물").font(.system(size: 8 * scale)).foregroundStyle(muted)
+                            Text(conciseNumber(posts))
+                                .font(.system(size: 11 * scale, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(.white)
+                        }
+                    }
+                    Text(connected ? "● API 확인" : "연결 확인 필요")
+                        .font(.system(size: 8 * scale))
+                        .foregroundStyle(connected ? mint : muted)
+                }
+                Image(systemName: "arrow.up.right.square")
+                    .font(.system(size: 11 * scale))
+                    .foregroundStyle(amber)
+                    .padding(.leading, 2)
             }
-            .frame(maxHeight: .infinity)
-            .scrollIndicators(.visible)
+            .padding(.horizontal, 9 * scale)
+            .padding(.vertical, 7 * scale)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(red: 0.050, green: 0.055, blue: 0.06),
+                        in: RoundedRectangle(cornerRadius: 9))
+            .overlay(RoundedRectangle(cornerRadius: 9)
+                .stroke(amber.opacity(0.18), lineWidth: 1))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("\(channel.title) 프로필을 자비스 내부에서 열기")
+        .accessibilityIdentifier("jarvis-social-open-\(channel.rawValue)")
+    }
+
+    private func metaCard(scale: CGFloat) -> some View {
+        panel("META / DECHIVE.WIKI", symbol: "person.crop.circle", scale: scale) {
+            VStack(alignment: .leading, spacing: 7 * scale) {
+                HStack {
+                    Text("실제 계정 프로필 · 클릭하면 자비스에서 열기")
+                        .font(.system(size: 9 * scale))
+                        .foregroundStyle(muted)
+                    Spacer(minLength: 0)
+                    Menu {
+                        Button("Instagram 토큰 연결 / 교체") { showInstagramTokenSheet = true }
+                            .accessibilityIdentifier("jarvis-instagram-token-connect")
+                        Button("Facebook 페이지 연결 / 교체") { showFacebookConnectionSheet = true }
+                            .accessibilityIdentifier("jarvis-meta-facebook-connect")
+                        Button("Threads 연결 / 교체") { showThreadsConnectionSheet = true }
+                            .accessibilityIdentifier("jarvis-meta-threads-connect")
+                    } label: { Image(systemName: "gearshape").foregroundStyle(amber) }
+                        .menuStyle(.borderlessButton)
+                        .frame(width: 24 * scale)
+                        .help("Meta 연결 설정")
+                        .accessibilityIdentifier("jarvis-social-connection-settings")
+                }
+                socialProfileRow(.instagram, avatar: model.instagramSnapshot?.avatarURL,
+                                 followers: model.instagramSnapshot?.followersCount,
+                                 posts: model.instagramSnapshot?.mediaCount,
+                                 connected: model.instagramSnapshot?.connected == true, scale: scale)
+                socialProfileRow(.facebook, avatar: facebookSnapshot?.avatarURL,
+                                 followers: facebookSnapshot?.followersCount,
+                                 posts: facebookSnapshot?.postsCount,
+                                 connected: facebookSnapshot?.connected == true, scale: scale)
+                socialProfileRow(.threads, avatar: threadsSnapshot?.avatarURL,
+                                 followers: threadsSnapshot?.followersCount,
+                                 posts: threadsSnapshot?.postsCount,
+                                 connected: threadsSnapshot?.connected == true, scale: scale)
+                HStack {
+                    Text("— = API 미제공 · 숫자 임의 생성 없음")
+                        .font(.system(size: 8 * scale)).foregroundStyle(muted)
+                    Spacer(minLength: 0)
+                    Button("AI 콘텐츠 초안") { showSocialStudio = true }
+                        .buttonStyle(.borderless)
+                        .font(.system(size: 9 * scale)).foregroundStyle(amber)
+                        .accessibilityIdentifier("jarvis-meta-content-studio")
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
     private func youtubeCard(scale: CGFloat) -> some View {
         panel("YOUTUBE / DECHIVE", symbol: "play.rectangle", scale: scale) {
-            ScrollView(.vertical) {
-                VStack(alignment: .leading, spacing: 7) {
-                    Text("YOUTUBE / DECHIVE")
-                        .font(.system(size: 10 * scale, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(mint)
-                    if let reply = model.youtubeSummary, reply.connected, let item = reply.data {
-                        Text(item.channelTitle)
-                            .font(.system(size: 13 * scale, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .lineLimit(2)
-                        systemRow("구독자", item.subscriberCount ?? "비공개", scale: scale)
-                        systemRow("채널 영상", item.videoCount ?? "미확인", scale: scale)
-                        if let analytics = item.analytics {
-                            Text("최근 분석 · \(item.periodStart) ~ \(item.periodEnd)")
-                                .font(.system(size: 9 * scale, design: .monospaced))
-                                .foregroundStyle(muted)
-                            systemRow("조회수", "\(analytics.views)", scale: scale)
-                            systemRow("시청 시간(분)", String(format: "%.0f", analytics.estimatedMinutesWatched), scale: scale)
-                            systemRow("구독 증가", "\(analytics.subscribersGained)", scale: scale)
-                        } else {
-                            status(item.analyticsError ?? "분석 데이터 없음", scale: scale)
-                        }
-                        Text("Google YouTube API · 실제 채널 정보")
-                            .font(.system(size: 9 * scale)).foregroundStyle(mint)
-                    } else {
-                        Text("GOOGLE AUTH REQUIRED")
-                            .font(.system(size: 12 * scale, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(amber)
-                        status(model.youtubeSummary?.error ?? "Google 계정의 YouTube 읽기 권한을 연결해야 합니다.", scale: scale)
-                        Button {
-                            model.importYouTubeClient()
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "doc.badge.plus")
-                                Text("인증 JSON 선택")
+            VStack(alignment: .leading, spacing: 7 * scale) {
+                if let reply = model.youtubeSummary, reply.connected, let item = reply.data {
+                    Button {
+                        _ = dialogue.openSocialProfile(.youtube)
+                    } label: {
+                        HStack(spacing: 10 * scale) {
+                            profileAvatar(JarvisMetaChannels.safeAvatar(item.thumbnailUrl),
+                                          channel: .youtube, scale: scale)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(item.channelTitle)
+                                    .font(.system(size: 12 * scale, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                Text("실제 YouTube 채널")
+                                    .font(.system(size: 9 * scale)).foregroundStyle(muted)
                             }
-                            .font(.system(size: 11 * scale, weight: .medium))
+                            Spacer(minLength: 0)
+                            Image(systemName: "arrow.up.right.square").foregroundStyle(amber)
                         }
-                        .buttonStyle(.bordered)
-                        .accessibilityIdentifier("jarvis-youtube-oauth-file-import")
-                        Button {
-                            Task { await model.connectYouTube() }
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "person.crop.circle.badge.checkmark")
-                                Text("Google 계정 연결")
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("jarvis-social-open-youtube")
+                    HStack(spacing: 15 * scale) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("구독자").foregroundStyle(muted)
+                            Text(item.subscriberCount ?? "—").foregroundStyle(.white).fontWeight(.semibold)
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("영상").foregroundStyle(muted)
+                            Text(item.videoCount ?? "—").foregroundStyle(.white).fontWeight(.semibold)
+                        }
+                        if let views = item.channelViews {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("전체 조회수").foregroundStyle(muted)
+                                Text(views).foregroundStyle(.white).fontWeight(.semibold)
                             }
-                            .font(.system(size: 11 * scale, weight: .medium))
                         }
+                        Spacer(minLength: 0)
+                    }
+                    .font(.system(size: 10 * scale, design: .monospaced))
+                    Text("Google YouTube API · 연결 채널 데이터")
+                        .font(.system(size: 9 * scale)).foregroundStyle(mint)
+                } else {
+                    Text(model.youtubeSummary?.error ?? "YouTube 채널 연결 필요")
+                        .font(.system(size: 10 * scale)).foregroundStyle(muted)
+                        .lineLimit(3)
+                    Button("Google 계정 연결") { Task { await model.connectYouTube() } }
                         .buttonStyle(.bordered)
                         .disabled(model.youtubeIsConnecting)
                         .accessibilityIdentifier("jarvis-youtube-google-connect")
-                        if let message = model.youtubeConnectMessage {
-                            status(message, scale: scale)
-                        }
-                    }
+                    Button("인증 JSON 선택") { model.importYouTubeClient() }
+                        .buttonStyle(.borderless)
+                        .font(.system(size: 9 * scale))
+                        .accessibilityIdentifier("jarvis-youtube-oauth-file-import")
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxHeight: .infinity)
-            .scrollIndicators(.visible)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 

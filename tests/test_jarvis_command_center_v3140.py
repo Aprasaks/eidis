@@ -57,8 +57,8 @@ class CommandCenterContract(unittest.TestCase):
 
     def test_tv_readable_layout_and_provenance(self):
         for text in ('width < 1120', 'min(2.0, max(0.84', 'ScrollView(.vertical)',
-                     'PROJECT OPERATIONS','GITHUB + LOCAL GIT','META / Instagram · Facebook · Threads','YOUTUBE / DECHIVE',
-                     'GOOGLE AUTH REQUIRED','LOCAL GIT', 'LIVE CHECKS',
+                     'PROJECT OPERATIONS','GITHUB + LOCAL GIT','META / DECHIVE.WIKI','YOUTUBE / DECHIVE',
+                     'Google 계정 연결','LOCAL GIT', 'LIVE CHECKS',
                      'RECORDED EVENTS', 'model.sourceChecks',
                      'model.recordedActivity', 'model.gitSnapshot', 'model.githubSnapshot',
                      '실제 기록 시각', 'GitHub는 로그인 계정의 API 결과'):

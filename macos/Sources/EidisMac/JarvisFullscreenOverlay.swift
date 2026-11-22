@@ -707,7 +707,7 @@ private struct JarvisSummonedView: View {
                     .disabled(!browser.canGoForward)
                 Button { browser.reload() } label: { Image(systemName: "arrow.clockwise") }
                     .accessibilityIdentifier("jarvis-browser-reload")
-                Button { _ = browser.hide() } label: { Image(systemName: "xmark") }
+                Button { Task { await dialogue.closeSocialProfile() } } label: { Image(systemName: "xmark") }
                     .accessibilityIdentifier("jarvis-browser-close")
             }
             .buttonStyle(.borderless)

@@ -27,6 +27,7 @@ struct JarvisObservedLink: Identifiable {
 @MainActor
 final class JarvisOverlayBrowser: ObservableObject {
     @Published private(set) var isVisible = false
+    @Published private(set) var socialProfileOpen = false
     @Published private(set) var title = "인터넷 검색"
     @Published private(set) var query = ""
     @Published private(set) var currentURL: URL?
@@ -50,6 +51,7 @@ final class JarvisOverlayBrowser: ObservableObject {
             : URL(string: "https://m.naver.com/")!
         clearLinkState()
         lastControlReceipt = ""
+        socialProfileOpen = false
         title = engine == .google ? "Google" : "네이버"
         query = engine == .google ? "구글 홈" : "네이버 홈"
         errorText = nil
@@ -64,6 +66,7 @@ final class JarvisOverlayBrowser: ObservableObject {
         guard let url = engine.url(for: query) else { return "검색어를 확인해 주세요." }
         clearLinkState()
         lastControlReceipt = ""
+        socialProfileOpen = false
         title = "\(engine.title) 검색"
         self.query = query
         errorText = nil
@@ -72,6 +75,26 @@ final class JarvisOverlayBrowser: ObservableObject {
         isLoading = true
         isVisible = true
         return "‘\(query)’ 검색 결과를 DECHIVE 화면에 띄웠습니다. 원하시는 링크를 직접 열어볼 수 있습니다."
+    }
+
+    /// Show a fixed official channel inside JARVIS's existing temporary WKWebView.
+    /// Login cookies from the user's Chrome profile are intentionally not shared.
+    func openSocialProfile(_ channel: JarvisSocialProfile, youtubeChannelID: String? = nil) -> String {
+        guard let url = channel.url(youtubeChannelID: youtubeChannelID),
+              JarvisBrowserControlPolicy.safePublicURL(url) else {
+            return "해당 채널의 실제 프로필 주소를 확인할 수 없어 페이지를 열지 않았습니다."
+        }
+        clearLinkState()
+        lastControlReceipt = "공식 프로필 접속 중 · 실제 로딩 확인 전"
+        socialProfileOpen = true
+        title = channel.title
+        query = channel.title
+        errorText = nil
+        pageTitle = ""
+        currentURL = url
+        isLoading = true
+        isVisible = true
+        return "주인님, \(channel.title) 프로필을 자비스 안에서 불러오는 중입니다."
     }
 
     // Browser Control 1.0 always acts inside this temporary non-persistent
@@ -368,6 +391,7 @@ final class JarvisOverlayBrowser: ObservableObject {
     }
 
     func hide() -> String {
+        socialProfileOpen = false
         isVisible = false
         isEditingWebText = false
         webView?.stopLoading()

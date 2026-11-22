@@ -113,6 +113,7 @@ struct LiveYouTubeAnalytics: Decodable {
 struct LiveYouTubeData: Decodable {
     let channelId: String
     let channelTitle: String
+    let thumbnailUrl: String?
     let subscriberCount: String?
     let videoCount: String?
     let channelViews: String?

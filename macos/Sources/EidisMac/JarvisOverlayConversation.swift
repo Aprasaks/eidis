@@ -553,6 +553,33 @@ final class JarvisOverlayConversation: ObservableObject {
         }
     }
 
+    /// The same path serves both the dashboard's buttons and spoken commands.
+    /// A social profile remains read-only; opening a site never publishes content.
+    @discardableResult
+    func openSocialProfile(_ channel: JarvisSocialProfile) -> String {
+        // Capture the verified YouTube channel before closing overview; a live
+        // overview has priority over the browser in JarvisSummonedView.
+        let channelID = liveDashboard.youtubeSummary?.data?.channelId
+        guard channel.url(youtubeChannelID: channelID) != nil else {
+            return "해당 채널의 실제 프로필 주소를 확인할 수 없어 페이지를 열지 않았습니다."
+        }
+        weatherCenter.hide()
+        stockBoard.hide()
+        hideBriefing()
+        _ = liveDashboard.hide()
+        _ = dashboard.hide()
+        _ = vault.hide()
+        onWorkspaceRequested?()
+        return browser.openSocialProfile(channel, youtubeChannelID: channelID)
+    }
+
+    /// Closing an opened social channel returns to the dashboard it came from.
+    func closeSocialProfile() async {
+        let wasSocial = browser.socialProfileOpen
+        _ = browser.hide()
+        if wasSocial { _ = await liveDashboard.show(.overview) }
+    }
+
     /// Qwen selects tools through the local Ollama API. This client only runs
     /// audited, read-only actions from JarvisCommand, never generated code.
     private func planAndRespond(_ prompt: String, token: UUID) async throws -> String {
@@ -630,6 +657,23 @@ final class JarvisOverlayConversation: ObservableObject {
                 briefingNotice = "조회 완료를 확인하지 못했습니다."
                 return "주인님, 뉴스 브리핑을 확인하지 못했습니다. 확인되지 않은 뉴스는 읽지 않겠습니다."
             }
+        }
+        // Specific channel-opening requests take precedence over the overview
+        // dashboard's broad "YouTube/Instagram ... show" matching rule.
+        if let channel = JarvisSocialProfile.parse(prompt) {
+            let outcome = openSocialProfile(channel)
+            conversation.append(["role": "user", "content": String(prompt.prefix(500))])
+            conversation.append(["role": "assistant", "content": outcome])
+            if conversation.count > 8 { conversation.removeFirst(conversation.count - 8) }
+            return outcome
+        }
+        if browser.isVisible && browser.socialProfileOpen &&
+           (Self.isGenericPanelClose(prompt) ||
+            (["인스타", "스레드", "페이스북", "페북", "유튜브", "instagram", "threads", "facebook", "youtube"].contains {
+                prompt.lowercased().contains($0)
+            } && ["닫아", "꺼줘", "접어"].contains { prompt.contains($0) })) {
+            await closeSocialProfile()
+            return "네, 전체 대시보드로 돌아왔습니다."
         }
         // A known local fact is never guessed by Qwen and requires no token
         // generation, web request or stored timestamp.
@@ -1101,7 +1145,11 @@ final class JarvisOverlayConversation: ObservableObject {
                 }
             case .closePanel(let panel):
                 switch panel {
-                case .browser: result = browser.hide()
+                case .browser:
+                    if browser.socialProfileOpen {
+                        await closeSocialProfile()
+                        result = "전체 대시보드로 돌아왔습니다."
+                    } else { result = browser.hide() }
                 case .dashboard: result = dashboard.hide()
                 }
             }

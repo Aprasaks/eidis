@@ -8,6 +8,20 @@ struct JarvisMetaChannelSnapshot: Sendable {
     let handle: String?
     let checkedAt: Date?
     let error: String?
+    let avatarURL: URL?
+    let followersCount: Int?
+    let postsCount: Int?
+
+    init(connected: Bool, handle: String?, checkedAt: Date?, error: String?,
+         avatarURL: URL? = nil, followersCount: Int? = nil, postsCount: Int? = nil) {
+        self.connected = connected
+        self.handle = handle
+        self.checkedAt = checkedAt
+        self.error = error
+        self.avatarURL = avatarURL
+        self.followersCount = followersCount
+        self.postsCount = postsCount
+    }
 }
 
 enum JarvisMetaChannels {
@@ -82,6 +96,45 @@ enum JarvisMetaChannels {
         } catch { return nil }
     }
 
+    /// Only HTTPS image links returned by a verified Meta API are rendered.
+    nonisolated static func safeAvatar(_ raw: String?) -> URL? {
+        guard let raw, raw.count < 2048, let url = URL(string: raw),
+              url.scheme == "https", url.user == nil, url.password == nil,
+              url.host?.contains(".") == true else { return nil }
+        return url
+    }
+
+    private struct FacebookPublicDetails: Decodable {
+        struct Picture: Decodable {
+            struct ImageData: Decodable { let url: String? }
+            let data: ImageData?
+        }
+        let picture: Picture?
+        let followers_count: Int?
+        let fan_count: Int?
+    }
+
+    nonisolated private static func facebookDetails(pageID: String, token: String) async -> (URL?, Int?) {
+        // Stats and avatar are optional; never turn a profile-field rejection
+        // into a false claim that a previously verified token is disconnected.
+        for fields in ["picture.type(large){url},followers_count,fan_count", "picture.type(large){url}"] {
+            var parts = URLComponents(string: "https://graph.facebook.com/v27.0/\(pageID)")!
+            parts.queryItems = [URLQueryItem(name: "fields", value: fields)]
+            guard let url = parts.url, let (status, data) = await get(url, token: token), status == 200,
+                  let details = try? JSONDecoder().decode(FacebookPublicDetails.self, from: data) else { continue }
+            return (safeAvatar(details.picture?.data?.url), details.followers_count ?? details.fan_count)
+        }
+        return (nil, nil)
+    }
+
+    nonisolated private static func threadsDetails(token: String) async -> URL? {
+        struct ThreadsPublicDetails: Decodable { let threads_profile_picture_url: String? }
+        guard let url = URL(string: "https://graph.threads.net/v1.0/me?fields=threads_profile_picture_url"),
+              let (status, data) = await get(url, token: token), status == 200,
+              let details = try? JSONDecoder().decode(ThreadsPublicDetails.self, from: data) else { return nil }
+        return safeAvatar(details.threads_profile_picture_url)
+    }
+
     nonisolated static func verifyFacebook(pageID: String, token: String) async -> JarvisMetaChannelSnapshot {
         struct Page: Decodable { let id: String; let name: String?; let username: String? }
         let checked = Date()
@@ -106,7 +159,9 @@ enum JarvisMetaChannels {
               ["dechive.wiki", "dechivewiki"].contains(username) else {
             return .init(connected: false, handle: nil, checkedAt: checked, error: "DECHIVE.WIKI Facebook 페이지가 아닌 것으로 확인됐습니다.")
         }
-        return .init(connected: true, handle: name, checkedAt: checked, error: nil)
+        let (avatar, followers) = await facebookDetails(pageID: pageID, token: token)
+        return .init(connected: true, handle: name, checkedAt: checked, error: nil,
+                     avatarURL: avatar, followersCount: followers)
     }
 
     nonisolated static func verifyThreads(token: String) async -> JarvisMetaChannelSnapshot {
@@ -126,7 +181,9 @@ enum JarvisMetaChannels {
               profile.username?.lowercased() == "dechive.wiki" else {
             return .init(connected: false, handle: nil, checkedAt: checked, error: "@dechive.wiki Threads 계정과 일치하지 않습니다.")
         }
-        return .init(connected: true, handle: "@dechive.wiki", checkedAt: checked, error: nil)
+        let avatar = await threadsDetails(token: token)
+        return .init(connected: true, handle: "@dechive.wiki", checkedAt: checked, error: nil,
+                     avatarURL: avatar)
     }
 
     nonisolated static func scanFacebook() async -> JarvisMetaChannelSnapshot {

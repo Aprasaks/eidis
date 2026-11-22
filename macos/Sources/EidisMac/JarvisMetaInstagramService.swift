@@ -11,6 +11,18 @@ struct JarvisInstagramSnapshot: Sendable {
     let checkedAt: Date
     let error: String?
     let connected: Bool
+    let avatarURL: URL?
+
+    init(username: String?, followersCount: Int?, mediaCount: Int?, checkedAt: Date,
+         error: String?, connected: Bool, avatarURL: URL? = nil) {
+        self.username = username
+        self.followersCount = followersCount
+        self.mediaCount = mediaCount
+        self.checkedAt = checkedAt
+        self.error = error
+        self.connected = connected
+        self.avatarURL = avatarURL
+    }
 }
 
 enum JarvisInstagramLoginMode: String, CaseIterable, Identifiable, Sendable {
@@ -81,6 +93,34 @@ enum JarvisMetaInstagramService {
         return SecItemAdd(insert as CFDictionary, nil) == errSecSuccess
     }
 
+    private struct PublicProfile: Decodable {
+        let profile_picture_url: String?
+        let followers_count: Int?
+        let media_count: Int?
+    }
+
+    nonisolated private static func publicProfile(token: String, mode: JarvisInstagramLoginMode) async -> PublicProfile? {
+        let host = mode == .facebookBusiness ? "graph.facebook.com" : "graph.instagram.com"
+        let path = mode == .facebookBusiness ? accountID : "me"
+        for fields in ["profile_picture_url,followers_count,media_count", "profile_picture_url"] {
+            var urlParts = URLComponents(string: "https://\(host)/v27.0/\(path)")!
+            urlParts.queryItems = [URLQueryItem(name: "fields", value: fields)]
+            guard let url = urlParts.url else { continue }
+            var req = URLRequest(url: url)
+            req.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
+            req.setValue("application/json", forHTTPHeaderField: "Accept")
+            req.cachePolicy = .reloadIgnoringLocalCacheData
+            let config = URLSessionConfiguration.ephemeral
+            config.timeoutIntervalForRequest = 7
+            config.timeoutIntervalForResource = 9
+            guard let (data, response) = try? await URLSession(configuration: config).data(for: req),
+                  data.count < 50_000, (response as? HTTPURLResponse)?.statusCode == 200,
+                  let extra = try? JSONDecoder().decode(PublicProfile.self, from: data) else { continue }
+            return extra
+        }
+        return nil
+    }
+
     nonisolated static func scanSaved() async -> JarvisInstagramSnapshot {
         guard let token = readToken() else {
             return JarvisInstagramSnapshot(username: nil, followersCount: nil,
@@ -128,10 +168,12 @@ enum JarvisMetaInstagramService {
                   profile.username?.lowercased() == accountName else {
                 return failure("토큰이 DECHIVE.WIKI Instagram 계정과 일치하지 않습니다.")
             }
+            let extra = await publicProfile(token: token, mode: mode)
             return JarvisInstagramSnapshot(
-                username: profile.username, followersCount: profile.followers_count,
-                mediaCount: profile.media_count, checkedAt: Date(),
-                error: nil, connected: true)
+                username: profile.username, followersCount: extra?.followers_count ?? profile.followers_count,
+                mediaCount: extra?.media_count ?? profile.media_count, checkedAt: Date(),
+                error: nil, connected: true,
+                avatarURL: JarvisMetaChannels.safeAvatar(extra?.profile_picture_url))
         } catch {
             return failure("Meta API 네트워크 연결 또는 응답 처리에 실패했습니다.")
         }
