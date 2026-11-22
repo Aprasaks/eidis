@@ -267,6 +267,63 @@ private struct JarvisSummonedView: View {
     @State private var showDiagnostics = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
+        if dialogue.chromeWorkspaceVisible {
+            chromeWorkspaceSidebar
+        } else {
+            standardBody
+        }
+    }
+
+    private var chromeWorkspaceSidebar: some View {
+        GeometryReader { area in
+            let coreSize = min(area.size.width * 0.84, area.size.height * 0.32)
+            VStack(spacing: 12) {
+                HStack {
+                    Text("DECHIVE / WORKSPACE")
+                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.orange)
+                    Spacer(minLength: 4)
+                    Button {
+                        Task { await dialogue.returnFromChromeWorkspace() }
+                    } label: {
+                        Image(systemName: "rectangle.grid.2x2")
+                        Text("전체 현황")
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("jarvis-chrome-workspace-return")
+                }
+                JarvisLoopingCore(videoURL: videoURL, compact: true)
+                    .frame(width: coreSize, height: coreSize)
+                    .mask(RadialGradient(stops: [
+                        .init(color: .white, location: 0),
+                        .init(color: .white, location: 0.88),
+                        .init(color: .clear, location: 1)
+                    ], center: .center, startRadius: 0, endRadius: coreSize / 2))
+                    .allowsHitTesting(false)
+                Text(dialogue.chromeWorkspaceTitle)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.white)
+                Text("기존 Chrome 세션 · 실제 브라우저")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.white.opacity(0.55))
+                if !dialogue.chromeWorkspaceNotice.isEmpty {
+                    Text(dialogue.chromeWorkspaceNotice).font(.caption).foregroundStyle(.orange)
+                }
+                workspaceConversationPanel
+                    .frame(maxHeight: .infinity)
+            }
+            .padding(16)
+            .frame(width: area.size.width, height: area.size.height)
+            .background(Color.black)
+        }
+        .accessibilityIdentifier("jarvis-chrome-workspace-sidebar")
+        .onAppear {
+            isInputFocused = false
+            dialogue.textInputFocused = false
+        }
+    }
+
+    private var standardBody: some View {
         GeometryReader { area in
             let commandCenter = liveDashboard.isVisible && liveDashboard.mode == .overview
             let workspaceActive = !commandCenter && (browser.isVisible ||
@@ -354,6 +411,20 @@ private struct JarvisSummonedView: View {
                 }
                 .padding(.horizontal, 30)
                 .zIndex(12)
+
+                if !dialogue.chromeWorkspaceNotice.isEmpty {
+                    VStack {
+                        Spacer()
+                        Text(dialogue.chromeWorkspaceNotice)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.orange)
+                            .padding(12)
+                            .background(.black.opacity(0.94), in: RoundedRectangle(cornerRadius: 8))
+                            .padding(.bottom, 22)
+                    }
+                    .allowsHitTesting(false)
+                    .zIndex(15)
+                }
 
                 // Keep the original right-hand dialogue surface, with spoken
                 // content only. Never duplicate it over a focused workspace.
@@ -1283,6 +1354,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
     private var dekaSleepObserver: NSObjectProtocol?
     private var dekaWakeObserver: NSObjectProtocol?
     private var dekaResumeTask: Task<Void,Never>?
+    private var chromeFullscreenFrame: NSRect?
     private var dekaSleeping = false
     private var dekaMonitorTask: Task<Void, Never>?
     private var dekaNotBefore = Date.distantPast
@@ -1461,7 +1533,10 @@ final class JarvisFullscreenOverlay: ObservableObject {
     func toggle() {
         guard Date().timeIntervalSince(lastToggle) > 0.45 else { return }
         lastToggle = Date()
-        if panel == nil { show() } else { dismiss() }
+        if panel == nil { show() }
+        else if dialogue?.chromeWorkspaceVisible == true {
+            if let dialogue { Task { await dialogue.returnFromChromeWorkspace() } }
+        } else { dismiss() }
     }
 
     func toggleMini() {
@@ -1668,7 +1743,11 @@ final class JarvisFullscreenOverlay: ObservableObject {
         bindDeka(dialogue)
         dialogue.onWorkspaceRequested = nil
         dialogue.onMiniTurnEnded = nil
-        dialogue.onChromeOpened = { [weak self] in self?.dismiss() }
+        dialogue.onChromeWorkspaceOpen = { [weak self, weak dialogue] channel, channelID in
+            guard let self, let dialogue else { return false }
+            return await self.openChromeWorkspace(channel, channelID: channelID, dialogue: dialogue)
+        }
+        dialogue.onChromeWorkspaceClose = { [weak self] in self?.restoreChromeWorkspaceFrame() }
         // DevTools auto-connect asks the human through a Chrome-owned dialog.
         // Temporarily lower the screenSaver overlay so the user can see and
         // approve/deny that dialog. Never click or bypass it programmatically.
@@ -1710,7 +1789,9 @@ final class JarvisFullscreenOverlay: ObservableObject {
             if event.type == .keyDown {
                 // Escape must win over animation, dialogue and other overlay states.
                 if event.keyCode == 53 {
-                    self.dismiss()
+                    if let dialogue = self.dialogue, dialogue.chromeWorkspaceVisible {
+                        Task { await dialogue.returnFromChromeWorkspace() }
+                    } else { self.dismiss() }
                     return nil
                 }
                 // Option-Space is always voice-first, even when WKWebView has
@@ -1772,6 +1853,54 @@ final class JarvisFullscreenOverlay: ObservableObject {
         }
     }
 
+    /// Two native windows, one visual workspace. Preserve the current dialogue
+    /// and the microphone/hotkey lifecycle; only change the overlay geometry.
+    private func openChromeWorkspace(_ channel: JarvisSocialProfile, channelID: String?,
+                                     dialogue: JarvisOverlayConversation) async -> Bool {
+        guard let window = panel, let screen = window.screen ?? NSScreen.main else { return false }
+        let visible = screen.visibleFrame
+        let width = min(470, max(300, visible.width * 0.27))
+        let gap: CGFloat = 8
+        let sidebar = NSRect(x: visible.minX, y: visible.minY,
+                             width: width, height: visible.height)
+        let right = NSRect(x: sidebar.maxX + gap, y: visible.minY,
+                           width: visible.maxX - sidebar.maxX - gap, height: visible.height)
+        guard right.width >= 440, let primary = NSScreen.screens.first else { return false }
+        // Chrome AppleScript bounds use top-down screen coordinates.
+        let bounds = CGRect(x: right.minX, y: primary.frame.maxY - right.maxY,
+                            width: right.width, height: right.height)
+        // Let macOS automation permission prompts appear above the overlay.
+        window.level = .normal
+        let success = await dialogue.chrome.openWorkspace(channel, youtubeChannelID: channelID,
+                                                          chromeBounds: bounds)
+        guard self.panel === window, self.dialogue === dialogue else { return false }
+        guard success else {
+            window.level = chromeFullscreenFrame == nil ? .screenSaver : .floating
+            window.orderFrontRegardless()
+            return false
+        }
+        if chromeFullscreenFrame == nil { chromeFullscreenFrame = screen.frame }
+        window.setFrame(sidebar, display: true, animate: false)
+        window.level = .floating
+        window.orderFrontRegardless()
+        // Escape belongs to the real Chrome page when Chrome has focus.
+        hotkey?.uninstallEscape()
+        return true
+    }
+
+    private func restoreChromeWorkspaceFrame() {
+        guard let panel, let frame = chromeFullscreenFrame else { return }
+        chromeFullscreenFrame = nil
+        let target = NSScreen.screens.first(where: { $0.frame.intersects(frame) })?.frame
+            ?? NSScreen.main?.frame ?? frame
+        panel.setFrame(target, display: true, animate: false)
+        panel.level = .screenSaver
+        panel.orderFrontRegardless()
+        NSApp.activate(ignoringOtherApps: true)
+        panel.makeKey()
+        _ = hotkey?.installEscape()
+    }
+
     /// Two-finger horizontal trackpad swipe. Ignore vertical or small scrolls.
     private func handleHorizontalScroll(_ event: NSEvent) {
         let horizontal = CGFloat(event.scrollingDeltaX)
@@ -1788,7 +1917,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
 
     /// Move the *same* playing panel between physical displays, preserving the core.
     func moveToAdjacentScreen(_ direction: Int) {
-        guard let panel, direction != 0,
+        guard chromeFullscreenFrame == nil, let panel, direction != 0,
               Date().timeIntervalSince(lastMove) > 0.65 else { return }
         let screens = NSScreen.screens.sorted {
             if abs($0.frame.midX - $1.frame.midX) > 1 { return $0.frame.midX < $1.frame.midX }
@@ -1812,6 +1941,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
     /// Immediate dismissal: do not wait for a fade when the user presses Esc.
     func dismiss() {
         guard let window = panel else { return }
+        chromeFullscreenFrame = nil
         pauseDeka("전체 화면 닫기 · 코어 전환")
         hotkey?.uninstallEscape()
         hotkey?.uninstallMicrophone()

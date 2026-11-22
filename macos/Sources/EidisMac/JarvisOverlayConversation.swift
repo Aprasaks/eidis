@@ -35,7 +35,12 @@ final class JarvisOverlayConversation: ObservableObject {
     let stockBoard = JarvisStockBoard()
     let weatherCenter = JarvisWeatherCenter()
     let chrome = JarvisChromeSession()
-    var onChromeOpened: (() -> Void)?
+    @Published private(set) var chromeWorkspaceVisible = false
+    @Published private(set) var chromeWorkspaceTitle = ""
+    @Published private(set) var chromeWorkspaceNotice = ""
+    private var chromeWorkspaceOpening = false
+    var onChromeWorkspaceOpen: ((JarvisSocialProfile, String?) async -> Bool)?
+    var onChromeWorkspaceClose: (() -> Void)?
     var onChromeVerificationBegin: (() -> Void)?
     var onChromeVerificationEnd: (() -> Void)?
 
@@ -573,18 +578,38 @@ final class JarvisOverlayConversation: ObservableObject {
                                                       youtubeChannelID: channelID) else {
             return "해당 채널의 실제 프로필 주소를 확인할 수 없어 열지 않았습니다."
         }
-        // Do not create another WKWebView or copy Chrome cookies. Leave the
-        // dashboard untouched until Chrome confirms the URL was handed off.
+        guard !chromeWorkspaceOpening else { return "Chrome 작업 공간을 여는 중입니다." }
+        chromeWorkspaceOpening = true
+        chromeWorkspaceNotice = ""
+        // Promote the same conversation if invoked from the mini core.
+        onWorkspaceRequested?()
         Task { [weak self] in
             guard let self else { return }
-            let opened = await chrome.open(channel, youtubeChannelID: channelID)
+            defer { chromeWorkspaceOpening = false }
+            let opened = await onChromeWorkspaceOpen?(channel, channelID) ?? false
             if opened {
-                // Full-screen screenSaver-level overlay would obscure Chrome.
-                // Its owner drops the overlay only after Chrome accepts open.
-                onChromeOpened?()
+                chromeWorkspaceTitle = channel.title
+                chromeWorkspaceVisible = true
+            } else {
+                chromeWorkspaceNotice = chrome.status
+                actionNotice = chrome.status
             }
         }
-        return "\(channel.title) 프로필을 로그인된 Chrome에서 여는 중입니다."
+        return "\(channel.title) 작업 공간을 여는 중입니다."
+    }
+
+    func restoreChromeWorkspace() {
+        guard chromeWorkspaceVisible else { return }
+        chromeWorkspaceVisible = false
+        chromeWorkspaceTitle = ""
+        chromeWorkspaceNotice = ""
+        onChromeWorkspaceClose?()
+    }
+
+    func returnFromChromeWorkspace() async {
+        restoreChromeWorkspace()
+        _ = browser.hide()
+        _ = await liveDashboard.show(.overview)
     }
 
     /// Closing an opened social channel returns to the dashboard it came from.
@@ -680,6 +705,18 @@ final class JarvisOverlayConversation: ObservableObject {
             conversation.append(["role": "assistant", "content": outcome])
             if conversation.count > 8 { conversation.removeFirst(conversation.count - 8) }
             return outcome
+        }
+        if chromeWorkspaceVisible {
+            let namedClose = ["인스타", "스레드", "페이스북", "페북", "유튜브", "크롬", "브라우저"].contains { prompt.contains($0) }
+                && ["닫아", "꺼줘", "접어"].contains { prompt.contains($0) }
+            if namedClose || Self.isGenericPanelClose(prompt) ||
+                prompt.contains("대시보드로 돌아") {
+                await returnFromChromeWorkspace()
+                return "네, 전체 대시보드로 돌아왔습니다."
+            }
+            if let intent = JarvisLiveDashboardIntent.parse(prompt), case .show = intent {
+                restoreChromeWorkspace()
+            }
         }
         if browser.isVisible && browser.socialProfileOpen &&
            (Self.isGenericPanelClose(prompt) ||

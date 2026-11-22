@@ -10,7 +10,7 @@ ASSET = ROOT / 'macos/Resources/Art/DECHIVE_FullHD_Loop.mp4'
 class FullscreenOverlayContract(unittest.TestCase):
     def test_global_hotkey_is_explicit_and_can_close(self):
         for marker in ('RegisterEventHotKey', 'kVK_ANSI_J', 'cmdKey | optionKey',
-                       'if panel == nil { show() } else { dismiss() }',
+                       'if panel == nil { show() }', 'else { dismiss() }', 'dialogue?.chromeWorkspaceVisible == true',
                        'event.keyCode == 53', 'NSEvent.removeMonitor'):
             self.assertIn(marker, OVERLAY)
 
@@ -27,7 +27,9 @@ class FullscreenOverlayContract(unittest.TestCase):
         self.assertIn('rm -f "$RESOURCES/JARVIS_Activation_Alpha_HEVC.mov"', PACKAGING)
 
     def test_esc_is_immediate_and_screen_switching_has_input_guards(self):
-        self.assertIn('self.dismiss()\n                    return nil', OVERLAY)
+        self.assertIn('else { self.dismiss() }\n                    return nil', OVERLAY)
+        self.assertIn('hotkey?.uninstallEscape()', OVERLAY)
+        self.assertIn('await dialogue.returnFromChromeWorkspace()', OVERLAY)
         self.assertIn('window.orderOut(nil)', OVERLAY)
         self.assertIn('window.contentView = nil', OVERLAY)
         self.assertNotIn('window.animator().alphaValue = 0', OVERLAY)

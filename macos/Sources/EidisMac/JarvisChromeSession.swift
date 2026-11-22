@@ -99,6 +99,93 @@ final class JarvisChromeSession: ObservableObject {
         }
     }
 
+
+    private var workspaceWindowID: Int?
+    /// Open or reuse only the dedicated Chrome workspace window. The existing
+    /// browser profile handles authentication; unrelated windows are untouched.
+    func openWorkspace(_ channel: JarvisSocialProfile, youtubeChannelID: String?,
+                       chromeBounds: CGRect) async -> Bool {
+        guard let url = channel.url(youtubeChannelID: youtubeChannelID),
+              Self.isApprovedSocialURL(url, channel: channel, youtubeChannelID: youtubeChannelID) else {
+            status = OpenError.unsafeURL.localizedDescription
+            return false
+        }
+        guard NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.google.Chrome") != nil else {
+            status = OpenError.missingChrome.localizedDescription
+            return false
+        }
+        status = "Chrome 작업 공간 열기 요청 중"
+        let id = await Self.placeChromeWindow(url: url, bounds: chromeBounds, reuseID: workspaceWindowID)
+        guard let id else {
+            status = "Chrome 작업 공간을 열지 못했습니다. macOS 자동화 권한과 Chrome 창 상태를 확인하세요."
+            return false
+        }
+        workspaceWindowID = id
+        lastOpenedChannel = channel
+        status = "Chrome 작업 공간 열림 · 로그인 상태는 화면에서 확인"
+        return true
+    }
+
+    nonisolated private static func placeChromeWindow(url: URL, bounds: CGRect, reuseID: Int?) async -> Int? {
+        let script = """
+        on run argv
+            set targetURL to item 1 of argv
+            set wantedID to (item 2 of argv) as integer
+            set wantedBounds to {(item 3 of argv) as integer, (item 4 of argv) as integer, (item 5 of argv) as integer, (item 6 of argv) as integer}
+            tell application "Google Chrome"
+                set workWindow to missing value
+                if wantedID is greater than 0 then
+                    if exists (window id wantedID) then set workWindow to window id wantedID
+                end if
+                if workWindow is missing value then
+                    set workWindow to make new window
+                    set URL of active tab of workWindow to targetURL
+                else
+                    set matchIndex to 0
+                    repeat with tabIndex from 1 to count of tabs of workWindow
+                        if URL of tab tabIndex of workWindow is targetURL then
+                            set matchIndex to tabIndex
+                            exit repeat
+                        end if
+                    end repeat
+                    if matchIndex is 0 then
+                        make new tab at end of tabs of workWindow with properties {URL:targetURL}
+                        set matchIndex to count of tabs of workWindow
+                    end if
+                    set active tab index of workWindow to matchIndex
+                end if
+                set bounds of workWindow to wantedBounds
+                set index of workWindow to 1
+                activate
+                return (id of workWindow) as text
+            end tell
+        end run
+        """
+        let args = ["-e", script, "--", url.absoluteString, String(reuseID ?? 0),
+                    String(Int(bounds.minX)), String(Int(bounds.minY)),
+                    String(Int(bounds.maxX)), String(Int(bounds.maxY))]
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+                process.arguments = args
+                let output = Pipe()
+                process.standardOutput = output
+                process.standardError = FileHandle.nullDevice
+                do {
+                    try process.run()
+                    DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 45) {
+                        if process.isRunning { process.terminate() }
+                    }
+                    let data = output.fileHandleForReading.readDataToEndOfFile()
+                    process.waitUntilExit()
+                    let value = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+                    continuation.resume(returning: process.terminationStatus == 0 ? value.flatMap(Int.init) : nil)
+                } catch { continuation.resume(returning: nil) }
+            }
+        }
+    }
+
     enum OpenError: LocalizedError {
         case missingChrome
         case unsafeURL
