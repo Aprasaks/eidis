@@ -1668,6 +1668,21 @@ final class JarvisFullscreenOverlay: ObservableObject {
         bindDeka(dialogue)
         dialogue.onWorkspaceRequested = nil
         dialogue.onMiniTurnEnded = nil
+        dialogue.onChromeOpened = { [weak self] in self?.dismiss() }
+        // DevTools auto-connect asks the human through a Chrome-owned dialog.
+        // Temporarily lower the screenSaver overlay so the user can see and
+        // approve/deny that dialog. Never click or bypass it programmatically.
+        dialogue.onChromeVerificationBegin = { [weak self] in
+            self?.panel?.level = .normal
+            if let chrome = NSRunningApplication.runningApplications(withBundleIdentifier: "com.google.Chrome").first {
+                chrome.activate(options: [.activateAllWindows])
+            }
+        }
+        dialogue.onChromeVerificationEnd = { [weak self] in
+            guard let panel = self?.panel else { return }
+            panel.level = .screenSaver
+            panel.orderFrontRegardless()
+        }
         self.dialogue = dialogue
         window.contentView = NSHostingView(rootView: JarvisSummonedView(
             videoURL: url,

@@ -34,6 +34,16 @@ final class JarvisOverlayConversation: ObservableObject {
     private let briefingClient = JarvisBriefingClient()
     let stockBoard = JarvisStockBoard()
     let weatherCenter = JarvisWeatherCenter()
+    let chrome = JarvisChromeSession()
+    var onChromeOpened: (() -> Void)?
+    var onChromeVerificationBegin: (() -> Void)?
+    var onChromeVerificationEnd: (() -> Void)?
+
+    func verifyChromeSession() async {
+        onChromeVerificationBegin?()
+        defer { onChromeVerificationEnd?() }
+        await chrome.checkExistingChromeTabs()
+    }
 
     func hideBriefing() {
         briefingVisible = false
@@ -557,20 +567,24 @@ final class JarvisOverlayConversation: ObservableObject {
     /// A social profile remains read-only; opening a site never publishes content.
     @discardableResult
     func openSocialProfile(_ channel: JarvisSocialProfile) -> String {
-        // Capture the verified YouTube channel before closing overview; a live
-        // overview has priority over the browser in JarvisSummonedView.
         let channelID = liveDashboard.youtubeSummary?.data?.channelId
-        guard channel.url(youtubeChannelID: channelID) != nil else {
-            return "해당 채널의 실제 프로필 주소를 확인할 수 없어 페이지를 열지 않았습니다."
+        guard let url = channel.url(youtubeChannelID: channelID),
+              JarvisChromeSession.isApprovedSocialURL(url, channel: channel,
+                                                      youtubeChannelID: channelID) else {
+            return "해당 채널의 실제 프로필 주소를 확인할 수 없어 열지 않았습니다."
         }
-        weatherCenter.hide()
-        stockBoard.hide()
-        hideBriefing()
-        _ = liveDashboard.hide()
-        _ = dashboard.hide()
-        _ = vault.hide()
-        onWorkspaceRequested?()
-        return browser.openSocialProfile(channel, youtubeChannelID: channelID)
+        // Do not create another WKWebView or copy Chrome cookies. Leave the
+        // dashboard untouched until Chrome confirms the URL was handed off.
+        Task { [weak self] in
+            guard let self else { return }
+            let opened = await chrome.open(channel, youtubeChannelID: channelID)
+            if opened {
+                // Full-screen screenSaver-level overlay would obscure Chrome.
+                // Its owner drops the overlay only after Chrome accepts open.
+                onChromeOpened?()
+            }
+        }
+        return "\(channel.title) 프로필을 로그인된 Chrome에서 여는 중입니다."
     }
 
     /// Closing an opened social channel returns to the dashboard it came from.

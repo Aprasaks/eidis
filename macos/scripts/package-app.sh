@@ -33,6 +33,20 @@ cp "$ROOT/app.py" "$RESOURCES/app.py"
 cp "$ROOT/tools/wakeword/deka_worker.py" "$RESOURCES/deka_worker.py"
 cp "$ROOT/tools/speaker/voice_gate.py" "$RESOURCES/voice_gate.py"
 cp "$ROOT/tools/speaker/voice_id.py" "$RESOURCES/voice_id.py"
+# Explicit, local Chrome approval probe; never copy a Chrome user profile,
+# cookies, accounts or browser databases into the signed app.
+CHROME_BRIDGE="$ROOT/tools/chrome-bridge"
+if [[ -f "$CHROME_BRIDGE/node_modules/chrome-devtools-mcp/package.json" ]]; then
+  rm -rf "$RESOURCES/chrome-bridge"  # Only inside the owned dist bundle.
+  mkdir -p "$RESOURCES/chrome-bridge"
+  for asset in check.mjs policy.mjs package.json package-lock.json; do
+    cp "$CHROME_BRIDGE/$asset" "$RESOURCES/chrome-bridge/$asset"
+  done
+  /usr/bin/ditto "$CHROME_BRIDGE/node_modules" "$RESOURCES/chrome-bridge/node_modules"
+else
+  echo "Chrome MCP 의존성이 없습니다. tools/chrome-bridge에서 npm ci --ignore-scripts 실행 필요" >&2
+  exit 2
+fi
 for source in "$ROOT"/jarvis/*.py; do
   cp "$source" "$RESOURCES/jarvis/"
 done

@@ -641,10 +641,23 @@ struct JarvisCommandCenterView: View {
                                  followers: threadsSnapshot?.followersCount,
                                  posts: threadsSnapshot?.postsCount,
                                  connected: threadsSnapshot?.connected == true, scale: scale)
+                Text(dialogue.chrome.connectionStatus)
+                    .font(.system(size: 8 * scale))
+                    .foregroundStyle(muted)
+                    .lineLimit(2)
                 HStack {
                     Text("— = API 미제공 · 숫자 임의 생성 없음")
                         .font(.system(size: 8 * scale)).foregroundStyle(muted)
                     Spacer(minLength: 0)
+                    Button {
+                        Task { await dialogue.verifyChromeSession() }
+                    } label: {
+                        Text(dialogue.chrome.isChecking ? "연결 확인 중" : "Chrome 세션 확인")
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(dialogue.chrome.isChecking)
+                    .font(.system(size: 9 * scale)).foregroundStyle(amber)
+                    .accessibilityIdentifier("jarvis-meta-chrome-check")
                     Button("AI 콘텐츠 초안") { showSocialStudio = true }
                         .buttonStyle(.borderless)
                         .font(.system(size: 9 * scale)).foregroundStyle(amber)

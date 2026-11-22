@@ -1,0 +1,12 @@
+{
+  "name": "dechive-jarvis-chrome-bridge",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Local, consent-based, read-only Chrome DevTools MCP adapter for JARVIS",
+  "engines": { "node": ">=20.19" },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "chrome-devtools-mcp": "1.13.0"
+  }
+}

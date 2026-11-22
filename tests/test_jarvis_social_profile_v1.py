@@ -23,14 +23,15 @@ class SocialProfileTests(unittest.TestCase):
         self.assertIn('JarvisSocialProfile.parse(prompt)', DIALOGUE)
     def test_browser_shows_instead_of_staying_hidden_behind_overview(self):
         open_fn = DIALOGUE.split('func openSocialProfile(', 1)[1].split('private func planAndRespond', 1)[0]
-        self.assertLess(open_fn.index('let channelID ='), open_fn.index('_ = liveDashboard.hide()'))
-        self.assertLess(open_fn.index('_ = liveDashboard.hide()'),open_fn.index('browser.openSocialProfile('))
-        self.assertIn('currentURL = url', BROWSER)
-        self.assertIn('isVisible = true', BROWSER)
-        self.assertIn('browser.openSocialProfile', DIALOGUE)
-        self.assertIn('socialProfileOpen', BROWSER)
-        self.assertIn('await liveDashboard.show(.overview)', DIALOGUE)
-        self.assertIn('await dialogue.closeSocialProfile()', (SRC / 'JarvisFullscreenOverlay.swift').read_text())
+        self.assertIn('JarvisChromeSession.isApprovedSocialURL', open_fn)
+        self.assertIn('await chrome.open(channel, youtubeChannelID: channelID)', open_fn)
+        self.assertIn('onChromeOpened?()', open_fn)
+        chrome = (SRC / 'JarvisChromeSession.swift').read_text()
+        self.assertIn('com.google.Chrome', chrome)
+        self.assertIn('NSWorkspace.shared.open([url], withApplicationAt: chrome', chrome)
+        self.assertNotIn('Cookie', chrome.split('func open(',1)[1])
+        self.assertIn('dialogue.onChromeOpened = { [weak self] in self?.dismiss() }',
+                      (SRC / 'JarvisFullscreenOverlay.swift').read_text())
     def test_real_picture_sources_and_no_invented_metrics(self):
         self.assertIn('facebookDetails(', META)
         self.assertIn('threads_profile_picture_url', META)
