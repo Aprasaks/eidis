@@ -201,6 +201,48 @@ enum JarvisMetaChannels {
         return await verifyThreads(token: token)
     }
 
+    nonisolated static func recentVerifiedPosts(_ channel: JarvisSocialProfile) async -> JarvisSocialPostsResult {
+        let endpoint: String
+        let fields: String
+        let token: String
+        switch channel {
+        case .facebook:
+            guard let saved = read(facebookService), let pageID = UserDefaults.standard.string(forKey: pageIDPreference),
+                  pageID == "1433547446509432", (await verifyFacebook(pageID: pageID, token: saved)).connected else {
+                return .init(posts: nil, error: "Facebook 계정 검증 실패")
+            }
+            token = saved
+            endpoint = "https://graph.facebook.com/v27.0/\(pageID)/posts"
+            fields = "id,message,created_time,full_picture"
+        case .threads:
+            guard let saved = read(threadsService), (await verifyThreads(token: saved)).connected else {
+                return .init(posts: nil, error: "Threads 계정 검증 실패")
+            }
+            token = saved
+            endpoint = "https://graph.threads.net/v1.0/me/threads"
+            fields = "id,text,timestamp,media_type,media_url,thumbnail_url"
+        default: return .init(posts: nil, error: "지원되지 않는 채널")
+        }
+        return await fetchRecentPosts(endpoint: endpoint, fields: fields, token: token)
+    }
+
+    nonisolated static func fetchRecentPosts(endpoint: String, fields: String, token: String) async -> JarvisSocialPostsResult {
+        struct Reply: Decodable { let data: [JarvisSocialPost] }
+        guard var parts = URLComponents(string: endpoint),
+              parts.scheme == "https", ["graph.facebook.com","graph.instagram.com","graph.threads.net"].contains(parts.host ?? "") else {
+            return .init(posts: nil, error: "API 주소 검증 실패")
+        }
+        parts.queryItems = [.init(name: "fields", value: fields), .init(name: "limit", value: "8")]
+        guard let url = parts.url, let (status, data) = await get(url, token: token) else {
+            return .init(posts: nil, error: "게시물 API 연결 실패")
+        }
+        guard status == 200 else { return .init(posts: nil, error: sanitizedFailure(data, status: status)) }
+        guard let reply = try? JSONDecoder().decode(Reply.self, from: data) else {
+            return .init(posts: nil, error: "게시물 응답 형식 미확인")
+        }
+        return .init(posts: Array(reply.data.prefix(8)), error: nil)
+    }
+
     /// Save only a token whose live remote profile is the intended asset.
     nonisolated static func connectFacebook(pageID: String, token: String) async -> JarvisMetaChannelSnapshot {
         let checked = await verifyFacebook(pageID: pageID, token: token)

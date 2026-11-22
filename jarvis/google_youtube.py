@@ -234,7 +234,7 @@ class GoogleYouTubeConnection:
                 return self.cache
         access = self._access()
         info = _request_json(YT_DATA + "?" + urlencode({
-            "part": "snippet,statistics", "mine": "true"}), token=access)
+            "part": "snippet,statistics,contentDetails", "mine": "true"}), token=access)
         channels = info.get("items", [])
         if not channels:
             raise YouTubeConnectionError("연결된 Google 계정에서 YouTube 채널을 찾지 못했습니다.")
@@ -253,6 +253,7 @@ class GoogleYouTubeConnection:
             "channel_views": channel.get("statistics", {}).get("viewCount"),
             "period_start": start.isoformat(), "period_end": end.isoformat(),
             "analytics": None, "analytics_error": None,
+            "recent_videos": None, "recent_videos_error": None,
             "checked_at": datetime.now(timezone.utc).isoformat(),
         }
         try:
@@ -272,6 +273,30 @@ class GoogleYouTubeConnection:
                 basic["analytics_error"] = "이 기간에 분석 데이터가 없습니다."
         except YouTubeConnectionError:
             basic["analytics_error"] = "YouTube Analytics 데이터를 가져오지 못했습니다."
+        uploads = channel.get("contentDetails", {}).get("relatedPlaylists", {}).get("uploads")
+        if uploads:
+            try:
+                listing = _request_json("https://youtube.googleapis.com/youtube/v3/playlistItems?" + urlencode({
+                    "part": "snippet,contentDetails", "playlistId": uploads, "maxResults": 8,
+                }), token=access)
+                videos = []
+                for entry in listing.get("items", [])[:8]:
+                    snippet = entry.get("snippet", {})
+                    content = entry.get("contentDetails", {})
+                    video_id = content.get("videoId")
+                    if not isinstance(video_id, str) or not video_id:
+                        continue
+                    thumbs = snippet.get("thumbnails", {})
+                    image = next((t.get("url") for size in ("medium", "high", "default")
+                                  if isinstance((t := thumbs.get(size)), dict)
+                                  and isinstance(t.get("url"), str) and t["url"].startswith("https://")), None)
+                    videos.append({"id": video_id, "title": snippet.get("title", ""),
+                                   "thumbnail_url": image, "published_at": content.get("videoPublishedAt")})
+                basic["recent_videos"] = videos
+            except (YouTubeConnectionError, TypeError, ValueError, AttributeError):
+                basic["recent_videos_error"] = "최근 영상 목록 API 조회 실패"
+        else:
+            basic["recent_videos_error"] = "업로드 재생목록 ID 미제공"
         with self.lock:
             self.cache = basic
             self.cache_at = time.monotonic()

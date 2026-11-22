@@ -179,6 +179,18 @@ enum JarvisMetaInstagramService {
         }
     }
 
+    nonisolated static func recentVerifiedPosts() async -> JarvisSocialPostsResult {
+        let mode = savedMode()
+        guard let token = readToken(), (await verify(token: token, mode: mode)).connected else {
+            return .init(posts: nil, error: "Instagram 계정 검증 실패")
+        }
+        let endpoint = mode == .facebookBusiness
+            ? "https://graph.facebook.com/v27.0/\(accountID)/media"
+            : "https://graph.instagram.com/v27.0/me/media"
+        return await JarvisMetaChannels.fetchRecentPosts(endpoint: endpoint,
+            fields: "id,caption,media_type,media_url,thumbnail_url,timestamp,like_count,comments_count", token: token)
+    }
+
     private nonisolated static func failure(_ message: String) -> JarvisInstagramSnapshot {
         JarvisInstagramSnapshot(username: nil, followersCount: nil,
               mediaCount: nil, checkedAt: Date(), error: message, connected: false)

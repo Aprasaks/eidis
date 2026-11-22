@@ -21,19 +21,16 @@ class SocialProfileTests(unittest.TestCase):
         self.assertIn('channelID', DIALOGUE)
         self.assertIn('channel.url(youtubeChannelID: channelID)', DIALOGUE)
         self.assertIn('JarvisSocialProfile.parse(prompt)', DIALOGUE)
-    def test_browser_shows_instead_of_staying_hidden_behind_overview(self):
-        open_fn = DIALOGUE.split('func openSocialProfile(', 1)[1].split('private func planAndRespond', 1)[0]
-        self.assertIn('JarvisChromeSession.isApprovedSocialURL', open_fn)
-        self.assertIn('await onChromeWorkspaceOpen?(channel, channelID)', open_fn)
-        self.assertIn('chromeWorkspaceVisible = true', open_fn)
-        chrome = (SRC / 'JarvisChromeSession.swift').read_text()
-        self.assertIn('com.google.Chrome', chrome)
-        self.assertIn('NSWorkspace.shared.open([url], withApplicationAt: chrome', chrome)
-        self.assertNotIn('Cookie', chrome.split('func open(',1)[1])
+    def test_native_dashboard_default_with_optional_external_fallback(self):
+        native = DIALOGUE.split('func openSocialProfile(', 1)[1].split('func closeNativeSocialDashboard', 1)[0]
+        self.assertIn('socialDashboardChannel = channel', native)
+        self.assertIn('_ = liveDashboard.hide()', native)
+        self.assertNotIn('chrome.open', native)
+        self.assertNotIn('onChromeWorkspaceOpen', native)
         overlay = (SRC / 'JarvisFullscreenOverlay.swift').read_text()
-        self.assertIn('chromeWorkspaceSidebar', overlay)
-        self.assertIn('restoreChromeWorkspaceFrame()', overlay)
-        self.assertIn('jarvis-chrome-workspace-return', overlay)
+        self.assertIn('JarvisSocialDashboardView(channel: channel)', overlay)
+        self.assertIn('dialogue.closeNativeSocialDashboard()', overlay)
+        self.assertIn('func openExternalSocialProfile', DIALOGUE)
     def test_real_picture_sources_and_no_invented_metrics(self):
         self.assertIn('facebookDetails(', META)
         self.assertIn('threads_profile_picture_url', META)

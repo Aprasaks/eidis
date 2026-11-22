@@ -110,6 +110,12 @@ struct LiveYouTubeAnalytics: Decodable {
     let estimatedMinutesWatched: Double
     let subscribersGained: Int
 }
+struct LiveYouTubeVideo: Decodable, Identifiable {
+    let id: String
+    let title: String
+    let thumbnailUrl: String?
+    let publishedAt: String?
+}
 struct LiveYouTubeData: Decodable {
     let channelId: String
     let channelTitle: String
@@ -121,6 +127,8 @@ struct LiveYouTubeData: Decodable {
     let periodEnd: String
     let analytics: LiveYouTubeAnalytics?
     let analyticsError: String?
+    let recentVideos: [LiveYouTubeVideo]?
+    let recentVideosError: String?
     let checkedAt: String
 }
 struct LiveYouTubeReply: Decodable {

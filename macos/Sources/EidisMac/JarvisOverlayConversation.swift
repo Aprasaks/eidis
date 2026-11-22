@@ -35,6 +35,7 @@ final class JarvisOverlayConversation: ObservableObject {
     let stockBoard = JarvisStockBoard()
     let weatherCenter = JarvisWeatherCenter()
     let chrome = JarvisChromeSession()
+    @Published private(set) var socialDashboardChannel: JarvisSocialProfile?
     @Published private(set) var chromeWorkspaceVisible = false
     @Published private(set) var chromeWorkspaceTitle = ""
     @Published private(set) var chromeWorkspaceNotice = ""
@@ -572,6 +573,26 @@ final class JarvisOverlayConversation: ObservableObject {
     /// A social profile remains read-only; opening a site never publishes content.
     @discardableResult
     func openSocialProfile(_ channel: JarvisSocialProfile) -> String {
+        restoreChromeWorkspace()
+        onWorkspaceRequested?()
+        weatherCenter.hide()
+        stockBoard.hide()
+        hideBriefing()
+        _ = browser.hide()
+        _ = liveDashboard.hide()
+        _ = dashboard.hide()
+        _ = vault.hide()
+        socialDashboardChannel = channel
+        return "\(channel.title) 전용 대시보드를 열었습니다."
+    }
+
+    func closeNativeSocialDashboard() async {
+        socialDashboardChannel = nil
+        _ = await liveDashboard.show(.overview)
+    }
+
+    /// Explicit external Chrome fallback; not the default SNS action.
+    func openExternalSocialProfile(_ channel: JarvisSocialProfile) -> String {
         let channelID = liveDashboard.youtubeSummary?.data?.channelId
         guard let url = channel.url(youtubeChannelID: channelID),
               JarvisChromeSession.isApprovedSocialURL(url, channel: channel,
@@ -705,6 +726,16 @@ final class JarvisOverlayConversation: ObservableObject {
             conversation.append(["role": "assistant", "content": outcome])
             if conversation.count > 8 { conversation.removeFirst(conversation.count - 8) }
             return outcome
+        }
+        if socialDashboardChannel != nil {
+            let close = Self.isGenericPanelClose(prompt) || prompt.contains("대시보드로 돌아") ||
+                (["인스타", "스레드", "페이스북", "유튜브"].contains { prompt.contains($0) } &&
+                 ["닫아", "꺼줘", "접어"].contains { prompt.contains($0) })
+            if close {
+                await closeNativeSocialDashboard()
+                return "네, 전체 대시보드로 돌아왔습니다."
+            }
+            if let intent = JarvisLiveDashboardIntent.parse(prompt), case .show = intent { socialDashboardChannel = nil }
         }
         if chromeWorkspaceVisible {
             let namedClose = ["인스타", "스레드", "페이스북", "페북", "유튜브", "크롬", "브라우저"].contains { prompt.contains($0) }

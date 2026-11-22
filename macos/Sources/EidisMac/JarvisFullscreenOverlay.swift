@@ -326,7 +326,7 @@ private struct JarvisSummonedView: View {
     private var standardBody: some View {
         GeometryReader { area in
             let commandCenter = liveDashboard.isVisible && liveDashboard.mode == .overview
-            let workspaceActive = !commandCenter && (browser.isVisible ||
+            let workspaceActive = !commandCenter && (dialogue.socialDashboardChannel != nil || browser.isVisible ||
                 vault.isVisible || liveDashboard.isVisible || dashboard.isVisible || dialogue.briefingVisible || stockBoard.visible || weatherCenter.visible)
             let compactCore = commandCenter || workspaceActive
             let conversationWidth = min(max(area.size.width * 0.30, 255), 470)
@@ -379,7 +379,7 @@ private struct JarvisSummonedView: View {
                     .position(x: commandCenter ? overviewFrame.midX : area.size.width / 2,
                               y: commandCenter ? overviewFrame.midY :
                                 workspaceActive ? area.size.height * 0.17 : area.size.height / 2)
-                    .opacity(appeared ? (workspaceActive ? 0.65 : 1) : 0)
+                    .opacity(dialogue.socialDashboardChannel != nil ? 0 : (appeared ? (workspaceActive ? 0.65 : 1) : 0))
                     .animation(reduceMotion ? nil : .easeInOut(duration: 0.72), value: compactCore)
                     // In the overview this is a foreground hologram, never a
                     // child of a dashboard card. Its transparent lane keeps
@@ -453,11 +453,25 @@ private struct JarvisSummonedView: View {
                     // A dedicated two-column workspace: the browser, even as
                     // an NSView, can never overlap text history or the composer.
                     HStack(spacing: 16) {
-                        workspaceConversationPanel
-                            .frame(width: conversationWidth)
-                            .frame(maxHeight: .infinity)
+                        VStack(spacing: 10) {
+                            if dialogue.socialDashboardChannel != nil {
+                                let diameter = min(conversationWidth * 0.80, area.size.height * 0.25)
+                                JarvisLoopingCore(videoURL: videoURL, compact: true)
+                                    .frame(width: diameter, height: diameter)
+                                    .mask(RadialGradient(stops: [.init(color: .white, location: 0), .init(color: .white, location: 0.88), .init(color: .clear, location: 1)], center: .center, startRadius: 0, endRadius: diameter / 2))
+                                    .allowsHitTesting(false)
+                            }
+                            workspaceConversationPanel
+                                .frame(maxHeight: .infinity)
+                        }
+                        .frame(width: conversationWidth)
+                        .frame(maxHeight: .infinity)
                         Group {
-                            if weatherCenter.visible {
+                            if let channel = dialogue.socialDashboardChannel {
+                                JarvisSocialDashboardView(channel: channel) {
+                                    Task { await dialogue.closeNativeSocialDashboard() }
+                                }.id(channel.rawValue)
+                            } else if weatherCenter.visible {
                                 JarvisWeatherCenterView(model:weatherCenter)
                             } else if stockBoard.visible {
                                 JarvisStockBoardView(model:stockBoard)
