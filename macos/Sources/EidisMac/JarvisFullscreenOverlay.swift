@@ -347,27 +347,6 @@ private struct JarvisSummonedView: View {
                 .padding(.horizontal, 30)
                 .zIndex(12)
 
-                if commandCenter && (!dialogue.answer.isEmpty ||
-                                     !dialogue.streamingAnswer.isEmpty) {
-                    VStack {
-                        Spacer()
-                        Text(dialogue.answer.isEmpty ? dialogue.streamingAnswer :
-                             dialogue.answer)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.94))
-                            .lineLimit(2)
-                            .frame(maxWidth: min(690, area.size.width * 0.56))
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 7)
-                            .background(.black.opacity(0.85), in: Capsule())
-                            // Stay in the reserved strip below the fixed-height
-                            // command center and above the input controls.
-                            .padding(.bottom, 82)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .allowsHitTesting(false)
-                }
-
                 // Keep the original right-hand dialogue surface, with spoken
                 // content only. Never duplicate it over a focused workspace.
                 if !commandCenter && !workspaceActive {

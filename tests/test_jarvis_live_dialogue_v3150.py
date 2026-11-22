@@ -54,7 +54,7 @@ class JarvisLiveDialogueContract(unittest.TestCase):
             self.assertIn(value, CHAT)
         self.assertIn('JarvisLiveDialoguePanel(dialogue: dialogue, quiet: true)', OVERLAY)
         self.assertIn('JarvisLiveDialoguePanel(dialogue: dialogue)', ROOM)
-        self.assertIn('activityCard(scale: scale)', ROOM)
+        self.assertIn('jarvis-overview-core-clear-lane', ROOM)
         self.assertIn('JarvisLoopingCore(videoURL: videoURL, compact: compactCore)', OVERLAY)
         self.assertIn('jarvis-live-dialogue-panel', PANEL)
         self.assertIn('window.orderOut(nil)', OVERLAY)

@@ -12,10 +12,11 @@ enum JarvisOverviewGeometry {
         let center = centerWidth(innerWidth: innerWidth,height:height)
         let left = max(0,(innerWidth - center - 2 * gap) * 0.5)
         let columnHeight = max(0,height - 116 - 12 - 52 - 66 - 2 * gap)
-        let slot = columnHeight * 0.64
-        let size = max(0,min(center - 12,slot - 12))
+        // Center in the *full* overview lane, not the former upper 64% slot
+        // once reserved above the terminal. All panels stay outside this lane.
+        let size = max(0,min(center - 12,columnHeight - 24))
         return CGRect(x: outer + left + gap + (center - size)/2,
-                      y: 12 + 52 + 66 + 2 * gap + (slot - size)/2,
+                      y: 12 + 52 + 66 + 2 * gap + (columnHeight - size)/2,
                       width:size,height:size)
     }
 }

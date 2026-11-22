@@ -10,7 +10,6 @@ struct JarvisCommandCenterView: View {
     @State private var showInstagramTokenSheet = false
     @State private var instagramTokenInput = ""
     @StateObject private var telemetry = JarvisMacSampler()
-    @State private var showRecorded = false
 
     private let amber = Color(red: 0.94, green: 0.67, blue: 0.30)
     private let muted = Color(red: 0.64, green: 0.66, blue: 0.68)
@@ -115,30 +114,13 @@ struct JarvisCommandCenterView: View {
     }
 
     private func centerColumn(height: CGFloat, scale: CGFloat) -> some View {
-        VStack(spacing: 9) {
-            // The same player is behind this transparent area. Not a card.
-            Color.clear.frame(height: height * 0.64)
-            HStack(spacing: 7) {
-                Circle().fill(mint).frame(width: 6, height: 6)
-                Text("DECHIVE CORE / ACTIVE")
-                    .tracking(1.1)
-                    .font(.system(size: 10 * scale, weight: .medium, design: .monospaced))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-            }.foregroundStyle(amber)
-            Picker("보기", selection: $showRecorded) {
-                Text("실제 조회 로그").tag(false)
-                Text("작업 기록").tag(true)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            Group {
-                if showRecorded { recordedCard(scale: scale) }
-                else { activityCard(scale: scale) }
-            }.frame(maxHeight: .infinity)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .clipped()
+        // The rotating core is rendered once by JarvisFullscreenOverlay
+        // above the black background. Keep this entire center lane transparent:
+        // no box, title, toggle, terminal, or duplicate conversation text.
+        Color.clear
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(height: height)
+            .accessibilityIdentifier("jarvis-overview-core-clear-lane")
     }
 
     private func rightColumn(height: CGFloat, scale: CGFloat) -> some View {

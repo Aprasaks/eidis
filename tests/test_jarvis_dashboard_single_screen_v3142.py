@@ -22,7 +22,7 @@ class FixedViewportContract(unittest.TestCase):
         self.assertIn('frame(height: socialHeight)',UI)
         self.assertIn('let inputReserve: CGFloat = 116',UI)
         self.assertIn('JarvisCommandCenterView(model: liveDashboard, dialogue: dialogue)',OVERLAY)
-        self.assertIn('.padding(.bottom, 82)', OVERLAY)
+        self.assertIn('JarvisOverviewGeometry.coreFrame(width: area.size.width, height: area.size.height)', OVERLAY)
     def test_every_long_list_scrolls_in_its_own_card(self):
         for name in ('projectsCard','gitCard','youtubeCard','knowledgeCard',
                      'systemCard','activityCard','recordedCard'):
