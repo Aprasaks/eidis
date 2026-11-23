@@ -7,7 +7,7 @@ enum JarvisLocalClock {
 
     static func parse(_ utterance: String) -> Intent? {
         let withoutWake = utterance.trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: #"^(자비스|jarvis)[,，.!！?？\s]*"#,
+            .replacingOccurrences(of: #"^(애기야|아기야|자비스|jarvis)[,，.!！?？\s]*"#,
                                   with: "", options: [.regularExpression, .caseInsensitive])
             .lowercased()
         let clean=withoutWake.replacingOccurrences(of: #"[ \t\n\r.!,，?？!！]+"#,
@@ -63,7 +63,7 @@ enum JarvisLocalClock {
             result=formatter.string(from:now)
         }
         let label=zone.abbreviation(for: now) ?? zone.identifier
-        return "주인님, Mac 시스템 시각 기준 \(result)입니다. (\(zone.identifier), \(label))"
+        return "오빠, Mac 시스템 시각 기준 \(result)입니다. (\(zone.identifier), \(label))"
     }
 }
 
@@ -72,13 +72,21 @@ enum JarvisLocalClock {
 enum JarvisDialogueInput {
     static func command(_ text: String) -> String {
         text.trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: #"^(데카|자비스|jarvis)(?=$|[\s,，.!！?？])[,，.!！?？\s]*"#,
+            .replacingOccurrences(of: #"^(애기야|아기야|데카|자비스|jarvis)(?=$|[\s,，.!！?？])[,，.!！?？\s]*"#,
                                   with: "", options: [.regularExpression,.caseInsensitive])
+    }
+    // Only an isolated personal wake phrase is a greeting. A following
+    // command such as "애기야, 오늘 날씨" must still be routed normally.
+    static func personalWakeGreeting(_ text:String) -> (reply:String, end:Bool)? {
+        let compact = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: #"[,，.!！?？\s]+"#, with: "", options: .regularExpression)
+        guard ["애기야", "아기야"].contains(compact) else { return nil }
+        return ("네 오빠", false)
     }
     static func presenceOrEnd(_ text:String) -> (reply:String, end:Bool)? {
         let compact=command(text).filter{!$0.isWhitespace}.trimmingCharacters(in:CharacterSet(charactersIn:".!?？!！"))
         if compact.isEmpty || ["있어","거기있어","깨어있어","듣고있어","듣고있니","거기있니","깨어있니","자니","안녕","안녕하세요","내말들려","잘들려"].contains(compact) {
-            return ("네, 주인님. 듣고 있어요.",false)
+            return ("네, 오빠. 듣고 있어요.",false)
         }
         if ["이제쉬어","대화끝","대화종료","대기해","이제대기해","잠깐쉬어","나중에얘기하자","나중에이야기하자","그만듣고있어","그만들어"].contains(compact) {
             return ("네, 필요하면 다시 불러 주세요.",true)

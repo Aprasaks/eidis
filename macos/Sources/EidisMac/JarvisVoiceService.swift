@@ -49,14 +49,14 @@ final class JarvisVoiceService: ObservableObject {
         pitch = min(max(storedPitch ?? 0.88, 0.75), 1.25)
     }
 
-    func speak(_ text: String) {
+    func speak(_ text: String, rateOverride: Double? = nil) {
         let phrase = KoreanSpeechText.normalize(text).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !phrase.isEmpty else { return }
         synthesizer.stopSpeaking(at: .immediate)
         let utterance = AVSpeechUtterance(string: phrase)
         utterance.voice = AVSpeechSynthesisVoice(identifier: voiceID)
             ?? AVSpeechSynthesisVoice(language: "ko-KR")
-        utterance.rate = Float(speed)
+        utterance.rate = Float(min(max(rateOverride ?? speed, 0.38), 0.58))
         utterance.pitchMultiplier = Float(pitch)
         synthesizer.speak(utterance)
     }

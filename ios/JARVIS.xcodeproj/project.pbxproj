@@ -1,0 +1,298 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		BBAA00000000000000001001 /* JARVISApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000000001 /* JARVISApp.swift */; };
+		BBAA00000000000000001003 /* JARVISVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000000003 /* JARVISVoice.swift */; };
+		BBAA00000000000000001004 /* JARVISHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000000004 /* JARVISHomeView.swift */; };
+		BBAA00000000000000002001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000003001 /* Assets.xcassets */; };
+		BBAA00000000000000002002 /* DECHIVE_Core_Mobile.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000003003 /* DECHIVE_Core_Mobile.mp4 */; };
+		BBAA00000000000000001006 /* JARVISCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000000006 /* JARVISCommand.swift */; };
+		BBAA00000000000000001009 /* JarvisLoopingCoreMobile.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000000009 /* JarvisLoopingCoreMobile.swift */; };
+		BBAA00000000000000001011 /* JARVISMobileElevenLabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000000011 /* JARVISMobileElevenLabs.swift */; };
+		BBAA00000000000000001012 /* JARVISVoiceSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000000012 /* JARVISVoiceSettingsView.swift */; };
+		BBAA00000000000000001013 /* JARVISMobileDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000000013 /* JARVISMobileDashboardView.swift */; };
+		BBAA00000000000000001015 /* JARVISCalendarDomain.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000000015 /* JARVISCalendarDomain.swift */; };
+		BBAA00000000000000001016 /* JARVISCalendarStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000000016 /* JARVISCalendarStore.swift */; };
+		BBAA00000000000000001017 /* JARVISCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000000017 /* JARVISCalendarView.swift */; };
+		BBAA00000000000000001018 /* JARVISMobileNearbyCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000000018 /* JARVISMobileNearbyCalendar.swift */; };
+		BBAA00000000000000001019 /* JARVISCalendarPairingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000000019 /* JARVISCalendarPairingView.swift */; };
+		BBAA00000000000000001020 /* JARVISAlarmDomain.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000000020 /* JARVISAlarmDomain.swift */; };
+		BBAA00000000000000001021 /* JARVISAlarmStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000000021 /* JARVISAlarmStore.swift */; };
+		BBAA00000000000000001022 /* JARVISAlarmView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000000022 /* JARVISAlarmView.swift */; };
+		BBAA00000000000000001023 /* JARVISWakeConfirmationIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000000023 /* JARVISWakeConfirmationIntent.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		BBAA00000000000000000001 /* JARVISApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISApp.swift; sourceTree = "<group>"; };
+		BBAA00000000000000000003 /* JARVISVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISVoice.swift; sourceTree = "<group>"; };
+		BBAA00000000000000000004 /* JARVISHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISHomeView.swift; sourceTree = "<group>"; };
+		BBAA00000000000000003001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		BBAA00000000000000003003 /* DECHIVE_Core_Mobile.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = DECHIVE_Core_Mobile.mp4; sourceTree = "<group>"; };
+		BBAA00000000000000003002 /* JARVIS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = JARVIS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BBAA00000000000000000006 /* JARVISCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISCommand.swift; sourceTree = "<group>"; };
+		BBAA00000000000000000009 /* JarvisLoopingCoreMobile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JarvisLoopingCoreMobile.swift; sourceTree = "<group>"; };
+		BBAA00000000000000000011 /* JARVISMobileElevenLabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISMobileElevenLabs.swift; sourceTree = "<group>"; };
+		BBAA00000000000000000012 /* JARVISVoiceSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISVoiceSettingsView.swift; sourceTree = "<group>"; };
+		BBAA00000000000000000013 /* JARVISMobileDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISMobileDashboardView.swift; sourceTree = "<group>"; };
+		BBAA00000000000000000015 /* JARVISCalendarDomain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISCalendarDomain.swift; sourceTree = "<group>"; };
+		BBAA00000000000000000016 /* JARVISCalendarStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISCalendarStore.swift; sourceTree = "<group>"; };
+		BBAA00000000000000000017 /* JARVISCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISCalendarView.swift; sourceTree = "<group>"; };
+		BBAA00000000000000000018 /* JARVISMobileNearbyCalendar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISMobileNearbyCalendar.swift; sourceTree = "<group>"; };
+		BBAA00000000000000000019 /* JARVISCalendarPairingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISCalendarPairingView.swift; sourceTree = "<group>"; };
+		BBAA00000000000000000020 /* JARVISAlarmDomain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISAlarmDomain.swift; sourceTree = "<group>"; };
+		BBAA00000000000000000021 /* JARVISAlarmStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISAlarmStore.swift; sourceTree = "<group>"; };
+		BBAA00000000000000000022 /* JARVISAlarmView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISAlarmView.swift; sourceTree = "<group>"; };
+		BBAA00000000000000000023 /* JARVISWakeConfirmationIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISWakeConfirmationIntent.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		BBAA00000000000000004001 = {
+			isa = PBXGroup;
+			children = (
+				BBAA00000000000000004002 /* JARVIS */,
+				BBAA00000000000000004004 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		BBAA00000000000000004002 /* JARVIS */ = {
+			isa = PBXGroup;
+			children = (
+				BBAA00000000000000004003 /* Sources */,
+				BBAA00000000000000003001 /* Assets.xcassets */,
+				BBAA00000000000000004005 /* Resources */,
+			);
+			path = JARVIS;
+			sourceTree = "<group>";
+		};
+		BBAA00000000000000004003 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				BBAA00000000000000000001 /* JARVISApp.swift */,
+				BBAA00000000000000000003 /* JARVISVoice.swift */,
+				BBAA00000000000000000004 /* JARVISHomeView.swift */,
+				BBAA00000000000000000009 /* JarvisLoopingCoreMobile.swift */,
+				BBAA00000000000000000006 /* JARVISCommand.swift */,
+				BBAA00000000000000000013 /* JARVISMobileDashboardView.swift */,
+				BBAA00000000000000000017 /* JARVISCalendarView.swift */,
+				BBAA00000000000000000019 /* JARVISCalendarPairingView.swift */,
+				BBAA00000000000000000022 /* JARVISAlarmView.swift */,
+				BBAA00000000000000000023 /* JARVISWakeConfirmationIntent.swift */,
+				BBAA00000000000000000021 /* JARVISAlarmStore.swift */,
+				BBAA00000000000000000020 /* JARVISAlarmDomain.swift */,
+				BBAA00000000000000000018 /* JARVISMobileNearbyCalendar.swift */,
+				BBAA00000000000000000016 /* JARVISCalendarStore.swift */,
+				BBAA00000000000000000015 /* JARVISCalendarDomain.swift */,
+				BBAA00000000000000000012 /* JARVISVoiceSettingsView.swift */,
+				BBAA00000000000000000011 /* JARVISMobileElevenLabs.swift */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		BBAA00000000000000004005 /* Resources */ = {
+			isa = PBXGroup;
+			children = (BBAA00000000000000003003 /* DECHIVE_Core_Mobile.mp4 */,);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		BBAA00000000000000004004 /* Products */ = {
+			isa = PBXGroup;
+			children = (BBAA00000000000000003002 /* JARVIS.app */,);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		BBAA00000000000000005001 /* JARVIS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BBAA00000000000000007002;
+			buildPhases = (
+				BBAA00000000000000006001 /* Sources */,
+				BBAA00000000000000006002 /* Frameworks */,
+				BBAA00000000000000006003 /* Resources */,
+			);
+			buildRules = ();
+			dependencies = ();
+			name = JARVIS;
+			productName = JARVIS;
+			productReference = BBAA00000000000000003002;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		BBAA00000000000000005002 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastUpgradeCheck = 2650;
+				TargetAttributes = {
+					BBAA00000000000000005001 = {CreatedOnToolsVersion = 26.5;};
+				};
+			};
+			buildConfigurationList = BBAA00000000000000007001;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = ko;
+			hasScannedForEncodings = 0;
+			knownRegions = (ko, en, Base);
+			mainGroup = BBAA00000000000000004001;
+			productRefGroup = BBAA00000000000000004004;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (BBAA00000000000000005001 /* JARVIS */,);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		BBAA00000000000000006001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BBAA00000000000000001001 /* JARVISApp.swift in Sources */,
+				BBAA00000000000000001003 /* JARVISVoice.swift in Sources */,
+				BBAA00000000000000001004 /* JARVISHomeView.swift in Sources */,
+				BBAA00000000000000001009 /* JarvisLoopingCoreMobile.swift in Sources */,
+				BBAA00000000000000001006 /* JARVISCommand.swift in Sources */,
+				BBAA00000000000000001013 /* JARVISMobileDashboardView.swift in Sources */,
+				BBAA00000000000000001017 /* JARVISCalendarView.swift in Sources */,
+				BBAA00000000000000001019 /* JARVISCalendarPairingView.swift in Sources */,
+				BBAA00000000000000001022 /* JARVISAlarmView.swift in Sources */,
+				BBAA00000000000000001023 /* JARVISWakeConfirmationIntent.swift in Sources */,
+				BBAA00000000000000001021 /* JARVISAlarmStore.swift in Sources */,
+				BBAA00000000000000001020 /* JARVISAlarmDomain.swift in Sources */,
+				BBAA00000000000000001018 /* JARVISMobileNearbyCalendar.swift in Sources */,
+				BBAA00000000000000001016 /* JARVISCalendarStore.swift in Sources */,
+				BBAA00000000000000001015 /* JARVISCalendarDomain.swift in Sources */,
+				BBAA00000000000000001012 /* JARVISVoiceSettingsView.swift in Sources */,
+				BBAA00000000000000001011 /* JARVISMobileElevenLabs.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		BBAA00000000000000006002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXResourcesBuildPhase section */
+		BBAA00000000000000006003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (BBAA00000000000000002001 /* Assets.xcassets in Resources */, BBAA00000000000000002002 /* DECHIVE_Core_Mobile.mp4 in Resources */,);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		BBAA00000000000000008001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		BBAA00000000000000008002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		BBAA00000000000000008003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 10;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = JARVIS/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = JARVIS;
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "사용자가 승인하면 근처 Mac JARVIS와 암호화된 연결로 일정을 동기화합니다.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "사용자가 음성 버튼을 누르면 한국어 음성 명령을 듣기 위해 마이크를 사용합니다.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "JARVIS에서 한국어 음성 명령을 기기 내에서 인식합니다.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.4.1;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.dechive.jarvis.mobile;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		BBAA00000000000000008004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 10;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = JARVIS/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = JARVIS;
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "사용자가 승인하면 근처 Mac JARVIS와 암호화된 연결로 일정을 동기화합니다.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "사용자가 음성 버튼을 누르면 한국어 음성 명령을 듣기 위해 마이크를 사용합니다.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "JARVIS에서 한국어 음성 명령을 기기 내에서 인식합니다.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.4.1;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.dechive.jarvis.mobile;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		BBAA00000000000000007001 = {
+			isa = XCConfigurationList;
+			buildConfigurations = (BBAA00000000000000008001, BBAA00000000000000008002,);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BBAA00000000000000007002 = {
+			isa = XCConfigurationList;
+			buildConfigurations = (BBAA00000000000000008003, BBAA00000000000000008004,);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = BBAA00000000000000005002;
+}

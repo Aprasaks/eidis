@@ -3,13 +3,35 @@ import SwiftUI
 import Security
 import Charts
 
+enum StockTopMetric: String, CaseIterable, Equatable {
+    case value = "MARKET_TRADING_AMOUNT"
+    case volume = "MARKET_TRADING_VOLUME"
+    case gainers = "TOP_GAINERS"
+    case losers = "TOP_LOSERS"
+    var label: String {
+        switch self {
+        case .value: return "거래대금"
+        case .volume: return "거래량"
+        case .gainers: return "급상승"
+        case .losers: return "급하락"
+        }
+    }
+    // The official API does not permit realtime duration for gainers/losers.
+    var duration: String { self == .gainers || self == .losers ? "1d" : "realtime" }
+    var timeLabel: String { duration == "1d" ? "1일 기준" : "실시간 집계 기준" }
+}
+
 enum StockBoardIntent: Equatable {
-    case show(String), ranking(String, String, Int), symbols([String]), watchlist, addWatch([String]), removeWatch([String]), chart(String,String), refresh, hide
+    case show(String), dualTop10(StockTopMetric), mostViewedUnavailable
+    case ranking(String, String, Int), symbols([String]), watchlist, addWatch([String]), removeWatch([String]), chart(String,String), refresh, hide
     static let domestic = ["005930","000660","005380","035420","035720"]
     static let american = ["NVDA","AAPL","MSFT","TSLA","AMZN"]
     static let aliases = ["삼성전자":"005930","SK하이닉스":"000660","하이닉스":"000660","현대차":"005380","네이버":"035420","카카오":"035720","엔비디아":"NVDA","애플":"AAPL","마이크로소프트":"MSFT","테슬라":"TSLA","아마존":"AMZN"]
     static func parse(_ raw: String) -> Self? {
-        let s = raw.uppercased().replacingOccurrences(of: #"^(자비스|JARVIS)[,\s.!]*"#, with:"",options:.regularExpression).filter{ !$0.isWhitespace }.trimmingCharacters(in:CharacterSet(charactersIn:".!！"))
+        let s = raw.uppercased()
+            .replacingOccurrences(of: #"^(애기야|아기야|자비스|데카|JARVIS)[,\s.!！?？]*"#, with:"",options:.regularExpression)
+            .filter { !$0.isWhitespace }
+            .trimmingCharacters(in:CharacterSet(charactersIn:".!！?？"))
         guard !["하지마","말고","않아","안해","안띄워","매수","매도","주문","팔아","사줘","사라","구매","취소","보유","계좌","예상","추천"].contains(where:{s.contains($0)}) else {return nil}
         if ["주식현황표닫아","주식화면닫아","주식보드닫아","주식현황닫아"].contains(s) {return .hide}
         if ["주식현황갱신해","주식현황새로고침","주식보드갱신해","주식현황표갱신해","주식현황갱신해줘","주식현황새로고침해줘"].contains(s) {return .refresh}
@@ -20,8 +42,32 @@ enum StockBoardIntent: Equatable {
             if ["추가해","추가해줘","등록해","등록해줘"].contains(where:{s.hasSuffix($0)}) {return .addWatch(unique)}
             if ["삭제해","삭제해줘","빼줘","제거해"].contains(where:{s.hasSuffix($0)}) {return .removeWatch(unique)}
         }
-        let request = ["보여줘","띄워봐","띄워줘","알려줘","비교해봐","비교해줘","열어","열어줘","어때?","어때","바꿔봐","바꿔줘"].contains{ s.hasSuffix($0) }
+        // In Korean, "열어봐" and object particles ("현황표를") are
+        // natural voice commands, not unsupported features. Keep an explicit
+        // action verb requirement so ordinary discussions never open a panel.
+        let request = ["보여줘", "보여봐", "보여", "보여줄래", "보여주세요",
+                       "띄워봐", "띄워줘", "띄워", "띄워줄래", "띄워주세요",
+                       "열어", "열어줘", "열어봐", "열어줄래", "열어주세요",
+                       "켜줘", "켜봐", "켜", "알려줘", "알려줘요",
+                       "비교해봐", "비교해줘", "바꿔봐", "바꿔줘", "어때", "어때요"].contains { s.hasSuffix($0) }
         guard request else {return nil}
+        // The official API has traded-value and traded-volume rankings, not
+        // a stock-page view count. Never fabricate an "interest" ranking.
+        let stockWords = ["주식", "종목", "증시", "증권", "현황표"]
+        if stockWords.contains(where:{s.contains($0)}) &&
+            ["조회수", "조회많", "많이보는", "많이본", "인기종목", "인기주식", "실시간인기"].contains(where:{s.contains($0)}) {
+            return .mostViewedUnavailable
+        }
+        let both = ["국내미국", "한국미국", "국내랑미국", "국내와미국", "한국과미국", "양쪽", "양시장", "두시장", "한쪽", "좌우"].contains(where:{s.contains($0)})
+        let topTen = ["TOP10", "탑10", "톱10", "상위10", "열종목", "열개"].contains(where:{s.contains($0)})
+        let genericBoard = ["주식현황표", "주식대시보드", "주식보드", "주식화면", "주식창", "증권현황", "증권창"].contains(where:{s.contains($0)})
+        let metric: StockTopMetric = s.contains("거래량") ? .volume :
+            (s.contains("급상승") || s.contains("급등") || s.contains("상승률")) ? .gainers :
+            (s.contains("급하락") || s.contains("급락") || s.contains("하락률")) ? .losers : .value
+        if both || (topTen && stockWords.contains(where:{s.contains($0)})) ||
+            (genericBoard && !s.contains("미국") && !s.contains("해외")) {
+            return .dualTop10(metric)
+        }
         let market = ["미국","해외"].contains{ s.contains($0) } ? "US":"KR"
         let type = s.contains("거래량") ? "MARKET_TRADING_VOLUME" : s.contains("거래대금") ? "MARKET_TRADING_AMOUNT" : s.contains("급상승") || s.contains("상승률") ? "TOP_GAINERS" : s.contains("하락률") || s.contains("급하락") ? "TOP_LOSERS" : nil
         if let type, ["종목","상위","순위","주식"].contains(where:{s.contains($0)}) {
@@ -33,7 +79,9 @@ enum StockBoardIntent: Equatable {
             return .chart(unique[0],s.contains("1분봉") ? "1m":"1d")
         }
         if !unique.isEmpty && ["주가","현재가","시세","주식","비교","보여","띄워"].contains(where:{s.contains($0)}) {return .symbols(unique)}
-        if ["주식현황","주식보드","주식대시보드","국내증시","미국증시","미국주식","국내주식"].contains(where:{s.contains($0)}) {return .show(market)}
+        if ["주식현황", "주식현황표", "주식보드", "주식창", "주식화면",
+            "주식대시보드", "증권현황", "증권대시보드", "증권창", "증시현황판",
+            "주식시세표", "국내증시", "미국증시", "미국주식", "국내주식"].contains(where:{s.contains($0)}) {return .show(market)}
         return nil
     }
 }
@@ -44,7 +92,10 @@ struct StockQuote: Codable, Identifiable {
 struct StockMaster: Decodable {let symbol: String; let name: String; let currency: String?}
 struct StockIndex: Decodable, Identifiable {let symbol: String; let timestamp: String; let lastPrice: String; var id:String{symbol}}
 struct StockRankingPrice: Decodable {let lastPrice: String; let changeRate: String?}
-struct StockRank: Decodable {let rank: Int; let symbol: String; let currency: String; let price: StockRankingPrice; let tradingVolume: String?}
+struct StockRank: Decodable {
+    let rank: Int; let symbol: String; let currency: String
+    let price: StockRankingPrice; let tradingVolume: String?; let tradingAmount: String?
+}
 struct StockRanks: Decodable {let rankedAt: String?; let rankings: [StockRank]}
 struct StockEnvelope<T: Decodable>: Decodable {let result: T}
 struct StockCandle: Decodable, Identifiable {
@@ -140,10 +191,20 @@ final class StockNoRedirect: NSObject, URLSessionTaskDelegate, @unchecked Sendab
     @Published private(set) var names:[String:String]=[:]
     @Published private(set) var ranks:[StockRank]=[]
     @Published private(set) var rankedAt:String?
+    @Published private(set) var topKR:[StockRank]=[]
+    @Published private(set) var topUS:[StockRank]=[]
+    @Published private(set) var topTimes:[String:String]=[:]
+    @Published private(set) var topProblems:[String:String]=[:]
+    @Published private(set) var selectedTopSymbol:String?
+    @Published private(set) var selectedTopCandles:[StockCandle]=[]
+    @Published private(set) var selectedTopProblem:String?
+    @Published private(set) var topChartBusy=false
+    var isDualTop10:Bool {if case .dualTop10 = mode {return true};return false}
+    var topMetric:StockTopMetric {if case .dualTop10(let metric)=mode{return metric};return .value}
     @Published private(set) var notice="토스증권 연결 대기"
     @Published private(set) var busy=false
     @Published var autoRefresh=false
-    @Published private(set) var mode:StockBoardIntent = .show("KR")
+    @Published private(set) var mode:StockBoardIntent = .dualTop10(.value)
     @Published private(set) var checked:Date?
     @Published private(set) var watchlist:[String] = UserDefaults.standard.stringArray(forKey:"jarvis.stock.watchlist") ?? []
     @Published private(set) var candles:[StockCandle]=[]
@@ -161,13 +222,14 @@ final class StockNoRedirect: NSObject, URLSessionTaskDelegate, @unchecked Sendab
     private var token:String?
     private var expires=Date.distantPast
     private var revision=UUID()
+    private var topChartRevision=UUID()
     private let session:URLSession={
         let c=URLSessionConfiguration.ephemeral
         c.timeoutIntervalForRequest=8; c.timeoutIntervalForResource=12
         c.httpCookieStorage=nil; c.urlCache=nil
         return URLSession(configuration:c,delegate:StockNoRedirect(),delegateQueue:nil)
     }()
-    func hide(){visible=false;autoRefresh=false;revision=UUID()}
+    func hide(){visible=false;autoRefresh=false;revision=UUID();topChartRevision=UUID()}
     static func cleanSymbols(_ s:String)->[String]? {
         let a=s.uppercased().split(whereSeparator:{$0=="," || $0.isWhitespace}).map(String.init)
         guard !a.isEmpty,a.count<=30,a.allSatisfy({$0.range(of:#"^[A-Z0-9][A-Z0-9.-]{0,19}$"#,options:.regularExpression) != nil}) else{return nil}
@@ -203,10 +265,112 @@ final class StockNoRedirect: NSObject, URLSessionTaskDelegate, @unchecked Sendab
         guard !r.access_token.isEmpty,r.expires_in>0 else{throw StockError.invalid}
         token=r.access_token;expires=Date().addingTimeInterval(Double(r.expires_in));return r.access_token
     }
+    private func refreshTop10(_ metric:StockTopMetric) async -> String {
+        guard visible,!busy else{return "주식 조회 대기 중입니다."}
+        busy=true;let run=UUID();revision=run
+        notice="국내·미국 TOP 10 조회 중…"
+        defer{busy=false}
+        do {
+            let bearer=try await auth()
+            var lists:[String:[StockRank]]=[:]
+            var times:[String:String]=[:]
+            var issues:[String:String]=[:]
+            for market in ["KR","US"] {
+                guard revision==run,visible,!Task.isCancelled else{return "주식 조회가 취소되었습니다."}
+                do {
+                    let result:StockEnvelope<StockRanks>=try await request("/api/v1/rankings",[
+                        .init(name:"marketCountry",value:market),
+                        .init(name:"type",value:metric.rawValue),
+                        .init(name:"duration",value:metric.duration),
+                        .init(name:"count",value:"10")
+                    ],bearer:bearer)
+                    lists[market]=Array(result.result.rankings.prefix(10))
+                    if let date=result.result.rankedAt {times[market]=date}
+                    if result.result.rankings.isEmpty {issues[market]="집계된 종목 없음"}
+                } catch {
+                    issues[market]=(error as? StockError)?.localizedDescription ?? "순위 조회 실패"
+                }
+            }
+            guard revision==run,visible,!Task.isCancelled else{return "주식 조회가 취소되었습니다."}
+            let kr=lists["KR"] ?? []
+            let us=lists["US"] ?? []
+            var fetched:[String:String]=[:]
+            let symbols=Array(Set((kr+us).map(\.symbol))).sorted()
+            if !symbols.isEmpty {
+                do {
+                    let master:StockEnvelope<[StockMaster]>=try await request("/api/v1/stocks",[
+                        .init(name:"symbols",value:symbols.joined(separator:","))
+                    ],bearer:bearer)
+                    for item in master.result{fetched[item.symbol]=item.name}
+                } catch {issues["names"]="종목명 조회 실패 · 코드 표시"}
+            }
+            guard revision==run,visible,!Task.isCancelled else{return "주식 조회가 취소되었습니다."}
+            // Failed markets are empty, never stale rows masquerading as live data.
+            topKR=kr;topUS=us;topTimes=times;topProblems=issues;names=fetched
+            checked=Date()
+            // Load one genuine chart by default so tables and graph appear
+            // together on first open. Do not pretend a missing chart is data.
+            let listed=kr+us
+            if let selectedTopSymbol, !listed.contains(where:{$0.symbol==selectedTopSymbol}) {
+                self.selectedTopSymbol=nil;selectedTopCandles=[];selectedTopProblem=nil
+            }
+            if self.selectedTopSymbol == nil, let first=listed.first {
+                await selectTopChart(first.symbol)
+            }
+            if issues["KR"] != nil && issues["US"] != nil {autoRefresh=false}
+            notice=issues["KR"]==nil && issues["US"]==nil ?
+                "토스증권 공식 순위 · 60초 자동 갱신 가능 · 스트리밍 아님" :
+                "일부 시장 조회 실패 · 각 시장의 상태를 확인하세요"
+            return "오빠, 국내·미국 \(metric.label) TOP 10을 열었습니다. " + notice
+        } catch {
+            guard revision==run else{return "주식 조회가 취소되었습니다."}
+            autoRefresh=false;topKR=[];topUS=[];topTimes=[:]
+            topProblems=["KR":"인증 또는 조회 실패","US":"인증 또는 조회 실패"]
+            if case StockError.http(401)=error {token=nil;expires = .distantPast}
+            notice=(error as? StockError)?.localizedDescription ?? "네트워크 또는 응답 확인 실패"
+            return "오빠, \(notice). 확인되지 않은 순위는 표시하지 않겠습니다."
+        }
+    }
+
+    func selectTopChart(_ symbol:String) async {
+        guard visible,isDualTop10,!topChartBusy,
+              (topKR+topUS).contains(where:{$0.symbol==symbol}) else{return}
+        let selection=UUID();topChartRevision=selection
+        selectedTopSymbol=symbol;selectedTopCandles=[];selectedTopProblem=nil
+        topChartBusy=true;defer{topChartBusy=false}
+        do {
+            let bearer=try await auth()
+            let result:StockEnvelope<StockCandlePage>=try await request("/api/v1/candles",[
+                .init(name:"symbol",value:symbol),.init(name:"interval",value:"1d"),
+                .init(name:"count",value:"60")
+            ],bearer:bearer)
+            guard visible,isDualTop10,topChartRevision==selection,!Task.isCancelled else{return}
+            selectedTopCandles=result.result.candles.filter{$0.date != nil && $0.close != nil}
+                .sorted{($0.date ?? .distantPast)<($1.date ?? .distantPast)}
+            if selectedTopCandles.isEmpty{selectedTopProblem="차트 데이터 없음"}
+        } catch {
+            guard visible,topChartRevision==selection else{return}
+            selectedTopProblem=(error as? StockError)?.localizedDescription ?? "차트 조회 실패"
+        }
+    }
+
     func open(_ intent:StockBoardIntent) async -> String {
-        if intent == .hide{hide();return "주인님, 주식 현황표를 닫았습니다."}
-        if busy{return "주인님, 주식 시세 조회가 진행 중입니다."}
+        if intent == .hide{hide();return "오빠, 주식 현황표를 닫았습니다."}
+        if busy{return "오빠, 주식 시세 조회가 진행 중입니다."}
         visible=true
+        if intent == .mostViewedUnavailable {
+            mode = .dualTop10(.value)
+            topKR=[];topUS=[];topTimes=[:];topProblems=[:]
+            selectedTopSymbol=nil;selectedTopCandles=[];selectedTopProblem=nil
+            topChartRevision=UUID()
+            let result = await refresh()
+            return "오빠, 토스증권 공식 API에는 종목별 조회수 순위가 없어요. 대신 국내·미국 거래대금 TOP 10을 표시했어요. " + result
+        }
+        if case .dualTop10 = intent {
+            topKR=[];topUS=[];topTimes=[:];topProblems=[:]
+            selectedTopSymbol=nil;selectedTopCandles=[];selectedTopProblem=nil
+            topChartRevision=UUID()
+        }
         switch intent {
         case .addWatch(let codes), .removeWatch(let codes):
             let remove:Bool
@@ -224,6 +388,7 @@ final class StockNoRedirect: NSObject, URLSessionTaskDelegate, @unchecked Sendab
     }
     func refresh() async -> String {
         guard visible,!busy else{return "주식 조회 대기 중입니다."}
+        if case .dualTop10(let metric) = mode {return await refreshTop10(metric)}
         if mode == .watchlist && watchlist.isEmpty {
             autoRefresh=false;quotes=[];notice="관심 종목 없음 · 종목 코드를 추가하세요.";return notice
         }
@@ -295,16 +460,16 @@ final class StockNoRedirect: NSObject, URLSessionTaskDelegate, @unchecked Sendab
             notice=warnings.isEmpty ? "토스증권 조회 완료 · 실시간 스트리밍 아님" : warnings.joined(separator:" · ")
             if case .symbols(let requested)=mode,requested.count<=3,!q.isEmpty {
                 let brief=q.map{"\(localNames[$0.symbol] ?? $0.symbol) \($0.lastPrice) \($0.currency)"}.joined(separator:", ")
-                return "주인님, 토스증권 조회 결과입니다. \(brief). 시세 기준 시각은 화면에서 확인하세요."
+                return "오빠, 토스증권 조회 결과입니다. \(brief). 시세 기준 시각은 화면에서 확인하세요."
             }
-            return "주인님, 토스증권 시세 \(q.count+r.count)개를 화면에 표시했습니다. \(notice)."
+            return "오빠, 토스증권 시세 \(q.count+r.count)개를 화면에 표시했습니다. \(notice)."
         } catch {
             guard revision==run else{return "주식 조회가 취소되었습니다."}
             autoRefresh=false
             if case StockError.http(401)=error{token=nil;expires = .distantPast}
             notice=(error as? StockError)?.localizedDescription ?? "네트워크 또는 응답 확인 실패"
             if checked != nil{notice += " · 이전 조회 값 유지"}
-            return "주인님, \(notice). 확인하지 않은 시세는 표시하지 않겠습니다."
+            return "오빠, \(notice). 확인하지 않은 시세는 표시하지 않겠습니다."
         }
     }
 }
@@ -332,6 +497,145 @@ struct JarvisStockBoardView:View {
                 if let volume{Text("거래량 "+volume).font(.caption)}
             }
         }.padding(10).background(.white.opacity(0.04),in:RoundedRectangle(cornerRadius:8))
+    }
+    private func topAmountLabel(_ raw:String?,currency:String) -> String {
+        guard let raw,let amount=Double(raw),amount.isFinite else{return "미확인"}
+        if currency == "KRW" {
+            if amount >= 1_000_000_000_000 {return String(format:"%.2f조원",amount/1_000_000_000_000)}
+            if amount >= 100_000_000 {return String(format:"%.1f억원",amount/100_000_000)}
+            return String(format:"%.0f원",amount)
+        }
+        if amount >= 1_000_000_000 {return String(format:"%.2fB %@",amount/1_000_000_000,currency)}
+        if amount >= 1_000_000 {return String(format:"%.1fM %@",amount/1_000_000,currency)}
+        return String(format:"%.0f %@",amount,currency)
+    }
+    private func topPriceLabel(_ raw:String,currency:String) -> String {
+        guard let price=Double(raw),price.isFinite else{return raw+" "+currency}
+        if currency == "KRW" {
+            let formatter=NumberFormatter()
+            formatter.numberStyle = .decimal
+            formatter.maximumFractionDigits = 0
+            return (formatter.string(from:NSNumber(value:price)) ?? raw) + "원"
+        }
+        return String(format:"%.2f %@",price,currency)
+    }
+    private func topTenRow(_ item:StockRank) -> some View {
+        Button {
+            Task { await model.selectTopChart(item.symbol) }
+        } label: {
+            HStack(spacing:8) {
+                Text(String(item.rank)).font(.system(size:12,weight:.semibold,design:.monospaced))
+                    .foregroundStyle(.orange).frame(width:18,alignment:.leading)
+                VStack(alignment:.leading,spacing:2) {
+                    Text(model.names[item.symbol] ?? item.symbol)
+                        .font(.system(size:12,weight:.medium)).lineLimit(1)
+                    Text(item.symbol).font(.system(size:10,design:.monospaced))
+                        .foregroundStyle(.white.opacity(0.52))
+                    if model.topMetric == .value || model.topMetric == .volume {
+                        Text(model.topMetric == .value ?
+                             "대금 " + topAmountLabel(item.tradingAmount,currency:item.currency) :
+                             "거래량 " + (item.tradingVolume ?? "미확인"))
+                            .font(.system(size:9,design:.monospaced))
+                            .foregroundStyle(.white.opacity(0.47)).lineLimit(1)
+                    }
+                }
+                Spacer(minLength:3)
+                VStack(alignment:.trailing,spacing:2) {
+                    Text(topPriceLabel(item.price.lastPrice,currency:item.currency))
+                        .font(.system(size:12,weight:.semibold,design:.monospaced))
+                        .lineLimit(1).minimumScaleFactor(0.75)
+                    if let rate=item.price.changeRate, let value=Double(rate),value.isFinite {
+                        Text(String(format:"%+.2f%%",value*100))
+                            .font(.system(size:11,weight:.medium,design:.monospaced))
+                            .foregroundStyle(value >= 0 ? .red : .cyan)
+                    } else {Text("등락률 미확인").font(.system(size:10)).foregroundStyle(.gray)}
+                }
+            }
+            .padding(.horizontal,10).padding(.vertical,7)
+            .frame(maxWidth:.infinity)
+            .background(model.selectedTopSymbol == item.symbol ?
+                Color.orange.opacity(0.16):Color.white.opacity(0.04),
+                in:RoundedRectangle(cornerRadius:8))
+        }
+        .buttonStyle(.plain)
+        .disabled(model.topChartBusy)
+    }
+    private func topTenColumn(_ country:String, rows:[StockRank]) -> some View {
+        VStack(alignment:.leading,spacing:6) {
+            HStack {
+                Text(country == "KR" ? "대한민국 TOP 10" : "미국 TOP 10")
+                    .font(.system(size:16,weight:.semibold))
+                Spacer()
+                Text("\(rows.count) / 10")
+                    .font(.system(size:10,design:.monospaced)).foregroundStyle(.orange)
+            }
+            Text(model.topTimes[country].map{"집계 "+format($0)} ?? "집계 시각 확인 필요")
+                .font(.system(size:10)).foregroundStyle(.white.opacity(0.55))
+            if let problem=model.topProblems[country] {
+                Text(problem).font(.caption).foregroundStyle(.orange).padding(.vertical,12)
+            } else if rows.isEmpty {
+                Text(model.busy ? "공식 순위를 불러오는 중…" : "조회된 순위 없음")
+                    .font(.caption).foregroundStyle(.white.opacity(0.65)).padding(.vertical,12)
+            }
+            ForEach(rows,id:\.symbol) { item in topTenRow(item) }
+            Spacer(minLength:0)
+        }
+        .padding(12)
+        .frame(maxWidth:.infinity,alignment:.topLeading)
+        .background(Color.white.opacity(0.035),in:RoundedRectangle(cornerRadius:12))
+    }
+    private var dualTopBoard:some View {
+        VStack(alignment:.leading,spacing:11) {
+            HStack(spacing:8) {
+                ForEach(StockTopMetric.allCases,id:\.rawValue) { metric in
+                    Button(metric.label) { run(.dualTop10(metric)) }
+                        .buttonStyle(.bordered)
+                        .tint(model.topMetric == metric ? .orange : .gray)
+                        .disabled(model.busy)
+                }
+                Spacer(minLength:0)
+                Text(model.topMetric.timeLabel)
+                    .font(.system(size:10,design:.monospaced))
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+            HStack(alignment:.top,spacing:12) {
+                topTenColumn("KR",rows:model.topKR)
+                topTenColumn("US",rows:model.topUS)
+            }
+            if let symbol=model.selectedTopSymbol {
+                VStack(alignment:.leading,spacing:5) {
+                    HStack {
+                        Text((model.names[symbol] ?? symbol) + " · 최근 60개 일봉")
+                            .font(.system(size:14,weight:.semibold))
+                        Spacer()
+                        if model.topChartBusy {ProgressView().controlSize(.small)}
+                        Text("실제 API 차트").font(.caption2).foregroundStyle(.white.opacity(0.6))
+                    }
+                    if let problem=model.selectedTopProblem {
+                        Text(problem).font(.caption).foregroundStyle(.orange)
+                    } else if !model.selectedTopCandles.isEmpty {
+                        Chart(model.selectedTopCandles) { candle in
+                            if let date=candle.date,let price=candle.close {
+                                LineMark(x:.value("날짜",date),y:.value("종가",price))
+                                    .foregroundStyle(.orange)
+                            }
+                        }
+                        .chartYScale(domain:.automatic(includesZero:false))
+                        .frame(height:170)
+                        if let last=model.selectedTopCandles.last {
+                            Text("마지막 차트 봉: " + format(last.timestamp))
+                                .font(.caption2).foregroundStyle(.white.opacity(0.6))
+                        }
+                    } else if !model.topChartBusy {
+                        Text("선택한 종목의 확인된 차트가 없습니다.").font(.caption)
+                    }
+                }
+                .padding(12)
+                .background(Color.white.opacity(0.04),in:RoundedRectangle(cornerRadius:12))
+            }
+            Text("토스증권 Open API · 조회 전용 · 조회수 순위 미제공 · 60초 폴링, 체결 스트리밍 아님")
+                .font(.system(size:10)).foregroundStyle(.white.opacity(0.55))
+        }
     }
     @ViewBuilder private var watchControls:some View {
             HStack {
@@ -383,6 +687,7 @@ struct JarvisStockBoardView:View {
             }
             Text(model.notice).font(.caption).foregroundStyle(.orange)
             HStack{
+                Button("한·미 TOP10"){run(.dualTop10(.value))}
                 Button("국내"){run(.show("KR"))};Button("미국"){run(.show("US"))}
                 Button("관심"){run(.watchlist)}
                 Button("거래량 상위"){run(.ranking("KR","MARKET_TRADING_VOLUME",20))}
@@ -399,15 +704,20 @@ struct JarvisStockBoardView:View {
             if !model.indices.isEmpty {
                 HStack{ForEach(model.indices){i in VStack(alignment:.leading){Text(i.symbol).font(.caption).foregroundStyle(.orange);Text(i.lastPrice).font(.title2.monospacedDigit());Text(format(i.timestamp)).font(.caption2)}.frame(maxWidth:.infinity,alignment:.leading).padding(10).background(.white.opacity(0.05),in:RoundedRectangle(cornerRadius:8))}}
             }
-            marketCalendarView
-            Text("실제 거래소 운영 여부와 시세 지연은 별도 확인").font(.caption2).foregroundStyle(.white.opacity(0.65))
-            if case .ranking(_,let type,_)=model.mode{Text("시장 순위 · 1일 · "+type).font(.caption)}
-            ScrollView{
-                LazyVStack(spacing:6){
-                    stockChartView
-                    ForEach(model.quotes){q in row(model.names[q.symbol] ?? q.symbol,q.symbol,q.lastPrice,q.currency,format(q.timestamp))}
-                    ForEach(model.ranks,id:\.symbol){r in row("\(r.rank). "+(model.names[r.symbol] ?? r.symbol),r.symbol,r.price.lastPrice,r.currency,model.rankedAt.map(format) ?? "집계 시각 미확인",r.price.changeRate,r.tradingVolume)}
-                    if model.quotes.isEmpty && model.ranks.isEmpty{Text("확인된 시세 없음").foregroundStyle(.white.opacity(0.55)).padding(28)}
+            if model.isDualTop10 {
+                ScrollView { dualTopBoard }
+            } else {
+                marketCalendarView
+                Text("실제 거래소 운영 여부와 시세 지연은 별도 확인")
+                    .font(.caption2).foregroundStyle(.white.opacity(0.65))
+                if case .ranking(_,let type,_)=model.mode{Text("시장 순위 · 1일 · "+type).font(.caption)}
+                ScrollView{
+                    LazyVStack(spacing:6){
+                        stockChartView
+                        ForEach(model.quotes){q in row(model.names[q.symbol] ?? q.symbol,q.symbol,q.lastPrice,q.currency,format(q.timestamp))}
+                        ForEach(model.ranks,id:\.symbol){r in row("\(r.rank). "+(model.names[r.symbol] ?? r.symbol),r.symbol,r.price.lastPrice,r.currency,model.rankedAt.map(format) ?? "집계 시각 미확인",r.price.changeRate,r.tradingVolume)}
+                        if model.quotes.isEmpty && model.ranks.isEmpty{Text("확인된 시세 없음").foregroundStyle(.white.opacity(0.55)).padding(28)}
+                    }
                 }
             }
             Text("출처: 토스증권 Open API · 조회 전용 · 주문 기능 없음").font(.caption2).foregroundStyle(.white.opacity(0.60))

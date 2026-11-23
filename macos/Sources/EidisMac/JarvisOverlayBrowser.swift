@@ -94,7 +94,7 @@ final class JarvisOverlayBrowser: ObservableObject {
         currentURL = url
         isLoading = true
         isVisible = true
-        return "주인님, \(channel.title) 프로필을 자비스 안에서 불러오는 중입니다."
+        return "오빠, \(channel.title) 프로필을 자비스 안에서 불러오는 중입니다."
     }
 
     // Browser Control 1.0 always acts inside this temporary non-persistent
@@ -108,10 +108,10 @@ final class JarvisOverlayBrowser: ObservableObject {
         case .follow(let number):
             guard let view=readyPage(), linkSourceURL == view.url,
                   let link=observedLinks.first(where:{$0.number==number}) else {
-                return "주인님, 현재 페이지에서 확인된 링크 목록이 없습니다. 먼저 '링크 목록 보여줘'라고 해주세요."
+                return "오빠, 현재 페이지에서 확인된 링크 목록이 없습니다. 먼저 '링크 목록 보여줘'라고 해주세요."
             }
             guard JarvisBrowserControlPolicy.safeReadOnlyLink(link.url, from:view.url!) else {
-                return "주인님, 로그인·결제 등으로 이어지거나 다른 사이트로 이동하는 링크는 자동으로 누르지 않습니다."
+                return "오빠, 로그인·결제 등으로 이어지거나 다른 사이트로 이동하는 링크는 자동으로 누르지 않습니다."
             }
             return await navigate(link.url,sameHostOnly:true)
         case .typeSearch(let query):
@@ -122,10 +122,10 @@ final class JarvisOverlayBrowser: ObservableObject {
             return await scrollPage(-1)
         case .inspect:
             guard let page=readyPage(), let url=page.url else {
-                return "주인님, 실제로 로딩이 끝난 웹페이지가 없습니다."
+                return "오빠, 실제로 로딩이 끝난 웹페이지가 없습니다."
             }
             let title=String((page.title ?? "제목 확인 불가").prefix(120))
-            let answer="주인님, 현재 내부 브라우저에 열린 페이지는 \(title)입니다. 확인된 주소: \(url.absoluteString)"
+            let answer="오빠, 현재 내부 브라우저에 열린 페이지는 \(title)입니다. 확인된 주소: \(url.absoluteString)"
             lastControlReceipt=answer
             return answer
         }
@@ -145,11 +145,11 @@ final class JarvisOverlayBrowser: ObservableObject {
 
     private func navigate(_ url:URL,sameHostOnly:Bool) async -> String {
         guard JarvisBrowserControlPolicy.safePublicURL(url) else {
-            return "주인님, 자동 탐색은 공개 HTTPS 주소만 허용합니다. 내부 주소와 위험한 URL은 열지 않습니다."
+            return "오빠, 자동 탐색은 공개 HTTPS 주소만 허용합니다. 내부 주소와 위험한 URL은 열지 않습니다."
         }
         if sameHostOnly,let existing=webView?.url,
            !JarvisBrowserControlPolicy.safeReadOnlyLink(url,from:existing) {
-            return "주인님, 안전한 동일 사이트 링크만 자동 탐색할 수 있습니다."
+            return "오빠, 안전한 동일 사이트 링크만 자동 탐색할 수 있습니다."
         }
         let prior=readyPage()?.url
         let previousCompletion=navigationCompletionCount
@@ -170,7 +170,7 @@ final class JarvisOverlayBrowser: ObservableObject {
             }
             if let errorText {
                 lastControlReceipt="접속 실패: \(url.host ?? "페이지")"
-                return "주인님, 실제 페이지 접속에 실패했습니다. \(errorText)"
+                return "오빠, 실제 페이지 접속에 실패했습니다. \(errorText)"
             }
             if let view=webView, !view.isLoading,let loaded=view.url,
                loaded.host?.lowercased()==url.host?.lowercased(),
@@ -180,7 +180,7 @@ final class JarvisOverlayBrowser: ObservableObject {
                 let title=String((view.title ?? loaded.host ?? "제목 미확인").prefix(110))
                 let redirect = loaded.absoluteString == url.absoluteString ? "" :
                     "요청 주소에서 같은 사이트의 다른 주소로 리디렉션되었습니다. "
-                let text="주인님, 실제 웹페이지 로딩을 확인했습니다. " +
+                let text="오빠, 실제 웹페이지 로딩을 확인했습니다. " +
                     redirect + "\(title) — 실제 주소: \(loaded.absoluteString)"
                 lastControlReceipt=text
                 return text
@@ -188,12 +188,12 @@ final class JarvisOverlayBrowser: ObservableObject {
             try? await Task.sleep(for: .milliseconds(150))
         }
         lastControlReceipt="요청 주소 \(url.absoluteString) · 실제 확인 주소 \(lastObservedURL?.absoluteString ?? "없음") · 완료 \(navigationCompletionCount)/\(previousCompletion)"
-        return "주인님, 웹페이지를 열도록 요청했지만 제한 시간 안에 실제 로딩 완료를 확인하지 못했습니다. 실제 주소: \(lastObservedURL?.absoluteString ?? "미확인")"
+        return "오빠, 웹페이지를 열도록 요청했지만 제한 시간 안에 실제 로딩 완료를 확인하지 못했습니다. 실제 주소: \(lastObservedURL?.absoluteString ?? "미확인")"
     }
 
     private func listVisibleLinks() async -> String {
         guard let view=readyPage(),let url=view.url else {
-            return "주인님, 먼저 페이지를 열고 로딩이 끝난 뒤 링크를 확인해 주세요."
+            return "오빠, 먼저 페이지를 열고 로딩이 끝난 뒤 링크를 확인해 주세요."
         }
         // DOM values are untrusted and are never executed as tool instructions.
         let js = """
@@ -212,7 +212,7 @@ final class JarvisOverlayBrowser: ObservableObject {
             let value=try await view.evaluateJavaScript(js)
             guard !Task.isCancelled,readyPage() === view,view.url==url,
                   let raw=value as? [[String: Any]] else {
-                return "주인님, 웹페이지가 변경되어 링크 목록을 확정할 수 없습니다."
+                return "오빠, 웹페이지가 변경되어 링크 목록을 확정할 수 없습니다."
             }
             var links:[JarvisObservedLink]=[]
             var seen=Set<String>()
@@ -230,23 +230,23 @@ final class JarvisOverlayBrowser: ObservableObject {
             linkSourceURL=url
             guard !links.isEmpty else {
                 lastControlReceipt="현재 화면에서 안전한 동일 도메인 링크를 찾지 못함"
-                return "주인님, 현재 보이는 화면에 자동으로 열 수 있는 안전한 동일 사이트 링크가 없습니다. 스크롤해 다시 확인할 수 있습니다."
+                return "오빠, 현재 보이는 화면에 자동으로 열 수 있는 안전한 동일 사이트 링크가 없습니다. 스크롤해 다시 확인할 수 있습니다."
             }
             lastControlReceipt="실제 화면의 안전한 링크 \(links.count)개 확인"
             let list=links.prefix(8).map {
                 "링크 \($0.number)번: \($0.title)"
             }
-            return "주인님, 현재 웹페이지에서 확인된 링크입니다.\n" + list.joined(separator:"\n") +
+            return "오빠, 현재 웹페이지에서 확인된 링크입니다.\n" + list.joined(separator:"\n") +
                 (links.count>8 ? "\n나머지 \(links.count-8)개도 목록에 남겼습니다." : "") +
                 "\n원하는 링크 번호를 말씀해 주세요. 같은 사이트의 읽기 전용 링크만 열 수 있습니다."
         } catch {
-            return "주인님, 웹페이지에서 링크를 읽지 못했습니다. 실제 링크를 확인하지 않은 상태입니다."
+            return "오빠, 웹페이지에서 링크를 읽지 못했습니다. 실제 링크를 확인하지 않은 상태입니다."
         }
     }
 
     private func typeSearchQuery(_ input:String) async -> String {
         guard let view=readyPage(),let url=view.url else {
-            return "주인님, 먼저 웹페이지를 연 뒤 검색창에 입력해 주세요."
+            return "오빠, 먼저 웹페이지를 연 뒤 검색창에 입력해 주세요."
         }
         // Only searchbox, never password/email/payment/general text fields.
         // callAsyncJavaScript binds input as an argument, not executable JS.
@@ -275,19 +275,19 @@ final class JarvisOverlayBrowser: ObservableObject {
             guard !Task.isCancelled,readyPage() === view,view.url==url,
                   let result=response as? [String:Any],
                   result["ok"] as? Bool == true else {
-                return "주인님, 화면의 검색창에 입력됐는지 확인하지 못했습니다. 직접 확인해 주세요."
+                return "오빠, 화면의 검색창에 입력됐는지 확인하지 못했습니다. 직접 확인해 주세요."
             }
-            let message="주인님, 현재 페이지의 검색 전용 입력창에 문구를 입력한 것을 확인했습니다. 제출 버튼이나 Enter는 누르지 않았습니다."
+            let message="오빠, 현재 페이지의 검색 전용 입력창에 문구를 입력한 것을 확인했습니다. 제출 버튼이나 Enter는 누르지 않았습니다."
             lastControlReceipt=message
             return message
         } catch {
-            return "주인님, 검색창 입력을 완료했다고 확인할 수 없습니다."
+            return "오빠, 검색창 입력을 완료했다고 확인할 수 없습니다."
         }
     }
 
     private func scrollPage(_ direction:Int) async -> String {
         guard let view=readyPage(),let url=view.url else {
-            return "주인님, 로딩이 끝난 페이지가 없어서 스크롤하지 않았습니다."
+            return "오빠, 로딩이 끝난 페이지가 없어서 스크롤하지 않았습니다."
         }
         do {
             let response=try await view.evaluateJavaScript("""
@@ -301,17 +301,17 @@ final class JarvisOverlayBrowser: ObservableObject {
                   let item=response as? [String:Any],
                   let before=item["before"] as? Double,
                   let after=item["after"] as? Double else {
-                return "주인님, 스크롤 결과를 검증하지 못했습니다."
+                return "오빠, 스크롤 결과를 검증하지 못했습니다."
             }
             guard abs(after-before)>1 else {
-                return "주인님, 이 페이지는 해당 방향으로 더 스크롤되지 않았습니다."
+                return "오빠, 이 페이지는 해당 방향으로 더 스크롤되지 않았습니다."
             }
             clearLinkState() // old visible links are no longer a valid selection.
             let label=direction>0 ? "아래" : "위"
             lastControlReceipt="스크롤 \(label) · 실제 이동 확인"
-            return "주인님, 실제 페이지를 \(label)로 스크롤한 것을 확인했습니다. 링크 목록은 새 화면 기준으로 다시 읽어야 합니다."
+            return "오빠, 실제 페이지를 \(label)로 스크롤한 것을 확인했습니다. 링크 목록은 새 화면 기준으로 다시 읽어야 합니다."
         } catch {
-            return "주인님, 스크롤에 성공했는지 확인하지 못했습니다."
+            return "오빠, 스크롤에 성공했는지 확인하지 못했습니다."
         }
     }
 

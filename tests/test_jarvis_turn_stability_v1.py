@@ -9,7 +9,7 @@ class TurnStability(unittest.TestCase):
         self.assertIn("let continuingActiveTurn = fullscreenDialogue?.wakeCaptureBusy == true",UI)
         self.assertIn("if continuingActiveTurn {",UI)
         self.assertIn("dialogue.showSummonCaption()",UI)
-        self.assertIn("fallback.speak(Self.summonGreeting)",VOICE)
+        self.assertIn("fallback.speak(Self.summonGreeting, rateOverride: Self.summonFallbackRate)",VOICE)
     def test_recognizer_stopped_and_missing_partial_time(self):
         self.assertIn("if !self.listener.isListening {\n                    self.completeUtterance()",CHAT)
         self.assertIn("if self.lastPartialAt == nil { self.lastPartialAt = Date() }",CHAT)

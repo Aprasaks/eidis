@@ -1,0 +1,91 @@
+#!/bin/bash
+# Install a signed Mac JARVIS release, retaining only 3 signed prior builds.
+# Packaging never installs; use --check for a non-mutating audit.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+SOURCE="$ROOT/dist/JARVIS.app"
+APP="$HOME/Applications/JARVIS.app"
+BACKUPS="$HOME/Applications/JARVIS-backups"
+PRUNER="$ROOT/macos/scripts/prune-app-backups.py"
+IDENTIFIER="dev.dechive.eidis"
+
+fail() { echo "ERROR: $*" >&2; exit 1; }
+value() { /usr/libexec/PlistBuddy -c "Print :$2" "$1/Contents/Info.plist"; }
+verify() {
+  [[ -d "$1" && ! -L "$1" ]] || fail "Missing or linked app: $1"
+  [[ "$(value "$1" CFBundleIdentifier)" == "$IDENTIFIER" ]] || fail "Unexpected app identifier: $1"
+  /usr/bin/codesign --verify --deep --strict "$1" || fail "Invalid signature: $1"
+}
+[[ $# -eq 0 || ( $# -eq 1 && "$1" == '--check' ) ]] || fail "Usage: $0 [--check]"
+[[ -f "$PRUNER" ]] || fail "Backup management script missing"
+[[ -d "$SOURCE" && -d "$APP" ]] || fail "Both packaged and installed JARVIS apps must exist"
+[[ ! -L "$BACKUPS" ]] || fail "Refusing symbolic backup directory"
+
+verify "$SOURCE"
+verify "$APP"
+FROM="$(value "$APP" CFBundleShortVersionString)"
+TO="$(value "$SOURCE" CFBundleShortVersionString)"
+OLD_BUILD="$(value "$APP" CFBundleVersion)"
+NEW_BUILD="$(value "$SOURCE" CFBundleVersion)"
+[[ "$OLD_BUILD" =~ ^[0-9]+$ && "$NEW_BUILD" =~ ^[0-9]+$ ]] || fail "Non-numeric build version"
+echo "Installed JARVIS: $FROM (build $OLD_BUILD)"
+echo "Staged JARVIS:    $TO (build $NEW_BUILD)"
+if [[ $# -eq 1 ]]; then
+  python3 "$PRUNER" --keep 3
+  echo "CHECK COMPLETE. No files changed."
+  exit 0
+fi
+(( NEW_BUILD > OLD_BUILD )) || fail "New bundle build must be newer (use --check to audit)"
+
+mkdir -p "$BACKUPS"
+[[ ! -L "$BACKUPS" ]] || fail "Backup directory unexpectedly changed"
+
+# Staging and installed app renames happen on the same filesystem.
+STAGE_DIR="$(mktemp -d "$HOME/Applications/.JARVIS-install-XXXXXXXX")"
+STAGE="$STAGE_DIR/JARVIS.app"
+trap 'if [[ -d "$STAGE_DIR" ]]; then rm -rf "$STAGE_DIR"; fi' EXIT
+/usr/bin/ditto "$SOURCE" "$STAGE"
+verify "$STAGE"
+
+STAMP="$(date +%Y%m%d-%H%M%S)"
+BACKUP="$BACKUPS/JARVIS-v$FROM-$STAMP.app"
+[[ ! -e "$BACKUP" ]] || fail "Backup already exists: $BACKUP"
+
+if /usr/bin/pgrep -f "^$APP/Contents/MacOS/EidisMac" >/dev/null; then
+  /usr/bin/osascript -e 'tell application id "dev.dechive.eidis" to quit' || true
+  for ((i=0; i<30; i++)); do
+    /usr/bin/pgrep -f "^$APP/Contents/MacOS/EidisMac" >/dev/null || break
+    sleep 0.4
+  done
+  if /usr/bin/pgrep -f "^$APP/Contents/MacOS/EidisMac" >/dev/null; then
+    fail "Running JARVIS did not quit; old app kept."
+  fi
+fi
+
+mv "$APP" "$BACKUP"
+if ! mv "$STAGE" "$APP"; then
+  mv "$BACKUP" "$APP"
+  fail "Install failed; prior app restored."
+fi
+
+if ! /usr/bin/codesign --verify --deep --strict "$APP"; then
+  mv "$APP" "$STAGE"
+  mv "$BACKUP" "$APP"
+  fail "New app signature invalid; prior app restored."
+fi
+
+if ! /usr/bin/open -a "$APP"; then
+  mv "$APP" "$STAGE"
+  mv "$BACKUP" "$APP"
+  /usr/bin/open -a "$APP" || true
+  fail "New app launch failed; prior app restored."
+fi
+
+# Installation completed; old backup pruning is best-effort and audited.
+echo "Installed JARVIS v$TO. Pruning old backup apps..."
+if ! python3 "$PRUNER" --keep 3 --apply; then
+  echo "WARNING: New app installed; backup pruning incomplete. Check logs." >&2
+  exit 2
+fi
+echo "DONE: JARVIS v$TO installed; retained 3 signed previous builds."

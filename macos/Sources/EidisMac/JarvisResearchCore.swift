@@ -153,31 +153,31 @@ final class JarvisResearchClient {
             case .submit(let raw):
                 let response: JarvisResearchSubmit = try await request(
                     "/submit", payload: ["query": raw])
-                return "주인님, 외부 웹 조사 \(response.job.id)번을 접수했습니다. " +
+                return "오빠, 외부 웹 조사 \(response.job.id)번을 접수했습니다. " +
                     "실제 검색·원문 확인 결과를 기록하겠습니다. 검색어는 공개 검색 서비스에 전달됩니다."
             case .status:
                 let result = try await snapshot()
-                if result.items.isEmpty { return "주인님, 아직 접수한 웹 조사가 없습니다." }
+                if result.items.isEmpty { return "오빠, 아직 접수한 웹 조사가 없습니다." }
                 let items = result.items.prefix(4).map {
                     "조사 \($0.id)번 \($0.query.prefix(40)) · \($0.state) \($0.progress)"
                 }
-                return "주인님, 웹 조사 현황입니다.\n" + items.joined(separator: "\n")
+                return "오빠, 웹 조사 현황입니다.\n" + items.joined(separator: "\n")
             case .report(let id):
                 let result: JarvisResearchJob = try await request("/job?id=\(id)")
                 guard ["completed","partial","failed"].contains(result.state) else {
-                    return "주인님, 조사 \(id)번은 현재 \(result.state) 상태입니다. \(result.progress)"
+                    return "오빠, 조사 \(id)번은 현재 \(result.state) 상태입니다. \(result.progress)"
                 }
-                return "주인님, 웹 조사 \(id)번의 실제 출처 보고서입니다.\n" +
+                return "오빠, 웹 조사 \(id)번의 실제 출처 보고서입니다.\n" +
                     (result.report.isEmpty ? result.summary : result.report)
             case .cancel(let id):
                 let result: JarvisResearchCancel = try await request("/cancel",
                     payload: ["id": id])
                 return result.cancelled
-                    ? "주인님, 조사 \(id)번을 중단했습니다. 늦게 도착한 자료는 저장하지 않습니다."
-                    : "주인님, 해당 조사는 완료되었거나 중단할 수 없습니다."
+                    ? "오빠, 조사 \(id)번을 중단했습니다. 늦게 도착한 자료는 저장하지 않습니다."
+                    : "오빠, 해당 조사는 완료되었거나 중단할 수 없습니다."
             }
         } catch {
-            return "주인님, 조사 요청을 확인하지 못했습니다. 접수됐다고 주장하지 않겠습니다."
+            return "오빠, 조사 요청을 확인하지 못했습니다. 접수됐다고 주장하지 않겠습니다."
         }
     }
 

@@ -118,7 +118,7 @@ final class JarvisKnowledgeVault: ObservableObject {
             if let itemId, selectedItem != nil { return "저장 번호 \(itemId)번 자료를 보관함에 표시했습니다." }
             if result.total == 0 { return "일치하는 저장 자료가 없습니다. 보관함은 열었습니다." }
             let kind = category.isEmpty ? "자료" : (Self.labels[category] ?? "자료")
-            return "주인님, 저장한 \(kind) \(result.total)건을 보관함에 보여드릴게요."
+            return "오빠, 저장한 \(kind) \(result.total)건을 보관함에 보여드릴게요."
         } catch {
             guard !Task.isCancelled && generation == token else { return "" }
             isLoading = false
@@ -143,7 +143,7 @@ final class JarvisKnowledgeVault: ObservableObject {
             if showResult.isEmpty { return "" }
             return item.duplicate == true
                 ? "이미 저장된 자료입니다. 보관함 \(item.id)번을 보여드릴게요."
-                : "주인님, \(item.categoryLabel) 분류로 \(item.id)번에 저장했습니다. 보관함에 표시했어요."
+                : "오빠, \(item.categoryLabel) 분류로 \(item.id)번에 저장했습니다. 보관함에 표시했어요."
         } catch {
             return "자료를 저장하지 못했습니다. 내용이나 로컬 서버 상태를 확인해 주세요."
         }

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key><string>ko</string>
+    <key>CFBundleDisplayName</key><string>JARVIS</string>
+    <key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
+    <key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+    <key>CFBundleName</key><string>$(PRODUCT_NAME)</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
+    <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
+    <key>LSRequiresIPhoneOS</key><true/>
+    <key>NSMicrophoneUsageDescription</key><string>사용자가 음성 버튼을 누르면 한국어 음성 명령을 듣기 위해 마이크를 사용합니다.</string>
+    <key>NSSpeechRecognitionUsageDescription</key><string>JARVIS에서 한국어 음성 명령을 기기 내에서 인식합니다.</string>
+    <key>NSAlarmKitUsageDescription</key><string>JARVIS에서 사용자가 설정한 기상 알람을 정해진 시각에 울리기 위해 사용합니다.</string>
+    <key>NSLocalNetworkUsageDescription</key><string>사용자가 승인하면 근처 Mac JARVIS와 암호화된 연결로 일정을 동기화합니다.</string>
+    <key>NSBonjourServices</key>
+    <array><string>_jarvis-cal-v1._tcp</string></array>
+    <key>UISupportedInterfaceOrientations</key>
+    <array><string>UIInterfaceOrientationPortrait</string></array>
+    <key>UILaunchScreen</key><dict/>
+    <key>UIApplicationSceneManifest</key>
+    <dict><key>UIApplicationSupportsMultipleScenes</key><true/></dict>
+</dict>
+</plist>

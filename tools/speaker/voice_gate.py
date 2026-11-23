@@ -10,10 +10,12 @@ from collections import deque
 import json,os,time
 
 WAKE_THRESHOLD = .25
-WAKEWORD_THRESHOLD = .28  # provisional distant-call sensitivity; owner filter still required
+# Strict threshold from synthetic held-out voices: 11/12 target hits, 0/68
+# confusable/ordinary negative hits at 0.95. Real microphone still unverified.
+WAKEWORD_THRESHOLD = .95
 COMMAND_THRESHOLD = .52
 CHUNK = 2560
-WAKE_MODEL = Path.home()/".jarvis-lab/wakeword/venv/lib/python3.10/site-packages/openwakeword/resources/models/hey_jarvis_v0.1.onnx"
+WAKE_MODEL = Path.home()/".jarvis-lab/wakeword/aegiya_ko_wake.onnx"
 
 def assess(model, owner, raw, threshold, min_seconds):
     try:

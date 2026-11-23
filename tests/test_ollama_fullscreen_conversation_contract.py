@@ -46,7 +46,7 @@ class OllamaFullscreenConversationContract(unittest.TestCase):
         self.assertIn('moveToAdjacentScreen', OVERLAY)
         self.assertIn('NSSpeechRecognitionUsageDescription', PLIST)
         self.assertIn('NSMicrophoneUsageDescription', PLIST)
-        self.assertIn('<string>3.14.3</string>', PLIST)
+        self.assertIn('<string>3.14.13</string>', PLIST)
 
 if __name__ == '__main__':
     unittest.main()

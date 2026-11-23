@@ -58,7 +58,10 @@ final class ElevenLabsVoiceService: ObservableObject {
     @Published private(set) var libraryStatus = "ElevenLabs 계정에 저장된 목소리를 가져올 수 있습니다."
     @Published private(set) var isLoadingLibrary = false
     private var samplePlayer: AVPlayer?
-    private static let summonGreeting = "주인님, 자비스입니다."
+    private static let summonGreeting = "오빠, 뭘 도와드릴까요?"
+    // Only the initial greeting speaks more slowly; normal replies stay unchanged.
+    private static let summonSpeed = 0.85
+    private static let summonFallbackRate = 0.38
     // Cache only the fixed greeting for the lifetime of this app process.
     // Dynamic answers still use the existing per-request synthesis path.
     private var greetingCache: (voiceID: String, modelID: String, audio: Data)?
@@ -367,7 +370,7 @@ final class ElevenLabsVoiceService: ObservableObject {
         // A previous canceled generation may still be unwinding. Never drop
         // the greeting just because the provider is busy.
         if isBusy {
-            fallback.speak(Self.summonGreeting)
+            fallback.speak(Self.summonGreeting, rateOverride: Self.summonFallbackRate)
             return
         }
         if !keyPresent { await refreshSavedKeyAvailability() }
@@ -381,7 +384,7 @@ final class ElevenLabsVoiceService: ObservableObject {
                 guard !Task.isCancelled else { return }
                 guard audio.prepareToPlay(), audio.play() else {
                     greetingCache = nil
-                    fallback.speak(Self.summonGreeting)
+                    fallback.speak(Self.summonGreeting, rateOverride: Self.summonFallbackRate)
                     return
                 }
                 player = audio
@@ -437,7 +440,7 @@ final class ElevenLabsVoiceService: ObservableObject {
         let phrase = KoreanSpeechText.normalize(text).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !phrase.isEmpty else { return }
         guard (enabled || explicitlyPreviewed) && keyPresent else {
-            fallback.speak(phrase)
+            fallback.speak(phrase, rateOverride: isSummonGreeting ? Self.summonFallbackRate : nil)
             if explicitlyPreviewed {
                 status = "ElevenLabs 미리 듣기에는 저장된 API 키가 필요합니다. Mac 음성으로 대체했습니다."
             }
@@ -449,18 +452,18 @@ final class ElevenLabsVoiceService: ObservableObject {
         }
         guard phrase.count <= Self.maxCharacters, text.count <= Self.maxCharacters else {
             status = "600자를 넘는 응답은 비용·정보 노출을 줄이기 위해 Mac에서만 읽습니다."
-            fallback.speak(phrase)
+            fallback.speak(phrase, rateOverride: isSummonGreeting ? Self.summonFallbackRate : nil)
             return
         }
         let id = voiceID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard id.range(of: "^[A-Za-z0-9]{20}$", options: .regularExpression) != nil else {
             status = "Voice ID는 20자리 영문·숫자여야 합니다. Mac 음성으로 대체합니다."
-            fallback.speak(phrase)
+            fallback.speak(phrase, rateOverride: isSummonGreeting ? Self.summonFallbackRate : nil)
             return
         }
         guard ["eleven_flash_v2_5", "eleven_multilingual_v2"].contains(modelID) else {
             status = "ElevenLabs 모델 또는 API 키를 확인해 주세요."
-            fallback.speak(phrase)
+            fallback.speak(phrase, rateOverride: isSummonGreeting ? Self.summonFallbackRate : nil)
             return
         }
         let key = await Task.detached(priority: .userInitiated) {
@@ -469,12 +472,12 @@ final class ElevenLabsVoiceService: ObservableObject {
         guard !Task.isCancelled, generation == speechGeneration else { return }
         guard let key else {
             status = "ElevenLabs API 키를 읽지 못했습니다. Mac 기본 음성으로 전환합니다."
-            fallback.speak(phrase)
+            fallback.speak(phrase, rateOverride: isSummonGreeting ? Self.summonFallbackRate : nil)
             return
         }
         guard let url = URL(string:
             "https://api.elevenlabs.io/v1/text-to-speech/\(id)?output_format=mp3_44100_128"
-        ) else { fallback.speak(phrase); return }
+        ) else { fallback.speak(phrase, rateOverride: isSummonGreeting ? Self.summonFallbackRate : nil); return }
 
         // Every request, including a preview, can use credits. Do not retry.
         attempts += 1
@@ -493,7 +496,7 @@ final class ElevenLabsVoiceService: ObservableObject {
         request.setValue("audio/mpeg", forHTTPHeaderField: "Accept")
         request.httpBody = try? JSONSerialization.data(withJSONObject: [
             "text": phrase, "model_id": modelID,
-            "voice_settings": ["speed": isSummonGreeting ? 1.0 : responseSpeed]
+            "voice_settings": ["speed": isSummonGreeting ? Self.summonSpeed : responseSpeed]
         ])
         do {
             let (data, response) = try await session.data(for: request)
@@ -528,7 +531,7 @@ final class ElevenLabsVoiceService: ObservableObject {
             guard !Task.isCancelled, generation == speechGeneration else { return }
             // Error content, API key and raw provider response are never logged.
             status = "ElevenLabs 음성 생성 실패: \((error as? ElevenLabsVoiceError)?.description ?? "네트워크 또는 재생 오류"). Mac 기본 음성으로 전환했습니다."
-            fallback.speak(phrase)
+            fallback.speak(phrase, rateOverride: isSummonGreeting ? Self.summonFallbackRate : nil)
         }
     }
 }

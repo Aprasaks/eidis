@@ -17,7 +17,7 @@ class JarvisLiveDialogueContract(unittest.TestCase):
                       'self.transcript = self.assembled.receive('):
             self.assertIn(value, SPEECH)
         for value in ('listener.$transcript.sink', 'liveTranscript = String(partial.prefix(6000))',
-                      'lastPartialAt = Date()', '주인님 / LIVE TRANSCRIPT',
+                      'lastPartialAt = Date()', '오빠 / LIVE TRANSCRIPT',
                       '인식 중 · 아직 확정되지 않은 문장'):
             self.assertIn(value, CHAT + PANEL)
         self.assertNotIn('prediction =', PANEL)

@@ -111,25 +111,25 @@ final class JarvisActionClient {
             switch intent {
             case .submit(let workflow):
                 let result: ActionSubmit = try await call("/submit", payload: ["workflow":workflow])
-                return "주인님, 업무 \(result.job.id)번 \(result.job.label)을 접수했습니다. 실제 자료 조회 후 결과를 로컬에 보관합니다. 진행 중에도 대화하실 수 있습니다."
+                return "오빠, 업무 \(result.job.id)번 \(result.job.label)을 접수했습니다. 실제 자료 조회 후 결과를 로컬에 보관합니다. 진행 중에도 대화하실 수 있습니다."
             case .status:
                 let result: ActionStatus = try await call("")
-                if result.items.isEmpty { return "주인님, 아직 접수된 업무가 없습니다." }
+                if result.items.isEmpty { return "오빠, 아직 접수된 업무가 없습니다." }
                 let rows = result.items.prefix(5).map { "업무 \($0.id)번 \($0.label) · \($0.stateLabel)" }
-                return "주인님, 최근 업무 현황입니다. " + rows.joined(separator: "\n")
+                return "오빠, 최근 업무 현황입니다. " + rows.joined(separator: "\n")
             case .report(let id):
                 let result: JarvisActionJob = try await call("/job?id=\(id)")
                 guard result.state == "completed" || result.state == "partial" else {
-                    return "주인님, 업무 \(id)번은 \(result.stateLabel) 상태입니다. \(result.summary)"
+                    return "오빠, 업무 \(id)번은 \(result.stateLabel) 상태입니다. \(result.summary)"
                 }
-                return "주인님, 업무 \(id)번 \(result.stateLabel) 보고서입니다.\n" + (result.report ?? result.summary)
+                return "오빠, 업무 \(id)번 \(result.stateLabel) 보고서입니다.\n" + (result.report ?? result.summary)
             case .cancel(let id):
                 let result: ActionCancel = try await call("/cancel", payload: ["id":id])
-                return result.cancelled ? "주인님, 업무 \(id)번을 중단했습니다. 늦게 도착하는 조회 결과는 저장하지 않습니다." :
-                    "주인님, 해당 업무가 이미 종료되었거나 중단 가능한 업무가 아닙니다."
+                return result.cancelled ? "오빠, 업무 \(id)번을 중단했습니다. 늦게 도착하는 조회 결과는 저장하지 않습니다." :
+                    "오빠, 해당 업무가 이미 종료되었거나 중단 가능한 업무가 아닙니다."
             }
         } catch {
-            return "주인님, 업무 요청을 확인하지 못했습니다. 업무 현황에서 실제 접수 여부를 확인해 주세요."
+            return "오빠, 업무 요청을 확인하지 못했습니다. 업무 현황에서 실제 접수 여부를 확인해 주세요."
         }
     }
 

@@ -70,7 +70,7 @@ final class JarvisPersonalProfile {
     func contextForQwen() async -> String {
         guard let facts = try? await read(), !facts.isEmpty else { return "" }
         // A previously saved display name is factual profile data, not
-        // permission to override the user's fixed spoken address "주인님".
+        // permission to override the user's fixed spoken address "오빠".
         let ordered = Self.displayOrder.filter { $0 != "display_name" }.compactMap { key -> String? in
             guard let value = facts.first(where: { $0.key == key })?.value else { return nil }
             return "\(Self.labels[key] ?? key): \(value.replacingOccurrences(of: "\\n", with: " "))"
@@ -100,7 +100,7 @@ final class JarvisPersonalProfile {
     func address() async -> String {
         // Fixed user instruction: the spoken honorific is not inferred from
         // older saved name/profile facts and requires no network lookup.
-        "주인님이라고 부르겠습니다."
+        "오빠라고 부르겠습니다."
     }
 
     func set(_ key: String, value: String) async -> String {

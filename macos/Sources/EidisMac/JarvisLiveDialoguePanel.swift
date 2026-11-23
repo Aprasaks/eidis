@@ -166,7 +166,7 @@ struct JarvisLiveDialoguePanel: View {
                     VStack(alignment: .leading, spacing: 13) {
                         ForEach(dialogue.dialogueTurns) { turn in
                             VStack(alignment: .leading, spacing: 4) {
-                                Text((turn.role == "YOU" ? "주인님" : "DECHIVE") +
+                                Text((turn.role == "YOU" ? "오빠" : "DECHIVE") +
                                      (turn.interrupted ? " / INTERRUPTED" : ""))
                                     .font(.system(size: 9, weight: .semibold, design: .monospaced))
                                     .foregroundStyle(turn.role == "YOU" ? amber : .green.opacity(0.9))
@@ -192,7 +192,7 @@ struct JarvisLiveDialoguePanel: View {
                         }
                         if !dialogue.liveTranscript.isEmpty || (!quiet && dialogue.isListening) {
                             VStack(alignment: .leading, spacing: 5) {
-                                Text(quiet ? "주인님" : "주인님 / LIVE TRANSCRIPT")
+                                Text(quiet ? "오빠" : "오빠 / LIVE TRANSCRIPT")
                                     .font(.system(size: 9, weight: .semibold, design: .monospaced))
                                     .foregroundStyle(amber)
                                 Text(dialogue.liveTranscript.isEmpty ?

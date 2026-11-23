@@ -35,7 +35,7 @@ class ElevenLabsVoiceContract(unittest.TestCase):
         self.assertNotIn("private static let maxRequests = 5",ELEVEN)
         self.assertIn("private static let maxCharacters = 600",ELEVEN)
         self.assertIn("attempts += 1",ELEVEN)
-        self.assertIn("fallback.speak(phrase)",ELEVEN)
+        self.assertIn("fallback.speak(phrase, rateOverride: isSummonGreeting ? Self.summonFallbackRate : nil)",ELEVEN)
         self.assertIn("URLSessionConfiguration.ephemeral",ELEVEN)
         self.assertNotIn("URLSession.shared",ELEVEN)
         self.assertIn("Button(\"ElevenLabs 미리 듣기 · 크레딧 사용\")",SPEECH)

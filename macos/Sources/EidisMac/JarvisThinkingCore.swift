@@ -47,7 +47,7 @@ enum JarvisThoughtIntent: Equatable {
 
     static func parse(_ utterance: String) -> Self? {
         let withoutWake = utterance.replacingOccurrences(
-            of: #"^(자비스|jarvis)[,，?？.!！\s]*"#,
+            of: #"^(애기야|아기야|자비스|jarvis)[,，?？.!！\s]*"#,
             with: "", options: [.regularExpression, .caseInsensitive])
         let text = withoutWake.lowercased().replacingOccurrences(of: " ", with: "")
         // Acknowledge only an explicitly identified notification, not a task.
@@ -182,7 +182,7 @@ final class JarvisThinkingCore {
     func savePriorThought(topic: String, hypothesis: String) async -> String {
         guard !topic.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               !hypothesis.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return "주인님, 아직 기록할 직전 토론 내용이 없습니다."
+            return "오빠, 아직 기록할 직전 토론 내용이 없습니다."
         }
         do {
             let saved: JarvisThoughtSaveResponse = try await request(
@@ -190,38 +190,38 @@ final class JarvisThinkingCore {
                     "topic": String(topic.prefix(300)),
                     "hypothesis": String(hypothesis.prefix(1500))
                 ])
-            return "주인님, 사고 기록 \(saved.thought.id)번에 '검증 전 가설'로 저장했습니다. 사실로 확정하지는 않았습니다."
+            return "오빠, 사고 기록 \(saved.thought.id)번에 '검증 전 가설'로 저장했습니다. 사실로 확정하지는 않았습니다."
         } catch {
-            return "주인님, 사고 기록을 저장하지 못했습니다. 저장했다고 표시하지 않겠습니다."
+            return "오빠, 사고 기록을 저장하지 못했습니다. 저장했다고 표시하지 않겠습니다."
         }
     }
 
     func reviewThought(id: Int, status: String, note: String) async -> String {
         guard status == "rejected" || status == "user_reviewed" else {
-            return "주인님, 지원하지 않는 사고 검토 상태입니다."
+            return "오빠, 지원하지 않는 사고 검토 상태입니다."
         }
         do {
             let saved: JarvisThoughtSaveResponse = try await request(
                 "api/thoughts/review",
                 payload: ["id": id, "status": status, "note": note])
             return status == "rejected"
-                ? "주인님, 사고 기록 \(saved.thought.id)번을 폐기된 판단으로 표시했습니다. 이전 이력은 보존합니다."
-                : "주인님, 사고 기록 \(saved.thought.id)번에 사용자 검토를 표시했습니다. 사실 검증 완료를 뜻하지는 않습니다."
+                ? "오빠, 사고 기록 \(saved.thought.id)번을 폐기된 판단으로 표시했습니다. 이전 이력은 보존합니다."
+                : "오빠, 사고 기록 \(saved.thought.id)번에 사용자 검토를 표시했습니다. 사실 검증 완료를 뜻하지는 않습니다."
         } catch {
-            return "주인님, 사고 기록 상태를 변경하지 못했습니다."
+            return "오빠, 사고 기록 상태를 변경하지 못했습니다."
         }
     }
 
     func listSavedThoughts() async -> String {
         do {
             let result: JarvisThoughtListResponse = try await request("api/thoughts")
-            if result.items.isEmpty { return "주인님, 아직 승인해 저장한 사고 기록이 없습니다." }
+            if result.items.isEmpty { return "오빠, 아직 승인해 저장한 사고 기록이 없습니다." }
             let lines = result.items.prefix(5).map {
                 "\($0.id)번 [\($0.status)] \($0.topic.prefix(65))"
             }
-            return "주인님, 저장한 사고 기록입니다. " + lines.joined(separator: " / ")
+            return "오빠, 저장한 사고 기록입니다. " + lines.joined(separator: " / ")
         } catch {
-            return "주인님, 현재 사고 기록 저장소를 확인할 수 없습니다."
+            return "오빠, 현재 사고 기록 저장소를 확인할 수 없습니다."
         }
     }
 
@@ -233,19 +233,19 @@ final class JarvisThinkingCore {
         do {
             let result = try await continuitySnapshot()
             guard result.lastScan != nil else {
-                return "주인님, 아직 첫 점검이 완료되지 않았습니다."
+                return "오빠, 아직 첫 점검이 완료되지 않았습니다."
             }
             if result.openCount == 0 {
-                return "주인님, 현재 로컬 기록에서 확인을 요청할 새 사항은 없습니다. 모든 일이 끝났다는 뜻은 아닙니다."
+                return "오빠, 현재 로컬 기록에서 확인을 요청할 새 사항은 없습니다. 모든 일이 끝났다는 뜻은 아닙니다."
             }
             let lines = result.items.prefix(3).map {
                 "알림 \($0.id)번, \($0.title.prefix(65)): \($0.reason)"
             }
             let rest = result.openCount > lines.count ? " 외 \(result.openCount - lines.count)건입니다." : ""
-            return "주인님, 확인할 사항이 \(result.openCount)건 있습니다. " +
+            return "오빠, 확인할 사항이 \(result.openCount)건 있습니다. " +
                 lines.joined(separator: " / ") + rest + " 실제 진행 여부를 확인해 주세요."
         } catch {
-            return "주인님, 현재 자동 점검 기록을 불러오지 못했습니다."
+            return "오빠, 현재 자동 점검 기록을 불러오지 못했습니다."
         }
     }
 
@@ -254,10 +254,10 @@ final class JarvisThinkingCore {
             let result: JarvisContinuityAcknowledgement = try await request(
                 "api/continuity/acknowledge", payload: ["id": id])
             return result.acknowledged
-                ? "주인님, 알림 \(id)번을 확인한 것으로 표시했습니다. 실제 작업이나 가설의 상태는 바꾸지 않았습니다."
-                : "주인님, 해당 미확인 알림을 찾을 수 없습니다."
+                ? "오빠, 알림 \(id)번을 확인한 것으로 표시했습니다. 실제 작업이나 가설의 상태는 바꾸지 않았습니다."
+                : "오빠, 해당 미확인 알림을 찾을 수 없습니다."
         } catch {
-            return "주인님, 알림 확인 상태를 변경하지 못했습니다."
+            return "오빠, 알림 확인 상태를 변경하지 못했습니다."
         }
     }
 
@@ -277,7 +277,7 @@ enum JarvisStudyIntent: Equatable {
 
     static func parse(_ utterance: String) -> Self? {
         let trimmed = utterance.trimmingCharacters(in: .whitespacesAndNewlines)
-        let spoken = trimmed.replacingOccurrences(of: #"^(자비스|jarvis)[,，?？.!！\s]*"#,
+        let spoken = trimmed.replacingOccurrences(of: #"^(애기야|아기야|자비스|jarvis)[,，?？.!！\s]*"#,
             with: "", options: [.regularExpression, .caseInsensitive])
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let s = spoken.replacingOccurrences(of: " ", with: "")
@@ -377,15 +377,15 @@ final class JarvisStudyClient {
 
     func register(topic: String, premise: String = "") async -> String {
         guard !topic.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty else {
-            return "주인님, 먼저 어떤 문제를 맡길지 이야기해 주세요."
+            return "오빠, 먼저 어떤 문제를 맡길지 이야기해 주세요."
         }
         do {
             let reply: JarvisStudyRegistration = try await call("api/study/topic",
                 body:["topic":String(topic.prefix(300)), "premise":String(premise.prefix(1500))])
-            return "주인님, 검토 주제 \(reply.id)번으로 등록했습니다. " +
+            return "오빠, 검토 주제 \(reply.id)번으로 등록했습니다. " +
                 (reply.enabled ? "대화가 끝나면 로컬 자료를 기반으로 검토하고, 자료가 바뀌면 다시 살펴보겠습니다." :
                                 "자동 사고가 중지되어 있어 재개 후 검토할 수 있습니다.")
-        } catch { return "주인님, 주제를 등록하지 못했습니다. 실행했다고 표시하지 않겠습니다." }
+        } catch { return "오빠, 주제를 등록하지 못했습니다. 실행했다고 표시하지 않겠습니다." }
     }
 
     func report() async -> String {
@@ -393,38 +393,38 @@ final class JarvisStudyClient {
             let r: JarvisStudyStatus = try await call("api/study")
             let topicList = r.topics.prefix(3).map { "주제 \($0.id)번 \($0.topic.prefix(45))" }.joined(separator:", ")
             let drafts = r.drafts.prefix(3).map { "검토 초안 \($0.id)번 \($0.topic.prefix(45))" }.joined(separator:", ")
-            return "주인님, 자동 사고는 \(r.enabled ? "허용" : "중지") 상태입니다. 등록 주제 \(r.topics.count)개, 대기 \(r.counts["queued",default:0])건, 실행 \(r.counts["running",default:0])건, 초안 \(r.counts["draft",default:0])건, 실패 \(r.counts["failed",default:0])건입니다. 오늘 남은 실행 한도는 \(r.remaining)회입니다. " + topicList + (drafts.isEmpty ? "" : ". 최근 초안: " + drafts + ". 모두 검증 전 의견입니다.")
-        } catch { return "주인님, 자동 사고 기록을 확인하지 못했습니다." }
+            return "오빠, 자동 사고는 \(r.enabled ? "허용" : "중지") 상태입니다. 등록 주제 \(r.topics.count)개, 대기 \(r.counts["queued",default:0])건, 실행 \(r.counts["running",default:0])건, 초안 \(r.counts["draft",default:0])건, 실패 \(r.counts["failed",default:0])건입니다. 오늘 남은 실행 한도는 \(r.remaining)회입니다. " + topicList + (drafts.isEmpty ? "" : ". 최근 초안: " + drafts + ". 모두 검증 전 의견입니다.")
+        } catch { return "오빠, 자동 사고 기록을 확인하지 못했습니다." }
     }
 
     func read(_ id: Int) async -> String {
         do {
             let r: JarvisStudyDraft = try await call("api/study/draft?id=\(id)")
             guard r.sourceStatus == "ai_generated_unverified" else {
-                return "주인님, 해당 초안의 출처 상태를 확인하지 못했습니다."
+                return "오빠, 해당 초안의 출처 상태를 확인하지 못했습니다."
             }
             let sourceText = r.evidence.isEmpty
                 ? "관련 로컬 자료가 없었습니다."
                 : "참고 기록: " + r.evidence.map { "\($0.kind) \($0.sourceId)번" }.joined(separator: ", ")
-            return "주인님, \(r.topic) 관련 검증 전 초안입니다. " + r.result +
+            return "오빠, \(r.topic) 관련 검증 전 초안입니다. " + r.result +
                 "\n" + sourceText + " · 기록 일시(UTC): " + r.updatedAt
-        } catch { return "주인님, 해당 번호의 완성된 검토 초안이 없습니다." }
+        } catch { return "오빠, 해당 번호의 완성된 검토 초안이 없습니다." }
     }
 
     func stop(_ id: Int) async -> String {
         do {
             let r: JarvisStudyStop = try await call("api/study/stop",body:["id":id])
-            return r.stopped ? "주인님, 검토 주제 \(id)번의 추가 연구를 중단했습니다. 기존 초안은 보존했습니다." :
-                "주인님, 해당 활성 검토 주제가 없습니다."
-        } catch { return "주인님, 중단 요청을 처리하지 못했습니다." }
+            return r.stopped ? "오빠, 검토 주제 \(id)번의 추가 연구를 중단했습니다. 기존 초안은 보존했습니다." :
+                "오빠, 해당 활성 검토 주제가 없습니다."
+        } catch { return "오빠, 중단 요청을 처리하지 못했습니다." }
     }
 
     func setEnabled(_ enabled: Bool) async -> String {
         do {
             let r: JarvisStudyEnabled = try await call("api/study/enabled",body:["enabled":enabled])
-            return r.enabled ? "주인님, 자동 사고를 재개했습니다. 대화가 끝난 뒤 허용된 주제만 검토합니다." :
-                "주인님, 자동 사고를 중지했습니다. 기존 자료와 초안은 그대로 유지합니다."
-        } catch { return "주인님, 자동 사고 설정을 변경하지 못했습니다." }
+            return r.enabled ? "오빠, 자동 사고를 재개했습니다. 대화가 끝난 뒤 허용된 주제만 검토합니다." :
+                "오빠, 자동 사고를 중지했습니다. 기존 자료와 초안은 그대로 유지합니다."
+        } catch { return "오빠, 자동 사고 설정을 변경하지 못했습니다." }
     }
 
     func draftCount() async -> Int? {
@@ -534,7 +534,7 @@ final class JarvisStudyRunner {
         실제 조사나 실행을 했다고 주장하지 마세요. 자료가 부족하면 명시하세요.
         근거가 없다는 것은 가설이 틀렸다는 증명이 아닙니다. 반증이 확인되지 않았다면 "현재 기록으로 판단 불가"라고 표현하고, 맞다/틀리다/명백하다라고 단정하지 마세요.
         기록의 수치나 대상 범위를 확대 해석하지 마세요. 제시된 자료의 종류와 직접 확인된 사실만 설명하세요.
-        기존 판단의 약점 또는 반론, 다른 대안 하나, 주인님이 확인할 다음 검증 질문 하나를 제안하세요.
+        기존 판단의 약점 또는 반론, 다른 대안 하나, 오빠가 확인할 다음 검증 질문 하나를 제안하세요.
         개인정보를 추가로 추정하지 말고 절대로 실행 명령이나 도구 호출을 생성하지 마세요.
         """
         var call = URLRequest(url:URL(string:"http://127.0.0.1:11434/api/chat")!)

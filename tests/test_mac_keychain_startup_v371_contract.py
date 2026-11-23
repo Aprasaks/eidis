@@ -25,7 +25,7 @@ class MacKeychainStartupTests(unittest.TestCase):
         self.assertIn('private static let maxCharacters = 600', VOICE)
         self.assertIn('kSecAttrAccessibleWhenUnlockedThisDeviceOnly', VOICE)
         self.assertIn('let key = await Task.detached(priority: .userInitiated)', VOICE)
-        self.assertIn('fallback.speak(phrase)', VOICE)
+        self.assertIn('fallback.speak(phrase, rateOverride: isSummonGreeting ? Self.summonFallbackRate : nil)', VOICE)
         self.assertIn('SecItemDelete(', VOICE)
         self.assertIn('SecItemAdd(', VOICE)
         self.assertIn('SecItemUpdate(', VOICE)
@@ -34,7 +34,7 @@ class MacKeychainStartupTests(unittest.TestCase):
         self.assertIn('showLaunchIntro', WINDOW)
         self.assertIn('localServer.connectOnLaunch()', WINDOW)
         self.assertRegex(PLIST, r'<string>3\.(?:7\.[1-9][0-9]*|8\.[0-9]+|9\.[0-9]+|10\.[0-9]+|11\.[0-9]+|12\.[0-9]+|13\.[0-9]+|14\.[0-9]+)</string>')
-        self.assertRegex(PLIST, r'<string>(?:3[89]|4[0-9]|5[0-9]|6[0-9]|7[0-7])</string>')
+        self.assertRegex(PLIST, r'<string>(?:3[89]|4[0-9]|5[0-9]|6[0-9]|7[0-9]|8[0-7])</string>')
 
 if __name__ == '__main__':
     unittest.main()

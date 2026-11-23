@@ -22,6 +22,8 @@ cp "$INFO" "$APP/Contents/Info.plist"
 # developer's SQLite DB, Python caches, credentials, .env, Git or other files.
 RESOURCES="$APP/Contents/Resources"
 mkdir -p "$RESOURCES/jarvis" "$RESOURCES/web"
+cp "$PACKAGE/Resources/Art/JARVIS.icns" "$RESOURCES/JARVIS.icns"
+test -s "$RESOURCES/JARVIS.icns"
 # Use the user's original 1920x1080 clip verbatim. The old 720p alpha
 # conversion introduced visible edge noise on external ultrawide displays.
 cp "$PACKAGE/Resources/Art/DECHIVE_FullHD_Loop.mp4" "$RESOURCES/DECHIVE_FullHD_Loop.mp4"

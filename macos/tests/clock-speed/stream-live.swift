@@ -10,7 +10,7 @@ import Foundation
         request.setValue("application/json",forHTTPHeaderField:"Content-Type")
         request.httpBody=try JSONSerialization.data(withJSONObject:[
             "model":"qwen3.5:9b-q4_K_M",
-            "messages":[["role":"system","content":"당신은 자비스입니다. 주인님이라고 부르며 한국어 한 문장으로 답하세요."],
+            "messages":[["role":"system","content":"당신은 자비스입니다. 오빠라고 부르며 한국어 한 문장으로 답하세요."],
                         ["role":"user","content":"인사해줘"]],
             "think":false,"stream":true,"keep_alive":"10m",
             "options":["num_ctx":2048,"num_predict":100,"temperature":0.1]

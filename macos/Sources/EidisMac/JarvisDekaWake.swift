@@ -56,7 +56,7 @@ final class DekaPCMRelay: @unchecked Sendable {
 
 @MainActor final class JarvisDekaWake: ObservableObject {
     @Published private(set) var armed = false
-    @Published private(set) var status = "데카 상시 대기 꺼짐"
+    @Published private(set) var status = "애기야 상시 대기 꺼짐"
     private let engine = AVAudioEngine()
     private var tapInstalled = false
     private var process: Process?
@@ -75,16 +75,16 @@ final class DekaPCMRelay: @unchecked Sendable {
     func start() async {
         guard !armed else { return }
         let id = UUID(); epoch = id; armed = true
-        update("데카 호출 준비 중…")
+        update("애기야 호출 준비 중…")
         let allowed = await AVCaptureDevice.requestAccess(for: .audio)
         guard epoch == id, armed else { return }
-        guard allowed else { fail("데카 마이크 권한 필요"); return }
+        guard allowed else { fail("애기야 마이크 권한 필요"); return }
         let root = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".jarvis-lab/wakeword")
         let python = JarvisVoiceIdentity.python
         guard FileManager.default.isExecutableFile(atPath: python.path),
-              FileManager.default.fileExists(atPath: root.appendingPathComponent("venv/lib/python3.10/site-packages/openwakeword/resources/models/hey_jarvis_v0.1.onnx").path),
+              FileManager.default.fileExists(atPath: root.appendingPathComponent("aegiya_ko_wake.onnx").path),
               let script = JarvisVoiceIdentity.worker else {
-            fail("데카 호출 또는 화자 모델 환경 없음"); return
+            fail("애기야 호출 또는 화자 모델 환경 없음"); return
         }
         let child = Process(), stdin = Pipe(), stdout = Pipe()
         child.executableURL = python
@@ -122,8 +122,8 @@ final class DekaPCMRelay: @unchecked Sendable {
                 NSLog("DEKA: wake candidate rejected by experimental speaker filter")
             } else if line.hasPrefix("HIT "), ready,
                       let score = Double(line.dropFirst(4)), score.isFinite,
-                      (0.28...1).contains(score) {
-                stop("Hey Jarvis 감지 · \(String(format:"%.2f",score)) · 호출 대기 종료")
+                      (0.95...1).contains(score) {
+                stop("애기야 감지 · \(String(format:"%.2f",score)) · 호출 대기 종료")
                 onHit?()
                 return
             } else {
@@ -138,15 +138,15 @@ final class DekaPCMRelay: @unchecked Sendable {
         guard let relay = DekaPCMRelay(handle: input.fileHandleForWriting, source: source, onFailure: { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self, self.epoch == id else { return }
-                self.fail("데카 오디오 전달 오류 · 상시 대기 종료")
+                self.fail("애기야 오디오 전달 오류 · 상시 대기 종료")
             }
         }) else { fail("데카 마이크 변환 실패"); return }
         self.relay = relay
         node.installTap(onBus: 0, bufferSize: 1024, format: source) { buffer,_ in relay.append(buffer) }
         tapInstalled = true
         do { engine.prepare(); try engine.start() }
-        catch { fail("데카 마이크 시작 실패"); return }
-        update("호출 대기 · Hey Jarvis")
+        catch { fail("애기야 마이크 시작 실패"); return }
+        update("호출 대기 · 애기야")
         deadline?.cancel()
         deadline = nil // only worker startup is time-limited
     }
@@ -154,7 +154,7 @@ final class DekaPCMRelay: @unchecked Sendable {
         stop(reason)
         onFailure?(reason)
     }
-    func stop(_ reason: String = "데카 상시 대기 꺼짐") {
+    func stop(_ reason: String = "애기야 상시 대기 꺼짐") {
         epoch = UUID()
         deadline?.cancel(); deadline = nil
         if engine.isRunning { engine.stop() }

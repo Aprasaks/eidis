@@ -12,7 +12,7 @@ class AriaFullscreenGreetingContract(unittest.TestCase):
         self.assertIn('window.orderFrontRegardless()', OVERLAY)
         self.assertLess(OVERLAY.index('window.orderFrontRegardless()\n        window.makeKey()'),
                         OVERLAY.index('speakSummonGreeting(fallback: self.greetingFallback)'))
-        self.assertIn('private static let summonGreeting = "주인님, 자비스입니다."', ELEVEN)
+        self.assertIn('private static let summonGreeting = "오빠, 뭘 도와드릴까요?"', ELEVEN)
         self.assertIn('if !keyPresent { await refreshSavedKeyAvailability() }', ELEVEN)
         self.assertNotIn('SFSpeechRecognizer', OVERLAY)
     def test_cancel_on_escape_and_termination(self):
@@ -28,6 +28,6 @@ class AriaFullscreenGreetingContract(unittest.TestCase):
         self.assertIn('enabled || explicitlyPreviewed', ELEVEN)
         self.assertNotIn('private static let maxRequests = 5', ELEVEN)
         self.assertIn('status = "소환 인사 재생 중 · 저장된 오디오 재사용 (추가 크레딧 없음)"', ELEVEN)
-        self.assertIn('fallback.speak(phrase)', ELEVEN)
+        self.assertIn('fallback.speak(phrase, rateOverride: isSummonGreeting ? Self.summonFallbackRate : nil)', ELEVEN)
 
 if __name__ == '__main__': unittest.main()

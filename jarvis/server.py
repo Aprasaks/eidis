@@ -17,7 +17,7 @@ from .vision import VisionError, VisionRemoteError, vision_ready, analyze_screen
 from .storage import MemoryStore
 from .thinking import related_context
 from .continuity import scan, snapshot, acknowledge, SCAN_INTERVAL
-from . import study, action, research, verification, briefing
+from . import study, action, research, verification, briefing, calendar
 from .projects import ProjectCheckError, verify_public_github
 from .tools import ToolRunner, ToolDenied, ToolExecutionError
 from .google_youtube import GoogleYouTubeConnection, YouTubeConnectionError
@@ -123,6 +123,21 @@ class JarvisHandler(BaseHTTPRequestHandler):
             return self._json(200, {"items": self.store.list_profile()})
         if path == "/api/memories":
             return self._json(200, {"items": self.store.recent_memories()})
+        if path == "/api/calendar/snapshot":
+            try:
+                return self._json(200, {"records": calendar.sync_snapshot(self.store.db)})
+            except ValueError as exc:
+                return self._json(400, {"error": str(exc)})
+        if path == "/api/calendar":
+            try:
+                params = parse_qs(urlsplit(self.path).query)
+                return self._json(200, calendar.listing(
+                    self.store.db,
+                    begin=params.get("from", [None])[0],
+                    finish=params.get("to", [None])[0],
+                    limit=int(params.get("limit", [100])[0])))
+            except (ValueError, TypeError, IndexError) as exc:
+                return self._json(400, {"error": str(exc)})
         if path == "/api/briefing/job":
             try:
                 values=parse_qs(urlsplit(self.path).query)
@@ -204,6 +219,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
                          "/api/projects/github/check", "/api/profile", "/api/profile/forget",
                          "/api/vault", "/api/vault/archive", "/api/vault/restore",
                          "/api/youtube/connect", "/api/thinking/context",
+                         "/api/calendar/create", "/api/calendar/update", "/api/calendar/delete",
+                         "/api/calendar/sync",
                          "/api/thoughts", "/api/thoughts/review", "/api/continuity/acknowledge",
                          "/api/study/topic", "/api/study/stop", "/api/study/enabled",
                          "/api/study/claim", "/api/study/finish", "/api/action/submit", "/api/action/cancel",
@@ -224,6 +241,14 @@ class JarvisHandler(BaseHTTPRequestHandler):
             data = json.loads(self.rfile.read(size))
             if not isinstance(data, dict):
                 raise ValueError("JSON 객체로 요청해야 합니다.")
+            if path == "/api/calendar/sync":
+                return self._json(200, calendar.sync_changes(self.store.db, data))
+            if path == "/api/calendar/create":
+                return self._json(200, {"event": calendar.create(self.store.db, data)})
+            if path == "/api/calendar/update":
+                return self._json(200, {"event": calendar.update(self.store.db, data)})
+            if path == "/api/calendar/delete":
+                return self._json(200, calendar.delete(self.store.db, data))
             if path == "/api/youtube/connect":
                 return self._json(200, self.youtube.begin(self.server.server_port))
             if path == "/api/research/verification/submit":

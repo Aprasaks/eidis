@@ -52,7 +52,7 @@ class ThinkingIntegrationV1(unittest.TestCase):
         for forbidden in ('Toggle(', 'Slider(', 'Button('):
             self.assertNotIn(forbidden, UI)
         self.assertIn('swiftc -parse-as-library -o /tmp/dechive-thinking-smoke', CI)
-        self.assertIn("예외 없이 '주인님'이라는 호칭", COMMAND)
+        self.assertIn("예외 없이 '오빠'라는 호칭", COMMAND)
 
 
 if __name__ == "__main__":

@@ -148,32 +148,32 @@ final class JarvisVerificationClient {
                 let item: JarvisVerificationReceipt = try await request(
                     "/submit", payload: ["research_id": researchId])
                 let state = item.verification.state
-                return "주인님, 조사 \(researchId)번의 출처 검토 \(item.verification.id)번을 " +
+                return "오빠, 조사 \(researchId)번의 출처 검토 \(item.verification.id)번을 " +
                     (state == "queued" ? "접수했습니다. 대화가 끝나면 로컬 Qwen으로 검토하고, 인용 문장을 실제 수집 원문에 다시 대조하겠습니다." :
                     "이미 \(state) 상태로 기록했습니다. 동일한 자료로 중복 검토하지 않습니다.")
             case .status:
                 let status = try await snapshot()
-                if status.items.isEmpty { return "주인님, 아직 출처 검증 요청이 없습니다." }
+                if status.items.isEmpty { return "오빠, 아직 출처 검증 요청이 없습니다." }
                 let entries=status.items.prefix(4).map {
                     "검증 \($0.id)번 (조사 \($0.researchId)번) · \($0.state) · \($0.summary)"
                 }
-                return "주인님, 최근 출처 검증 현황입니다.\n" + entries.joined(separator:"\n")
+                return "오빠, 최근 출처 검증 현황입니다.\n" + entries.joined(separator:"\n")
             case .report(let id):
                 let job: JarvisVerificationJob = try await request("?id=\(id)")
                 guard job.state == "draft" || job.state == "insufficient" else {
-                    return "주인님, 검증 \(id)번은 \(job.state) 상태입니다. \(job.summary)"
+                    return "오빠, 검증 \(id)번은 \(job.state) 상태입니다. \(job.summary)"
                 }
-                return "주인님, 검증 \(id)번의 근거 대조 결과입니다. 사실 확인 완료를 뜻하지 않습니다.\n" +
+                return "오빠, 검증 \(id)번의 근거 대조 결과입니다. 사실 확인 완료를 뜻하지 않습니다.\n" +
                     job.report
             case .cancel(let id):
                 let item: JarvisVerificationCancellation = try await request(
                     "/cancel", payload: ["id": id])
                 return item.cancelled
-                    ? "주인님, 검증 \(id)번의 추가 실행을 중단했습니다."
-                    : "주인님, 해당 검증은 이미 완료됐거나 중단할 수 없습니다."
+                    ? "오빠, 검증 \(id)번의 추가 실행을 중단했습니다."
+                    : "오빠, 해당 검증은 이미 완료됐거나 중단할 수 없습니다."
             }
         } catch {
-            return "주인님, 검증 요청 처리 여부를 확인하지 못했습니다. 검증 현황에서 확인해 주세요."
+            return "오빠, 검증 요청 처리 여부를 확인하지 못했습니다. 검증 현황에서 확인해 주세요."
         }
     }
 

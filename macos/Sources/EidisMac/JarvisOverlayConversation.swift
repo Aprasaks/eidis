@@ -108,10 +108,10 @@ final class JarvisOverlayConversation: ObservableObject {
         wakeSessionStarted = Date()
         wakeSessionTurns = 0
         isSpeaking = true
-        answer = "네, 주인님."
+        answer = "네 오빠"
         dialogueTurns.append(JarvisLiveDialogueTurn(role: "DECHIVE", content: answer))
         if dialogueTurns.count > 12 { dialogueTurns.removeFirst(dialogueTurns.count - 12) }
-        status = "Hey Jarvis 호출 인식 · 응답 중"
+        status = "애기야 호출 인식 · 응답 중"
         let token = generation
         macVoice.speak(answer)
         dialogueTask = Task { [weak self] in
@@ -160,6 +160,7 @@ final class JarvisOverlayConversation: ObservableObject {
     private let researchClient = JarvisResearchClient()
     private let verificationClient = JarvisVerificationClient()
     let liveDashboard = JarvisLiveDashboard()
+    let calendar = JarvisMacCalendarStore.shared
     private let elevenLabs = ElevenLabsVoiceService.shared
     private let session: URLSession
     private var conversation: [[String: String]] = []
@@ -211,7 +212,7 @@ final class JarvisOverlayConversation: ObservableObject {
 
     func showSummonCaption() {
         guard !isListening, !isThinking, !isSpeaking else { return }
-        answer = "주인님, 자비스입니다."
+        answer = "오빠, 뭘 도와드릴까요?"
         dialogueTurns.append(JarvisLiveDialogueTurn(role: "DECHIVE", content: answer))
     }
 
@@ -220,7 +221,7 @@ final class JarvisOverlayConversation: ObservableObject {
         startContinuityMonitor()
         if wakeStandbyEnabled {
             isActive = false
-            status = "호출 대기 · Hey Jarvis"
+            status = "호출 대기 · 애기야"
         } else if Self.microphoneAlreadyAuthorized {
             activateListening()
         } else {
@@ -241,7 +242,7 @@ final class JarvisOverlayConversation: ObservableObject {
     private func refreshContinuityNotice() async {
         if let result = try? await thinkingCore.continuitySnapshot(), !Task.isCancelled {
             continuityNotice = result.openCount > 0
-                ? "주인님, 확인할 사항 \(result.openCount)건 · 최근 기록 기준"
+                ? "오빠, 확인할 사항 \(result.openCount)건 · 최근 기록 기준"
                 : ""
         } else if !Task.isCancelled {
             continuityNotice = ""
@@ -491,7 +492,7 @@ final class JarvisOverlayConversation: ObservableObject {
         status = "질문 처리 중…"
         do {
             let command = JarvisDialogueInput.command(prompt)
-            let localReply = JarvisDialogueInput.presenceOrEnd(command)
+            let localReply = JarvisDialogueInput.personalWakeGreeting(prompt) ?? JarvisDialogueInput.presenceOrEnd(command)
             let response: String
             if let localReply { response = localReply.reply }
             else { response = try await planAndRespond(command, token: token) }
@@ -519,7 +520,8 @@ final class JarvisOverlayConversation: ObservableObject {
                JarvisBrowserControlIntent.parse(prompt) == nil &&
                JarvisBriefingIntent.parse(prompt) == nil &&
                StockBoardIntent.parse(prompt) == nil &&
-               WeatherIntent.parse(prompt) == nil {
+               WeatherIntent.parse(prompt) == nil &&
+               JarvisMacCalendarIntent.parse(prompt) == nil {
                 lastAssistantContent = response
                 lastDiscussionTopic = prompt
             }
@@ -643,9 +645,38 @@ final class JarvisOverlayConversation: ObservableObject {
     /// Qwen selects tools through the local Ollama API. This client only runs
     /// audited, read-only actions from JarvisCommand, never generated code.
     private func planAndRespond(_ prompt: String, token: UUID) async throws -> String {
+        // Calendar commands use JARVIS's own SQLite records, never Apple Calendar.
+        // A creation command opens an editor draft; it NEVER writes before Save.
+        if let intent = JarvisMacCalendarIntent.parse(prompt) {
+            if intent != .hide {
+                weatherCenter.hide()
+                stockBoard.hide()
+                hideBriefing()
+                _ = browser.hide()
+                _ = liveDashboard.hide()
+                _ = dashboard.hide()
+                _ = vault.hide()
+                onWorkspaceRequested?()
+            }
+            return await calendar.show(intent, phrase: prompt)
+        }
+        if calendar.visible && Self.isGenericPanelClose(prompt) {
+            calendar.close()
+            return "오빠, 자비스 캘린더를 닫았습니다."
+        }
+        // Switching to a different workspace must not leave the calendar
+        // obscuring the other explicitly requested panel.
+        if calendar.visible && (
+            StockBoardIntent.parse(prompt) != nil ||
+            WeatherIntent.parse(prompt) != nil ||
+            JarvisLiveDashboardIntent.parse(prompt) != nil ||
+            JarvisBriefingIntent.parse(prompt) != nil ||
+            JarvisBrowserControlIntent.parse(prompt) != nil ||
+            JarvisSocialProfile.parse(prompt) != nil
+        ) { calendar.close() }
         if weatherCenter.visible && Self.isGenericPanelClose(prompt) {
             weatherCenter.hide()
-            return "주인님, 날씨 화면을 닫았습니다."
+            return "오빠, 날씨 화면을 닫았습니다."
         }
         if weatherCenter.visible {
             let sourceQuestion = prompt.replacingOccurrences(of: #"^(데카|자비스|jarvis)[,，.!?\s]*"#, with: "", options: [.regularExpression,.caseInsensitive]).filter{!$0.isWhitespace}.trimmingCharacters(in:CharacterSet(charactersIn:".!?？요"))
@@ -667,7 +698,7 @@ final class JarvisOverlayConversation: ObservableObject {
         }
         if stockBoard.visible && Self.isGenericPanelClose(prompt) {
             stockBoard.hide()
-            return "주인님, 주식 현황표를 닫았습니다."
+            return "오빠, 주식 현황표를 닫았습니다."
         }
         if let intent = StockBoardIntent.parse(prompt) {
             if intent != .hide {
@@ -683,12 +714,12 @@ final class JarvisOverlayConversation: ObservableObject {
         }
         if briefingVisible && Self.isGenericPanelClose(prompt) {
             hideBriefing()
-            return "주인님, 뉴스 브리핑 화면을 닫았습니다."
+            return "오빠, 뉴스 브리핑 화면을 닫았습니다."
         }
         if let intent = JarvisBriefingIntent.parse(prompt) {
             if intent == .hide {
                 hideBriefing()
-                return "주인님, 뉴스 브리핑 화면을 닫았습니다."
+                return "오빠, 뉴스 브리핑 화면을 닫았습니다."
             }
             _ = browser.hide()
             _ = liveDashboard.hide()
@@ -715,7 +746,7 @@ final class JarvisOverlayConversation: ObservableObject {
             } catch {
                 guard token == generation && !Task.isCancelled else { return "" }
                 briefingNotice = "조회 완료를 확인하지 못했습니다."
-                return "주인님, 뉴스 브리핑을 확인하지 못했습니다. 확인되지 않은 뉴스는 읽지 않겠습니다."
+                return "오빠, 뉴스 브리핑을 확인하지 못했습니다. 확인되지 않은 뉴스는 읽지 않겠습니다."
             }
         }
         // Specific channel-opening requests take precedence over the overview
@@ -991,10 +1022,10 @@ final class JarvisOverlayConversation: ObservableObject {
         case .contextual:
             reasoningGuidance = "관련 기록이 있다면 출처 상태를 구분해 참고하고, 없다면 과거에 알고 있었다는 주장을 하지 마세요. 확실치 않은 부분은 짧게 확인하세요."
         case .deliberate:
-            reasoningGuidance = "주인님의 고민에 무조건 동의하지 마세요. 관찰된 사실, 추정, 검증할 질문을 구분하고 현실적인 대안이나 반론을 제시하세요. 말은 간결하게 하세요."
+            reasoningGuidance = "오빠의 고민에 무조건 동의하지 마세요. 관찰된 사실, 추정, 검증할 질문을 구분하고 현실적인 대안이나 반론을 제시하세요. 말은 간결하게 하세요."
         }
         let shortDialoguePolicy = """
-        당신은 Mac 안에서 작동하는 한국어 개인 비서 자비스입니다. 사용자를 '주인님'이라고 부릅니다.
+        당신은 Mac 안에서 작동하는 한국어 개인 비서 자비스입니다. 사용자를 '오빠'이라고 부릅니다.
         일반 질문에 간결하고 자연스럽게 답하되, 확인하지 않은 사실·현재 시각·실시간 자료를
         추측해서 사실처럼 주장하지 마세요. 명령을 수행하거나 데이터를 변경했다고 주장하지 마세요.
         원문으로 확인하지 않은 외부 자료를 사실로 확정하지 마세요.
@@ -1005,7 +1036,7 @@ final class JarvisOverlayConversation: ObservableObject {
                         (useFastStream ? shortDialoguePolicy :
                             JarvisCommand.systemInstructions + "\n" + panelContext) +
                         "\n" + reasoningGuidance +
-                        "\n[대화 성격] 오래 함께 일한 편안하고 유능한 비서처럼 말하세요. 반말은 하지 않되 일상에서는 해요체(그래요, 그렇네요, 해볼까요)를 자연스럽게 섞고, 격식 있는 보고가 필요할 때만 합니다체를 사용하세요. 호칭이 필요하면 주인님이라고 부르되 매 문장마다 반복하지 마세요. 가벼운 인사나 잡담에는 짧고 따뜻하게 반응하고, 일상적인 질문에는 결론부터 대화하듯 답하세요. 과도한 감탄, 아부, 억지 농담, 상투적인 추가 질문, 요청하신 작업·조회 완료 같은 기계적 표현은 피하세요. 오늘·내일·지금처럼 맥락상 분명한 날짜는 상대 표현으로 말하고 정확한 날짜나 기준 시각은 필요할 때 제공하세요. 실제 숫자와 근거는 정확히 유지하세요. 출처와 검증 과정은 화면에 표시하거나 사용자가 요청할 때 설명하고, 평소 음성 대화에서는 불필요하게 낭독하지 마세요. 단, 정보의 지연·불확실성·중요한 한계는 판단에 필요하다면 짧게 말하세요. 실행하지 않은 작업을 완료했다고 주장하지 마세요. 예시: 잘 잤어요? → 잘 주무셨나요, 주인님? / 이거 왜 안 되지? → 어디에서 막혔는지 살펴볼까요? / 오늘 너무 힘들다 → 오늘 많이 힘드셨겠네요. 무조건 해결책이나 질문을 덧붙이지 마세요." +
+                        "\n[대화 성격] 오래 함께 일한 편안하고 유능한 비서처럼 말하세요. 반말은 하지 않되 일상에서는 해요체(그래요, 그렇네요, 해볼까요)를 자연스럽게 섞고, 격식 있는 보고가 필요할 때만 합니다체를 사용하세요. 호칭이 필요하면 오빠라고 부르되 매 문장마다 반복하지 마세요. 가벼운 인사나 잡담에는 짧고 따뜻하게 반응하고, 일상적인 질문에는 결론부터 대화하듯 답하세요. 과도한 감탄, 아부, 억지 농담, 상투적인 추가 질문, 요청하신 작업·조회 완료 같은 기계적 표현은 피하세요. 오늘·내일·지금처럼 맥락상 분명한 날짜는 상대 표현으로 말하고 정확한 날짜나 기준 시각은 필요할 때 제공하세요. 실제 숫자와 근거는 정확히 유지하세요. 출처와 검증 과정은 화면에 표시하거나 사용자가 요청할 때 설명하고, 평소 음성 대화에서는 불필요하게 낭독하지 마세요. 단, 정보의 지연·불확실성·중요한 한계는 판단에 필요하다면 짧게 말하세요. 실행하지 않은 작업을 완료했다고 주장하지 마세요. 예시: 잘 잤어요? → 잘 주무셨나요, 오빠? / 이거 왜 안 되지? → 어디에서 막혔는지 살펴볼까요? / 오늘 너무 힘들다 → 오늘 많이 힘드셨겠네요. 무조건 해결책이나 질문을 덧붙이지 마세요." +
                         "\n[내부 기준 시각: 답변에 복사하거나 낭독하지 말 것] " +
                         JarvisLocalClock.context() +
                         (profileContext.isEmpty ? "" : "\n" + profileContext) +

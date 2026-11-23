@@ -20,9 +20,9 @@ class DialoguePacingContract(unittest.TestCase):
     def test_elevenlabs_speed_is_configurable_and_safe(self):
         self.assertIn('savedResponseSpeed ?? 0.90', TTS)
         self.assertIn('min(max(responseSpeed, 0.8), 1.05)', TTS)
-        self.assertIn('"voice_settings": ["speed": isSummonGreeting ? 1.0 : responseSpeed]', TTS)
+        self.assertIn('"voice_settings": ["speed": isSummonGreeting ? Self.summonSpeed : responseSpeed]', TTS)
         self.assertNotIn('jarvis-live-dialogue-voice-speed', UI)
-        self.assertIn('fallback.speak(phrase)', TTS)
+        self.assertIn('fallback.speak(phrase, rateOverride: isSummonGreeting ? Self.summonFallbackRate : nil)', TTS)
         self.assertIn('generation == speechGeneration', TTS)
     
     def test_clarify_unclear_partial_question_do_not_fabricate(self):

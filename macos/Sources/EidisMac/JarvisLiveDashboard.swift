@@ -34,7 +34,9 @@ enum JarvisLiveDashboardIntent: Equatable {
 
     static func parse(_ phrase: String) -> Self? {
         let text = phrase.lowercased().filter { !$0.isWhitespace && !$0.isNewline }
-        let dashboard = text.contains("대시보드") || text.contains("현황판") || text.contains("통계") || text.contains("관제실")
+        let dashboard = text.contains("대시보드") || text.contains("현황판") ||
+            text.contains("실시간보드") || text.contains("라이브보드") ||
+            text.contains("통계") || text.contains("관제실")
         let overview = ["전체현황", "전체상황", "내상황", "종합현황", "통합현황", "전반적인현황", "모든현황"].contains { text.contains($0) }
         let project = ["프로젝트", "작업현황", "할일", "해야할일", "진행상황"].contains { text.contains($0) }
         let knowledge = ["보관함", "저장자료", "저장한자료", "내자료", "지식", "기억통계", "자료분석"].contains { text.contains($0) }
@@ -62,7 +64,8 @@ enum JarvisLiveDashboardIntent: Equatable {
         // A direct user command opens the immersive, one-screen dashboard.
         // Written without spaces or with natural variants, it is the same intent.
         let fullDashboard = ["전체대시보드", "통합대시보드", "종합대시보드",
-                             "전체화면대시보드", "풀스크린대시보드", "전체관제실"]
+                             "전체화면대시보드", "풀스크린대시보드", "전체관제실",
+                             "실시간보드", "라이브보드"]
             .contains { text.contains($0) }
         let openWords = ["열어", "켜줘", "켜", "띄워", "보여", "실행해", "실행", "표시해"]
         if fullDashboard && openWords.contains(where: { text.contains($0) }) {
@@ -71,6 +74,14 @@ enum JarvisLiveDashboardIntent: Equatable {
         let showing = ["보여", "띄워", "열어", "알려", "확인", "분석", "현황", "상태", "통계", "갱신", "새로고침"].contains { text.contains($0) }
         guard showing else { return nil }
         if overview { return .show(.overview) }
+        // Unqualified "현황 열어줘" means the local overall dashboard,
+        // not a fabricated external status. Named/project/specific views
+        // continue through their dedicated routers.
+        let plainStatus = ["현황", "현재현황", "실시간현황", "우리현황", "내현황", "지금현황"]
+            .contains(where: { text.hasPrefix($0) })
+        if plainStatus && openWords.contains(where: { text.contains($0) }) {
+            return .show(.overview)
+        }
         if system && (dashboard || text.contains("자비스") || text.contains("시스템") || text.contains("서버") || text.contains("ollama")) {
             return .show(.system)
         }
@@ -84,7 +95,10 @@ enum JarvisLiveDashboardIntent: Equatable {
             let general = ["전체", "종합", "통합", "내현황", "자비스대시보드", "실시간대시보드", "대시보드띄워", "대시보드보여", "현황판띄워", "관제실보여", "관제실띄워", "관제실열어"].contains {
                 text.contains($0)
             }
-            return general ? .show(.overview) : .unavailable
+            // Bare "대시보드 열어봐" and conversational equivalents
+            // should not be rejected just because "전체" was omitted.
+            return (general || openWords.contains(where: { text.contains($0) }))
+                ? .show(.overview) : .unavailable
         }
         return nil
     }
@@ -299,7 +313,7 @@ final class JarvisLiveDashboard: ObservableObject {
                 _ = await self.refresh(id: id)
             }
         }
-        return loaded ? "주인님, \(selected.koreanName) 대시보드를 열었습니다. 로컬 데이터는 약 7초마다 갱신하고 GitHub는 10분, Vercel은 15분 간격으로 확인합니다."
+        return loaded ? "오빠, \(selected.koreanName) 대시보드를 열었습니다. 로컬 데이터는 약 7초마다 갱신하고 GitHub는 10분, Vercel은 15분 간격으로 확인합니다."
             : "\(selected.koreanName) 대시보드를 열었지만 일부 데이터를 가져오지 못했습니다. 연결 상태를 표시했습니다."
     }
 

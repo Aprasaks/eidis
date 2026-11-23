@@ -9,8 +9,8 @@ MENU=(ROOT/"EidisMacApp.swift").read_text()
 class DekaStandby(unittest.TestCase):
     def test_session_opt_in_and_no_three_minute_limit(self):
         self.assertIn("var dekaEnabled = false",UI)
-        self.assertIn("Hey Jarvis 상시 대기 켜기",MENU)
-        self.assertIn("Hey Jarvis 상시 대기 끄기",MENU)
+        self.assertIn("애기야 상시 대기 켜기",MENU)
+        self.assertIn("애기야 상시 대기 끄기",MENU)
         self.assertNotIn("seconds(180)",WAKE)
         self.assertIn("seconds(45)",WAKE)
     def test_pause_while_any_dialogue_or_audio_is_active(self):
@@ -21,7 +21,7 @@ class DekaStandby(unittest.TestCase):
                       "Date() >= dekaNotBefore, !deka.armed",
                       "await deka.start()"]:
             self.assertIn(value,UI)
-        self.assertLess(WAKE.index('stop("Hey Jarvis 감지'),WAKE.index("onHit?()"))
+        self.assertLess(WAKE.index('stop("애기야 감지'),WAKE.index("onHit?()"))
     def test_both_windows_return_to_standby(self):
         self.assertIn("let voice=self.dialogue ?? self.miniDialogue",UI)
         self.assertIn("bindDeka(voice)",UI)

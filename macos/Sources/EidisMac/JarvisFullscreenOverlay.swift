@@ -259,6 +259,7 @@ private struct JarvisSummonedView: View {
     @ObservedObject var liveDashboard: JarvisLiveDashboard
     @ObservedObject var stockBoard: JarvisStockBoard
     @ObservedObject var weatherCenter: JarvisWeatherCenter
+    @ObservedObject var calendar: JarvisMacCalendarStore
     @State private var typedText = ""
     @FocusState private var isInputFocused: Bool
     @State private var appeared = false
@@ -327,7 +328,7 @@ private struct JarvisSummonedView: View {
         GeometryReader { area in
             let commandCenter = liveDashboard.isVisible && liveDashboard.mode == .overview
             let workspaceActive = !commandCenter && (dialogue.socialDashboardChannel != nil || browser.isVisible ||
-                vault.isVisible || liveDashboard.isVisible || dashboard.isVisible || dialogue.briefingVisible || stockBoard.visible || weatherCenter.visible)
+                vault.isVisible || liveDashboard.isVisible || dashboard.isVisible || dialogue.briefingVisible || stockBoard.visible || weatherCenter.visible || calendar.visible)
             let compactCore = commandCenter || workspaceActive
             let conversationWidth = min(max(area.size.width * 0.30, 255), 470)
             let wide = area.size.width >= 1120
@@ -467,7 +468,9 @@ private struct JarvisSummonedView: View {
                         .frame(width: conversationWidth)
                         .frame(maxHeight: .infinity)
                         Group {
-                            if let channel = dialogue.socialDashboardChannel {
+                            if calendar.visible {
+                                JarvisMacCalendarView(model: calendar, onClose: { calendar.close() })
+                            } else if let channel = dialogue.socialDashboardChannel {
                                 JarvisSocialDashboardView(channel: channel) {
                                     Task { await dialogue.closeNativeSocialDashboard() }
                                 }.id(channel.rawValue)
@@ -1362,7 +1365,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
     // Persistent opt-in: launch and wake restore the user-selected preference.
     @Published private(set) var dekaEnabled = false
     @Published private(set) var dekaArmed = false
-    @Published private(set) var dekaStatus = "데카 상시 대기 꺼짐"
+    @Published private(set) var dekaStatus = "애기야 상시 대기 꺼짐"
     private let deka = JarvisDekaWake()
     private let dekaPreferenceKey = "jarvis.deka.autoStandby"
     private var dekaSleepObserver: NSObjectProtocol?
@@ -1379,7 +1382,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
         else if dekaEnabled && dekaStatus != reason { dekaStatus = reason }
         dekaNotBefore = Date().addingTimeInterval(0.6)
     }
-    func stopDeka(_ reason: String = "데카 상시 대기 꺼짐") {
+    func stopDeka(_ reason: String = "애기야 상시 대기 꺼짐") {
         dekaEnabled = false
         dekaMonitorTask?.cancel()
         dekaMonitorTask = nil
@@ -1424,7 +1427,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
         // Explicitly switch an empty continuous-listening turn into wake
         // standby. A turn containing words is allowed to finish normally.
         if voice.isListening && voice.liveTranscript.isEmpty { voice.pauseMicrophone() }
-        dekaStatus = "데카 상시 대기 준비 중…"
+        dekaStatus = "애기야 상시 대기 준비 중…"
         dekaNotBefore = Date()
         dekaMonitorTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -1785,7 +1788,8 @@ final class JarvisFullscreenOverlay: ObservableObject {
             dashboard: dialogue.dashboard,
             browser: dialogue.browser,
             vault: dialogue.vault,
-            liveDashboard: dialogue.liveDashboard, stockBoard: dialogue.stockBoard, weatherCenter: dialogue.weatherCenter))
+            liveDashboard: dialogue.liveDashboard, stockBoard: dialogue.stockBoard,
+            weatherCenter: dialogue.weatherCenter, calendar: dialogue.calendar))
         // Do not show the old JARVIS dashboard behind the cinematic veil.
         // orderOut keeps its state and project data intact; the Dock can reopen it.
         hiddenAppWindows = NSApp.windows.filter { $0 !== window && $0.isVisible }

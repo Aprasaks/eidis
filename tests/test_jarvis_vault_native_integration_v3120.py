@@ -19,9 +19,9 @@ class NativeVaultContract(unittest.TestCase):
             self.assertIn(marker,VAULT)
         self.assertNotIn('api.openai.com',VAULT)
         self.assertNotIn('api.anthropic.com',VAULT)
-        self.assertIn('private static let summonGreeting = "주인님, 자비스입니다."',VOICE)
+        self.assertIn('private static let summonGreeting = "오빠, 뭘 도와드릴까요?"',VOICE)
         self.assertIn('replacingOccurrences(of: "DECHIVE", with: "데카이브"',CONV)
-        self.assertIn("예외 없이 '주인님'이라는 호칭을 사용하세요",CMD)
+        self.assertIn("예외 없이 '오빠'라는 호칭을 사용하세요",CMD)
     def test_on_demand_ui_and_command_routing(self):
         for marker in ('let vault = JarvisKnowledgeVault()', 'JarvisVaultIntent.parse(prompt)',
                        'private func handleVault(', '.saveCurrent:', 'browser.snapshotVisiblePage()',
@@ -40,6 +40,6 @@ class NativeVaultContract(unittest.TestCase):
         self.assertIn('CREATE TABLE IF NOT EXISTS vault_items',STORAGE)
         self.assertIn('CREATE UNIQUE INDEX IF NOT EXISTS vault_active_fingerprint_idx',STORAGE)
         self.assertIn('source_status',STORAGE)
-        self.assertIn('<string>3.14.3</string>',PLIST)
+        self.assertIn('<string>3.14.13</string>',PLIST)
 
 if __name__=='__main__': unittest.main()

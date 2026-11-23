@@ -34,6 +34,12 @@ struct EidisMacApp: App {
         }
         .defaultSize(width: 720, height: 600)
         .defaultLaunchBehavior(.suppressed)
+
+        Window("JARVIS Calendar", id: "jarvis-calendar") {
+            JarvisMacCalendarView(model: JarvisMacCalendarStore.shared, onClose: nil)
+        }
+        .defaultSize(width: 1000, height: 760)
+        .defaultLaunchBehavior(.suppressed)
     }
 }
 
@@ -47,7 +53,7 @@ private struct JarvisMenuCommands: View {
         Button(fullscreen.miniEnabled ? "작은 코어 숨기기  ⌘⌥S" : "작은 코어 항상 띄우기  ⌘⌥S") {
             fullscreen.toggleMini()
         }
-        Button(fullscreen.dekaEnabled ? "Hey Jarvis 상시 대기 끄기" : "Hey Jarvis 상시 대기 켜기") {
+        Button(fullscreen.dekaEnabled ? "애기야 상시 대기 끄기" : "애기야 상시 대기 켜기") {
             fullscreen.toggleDeka()
         }
         Text(fullscreen.dekaStatus)
@@ -65,6 +71,12 @@ private struct JarvisMenuCommands: View {
         Button("ElevenLabs 목소리 선택") {
             fullscreen.stopDeka("설정 창 열기 · 상시 대기 종료")
             openWindow(id: "jarvis-elevenlabs-voices")
+            NSApp.activate(ignoringOtherApps: true)
+        }
+        Divider()
+        Button("JARVIS Calendar · 일정 관리") {
+            fullscreen.dismiss()
+            openWindow(id: "jarvis-calendar")
             NSApp.activate(ignoringOtherApps: true)
         }
         Divider()

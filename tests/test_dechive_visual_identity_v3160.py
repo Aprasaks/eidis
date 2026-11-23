@@ -1,4 +1,4 @@
-"""Mac-screen branding is DECHIVE; spoken name is 자비스; user address is 주인님."""
+"""Mac-screen branding is DECHIVE; spoken name is 자비스; user address is 오빠."""
 from pathlib import Path
 import unittest
 
@@ -48,11 +48,11 @@ class DechiveIdentityContract(unittest.TestCase):
         self.assertIn('dialogue.isSpeaking ? "끼어들기"', OVERLAY)
 
     def test_spoken_name_owner_address_and_existing_voice_command(self):
-        self.assertIn('private static let summonGreeting = "주인님, 자비스입니다."', VOICE)
-        self.assertIn("예외 없이 '주인님'이라는 호칭을 사용하세요", MODEL)
+        self.assertIn('private static let summonGreeting = "오빠, 뭘 도와드릴까요?"', VOICE)
+        self.assertIn("예외 없이 '오빠'라는 호칭을 사용하세요", MODEL)
         self.assertIn("사용자는 당신을 '자비스'라고 부릅니다", MODEL)
         self.assertIn('s.hasPrefix("자비스")', PROFILE)
-        self.assertIn('"주인님이라고 부르겠습니다."', PROFILE)
+        self.assertIn('"오빠라고 부르겠습니다."', PROFILE)
         self.assertIn('filter { $0 != "display_name" }', PROFILE)
         self.assertIn('JarvisLiveDialogueTurn(role: "DECHIVE"', CHAT)
         self.assertIn('DECHIVE / DESIGN LABORATORY', WEB)
