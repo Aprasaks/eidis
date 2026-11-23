@@ -12,7 +12,7 @@ struct JarvisHologramView: NSViewRepresentable {
         view.backgroundColor = .clear
         view.allowsCameraControl = false
         view.autoenablesDefaultLighting = false
-        view.rendersContinuously = true
+        view.rendersContinuously = animated
         view.preferredFramesPerSecond = 30
         view.antialiasingMode = .multisampling4X
         view.isPlaying = animated
@@ -21,6 +21,7 @@ struct JarvisHologramView: NSViewRepresentable {
 
     func updateNSView(_ view: SCNView, context: Context) {
         view.isPlaying = animated
+        view.rendersContinuously = animated
     }
 
     private static let amber = NSColor(calibratedRed: 1.0, green: 0.49, blue: 0.09, alpha: 1)
@@ -75,7 +76,55 @@ struct JarvisHologramView: NSViewRepresentable {
             z: reversed ? -CGFloat.pi * 2 : CGFloat.pi * 2, duration: duration)))
     }
 
+    // The Blender source stays editable in blender_core. The bundled USD preserves
+    // real geometry and layer animation; materials are mapped for SceneKit.
+    private static func blenderScene() -> SCNScene? {
+        guard let url = Bundle.main.url(forResource: "JARVIS_Core", withExtension: "usdc"),
+              let scene = try? SCNScene(url: url, options: nil) else { return nil }
+        scene.background.contents = NSColor.clear
+        scene.rootNode.enumerateChildNodes { node, _ in
+            if let geometry = node.geometry {
+                let label = (node.name ?? "").lowercased()
+                let accent = label.contains("aperture") || label.contains("highlight")
+                let color = accent
+                    ? NSColor(calibratedRed: 0.91, green: 0.53, blue: 0.18, alpha: 1)
+                    : NSColor(calibratedRed: 0.64, green: 0.22, blue: 0.055, alpha: 1)
+                let material = SCNMaterial()
+                material.lightingModel = .constant
+                material.diffuse.contents = color
+                material.emission.contents = color.withAlphaComponent(accent ? 0.43 : 0.18)
+                material.transparency = accent ? 0.48 : 0.27
+                material.blendMode = .alpha
+                material.isDoubleSided = true
+                material.readsFromDepthBuffer = true
+                material.writesToDepthBuffer = false
+                geometry.materials = [material]
+            }
+            for key in node.animationKeys {
+                if let player = node.animationPlayer(forKey: key) {
+                    player.animation.repeatCount = .greatestFiniteMagnitude
+                    player.animation.isRemovedOnCompletion = false
+                    player.play()
+                }
+            }
+        }
+        let camera = SCNNode()
+        camera.camera = SCNCamera()
+        camera.camera?.usesOrthographicProjection = true
+        camera.camera?.orthographicScale = 2.55
+        camera.camera?.wantsHDR = true
+        camera.camera?.bloomIntensity = 0.65
+        camera.camera?.bloomThreshold = 0.75
+        camera.position = SCNVector3(3, -8, 3)
+        let target = SCNNode()
+        scene.rootNode.addChildNode(target)
+        camera.constraints = [SCNLookAtConstraint(target: target)]
+        scene.rootNode.addChildNode(camera)
+        return scene
+    }
+
     private static func makeScene() -> SCNScene {
+        if let scene = blenderScene() { return scene }
         let scene = SCNScene()
         scene.background.contents = NSColor.clear
         let assembly = SCNNode()

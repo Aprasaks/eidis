@@ -179,6 +179,7 @@ final class JarvisAppLifecycle: NSObject, NSApplicationDelegate {
     let server = JarvisBundledServer()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        JarvisSummonOverlay.shared.installShortcut()
         Task { await server.connectOnLaunch() }
     }
 

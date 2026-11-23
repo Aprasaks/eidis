@@ -22,6 +22,7 @@ cp "$INFO" "$APP/Contents/Info.plist"
 # developer's SQLite DB, Python caches, credentials, .env, Git or other files.
 RESOURCES="$APP/Contents/Resources"
 mkdir -p "$RESOURCES/jarvis" "$RESOURCES/web"
+cp "$PACKAGE/Resources/Art/JARVIS_Core.usdc" "$RESOURCES/JARVIS_Core.usdc"
 cp "$ROOT/app.py" "$RESOURCES/app.py"
 for source in "$ROOT"/jarvis/*.py; do
   cp "$source" "$RESOURCES/jarvis/"

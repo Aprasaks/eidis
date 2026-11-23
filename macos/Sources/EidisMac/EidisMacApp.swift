@@ -125,6 +125,7 @@ struct JarvisWindow: View {
     @StateObject private var bridge = JarvisBridge()
     @StateObject private var projectWork = ApprovedWorkModel()
     @State private var selectedTab: JarvisTab = .assistant
+    @ObservedObject private var summonOverlay = JarvisSummonOverlay.shared
     @State private var workspaceRequest: JarvisWorkspaceCommand?
     @State private var reloadID = UUID()
     @State private var screenQuestion = "이 화면에서 오류가 있는지 찾아줘"
@@ -214,6 +215,10 @@ struct JarvisWindow: View {
                     Text("JARVIS")
                         .font(.system(size: 13, weight: .medium))
                         .tracking(2.5)
+                    Button("자비스 소환") { summonOverlay.toggle() }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.orange)
                     Text("PERSONAL SYSTEM")
                         .font(.system(size: 9, weight: .medium, design: .monospaced))
                         .tracking(1.3)
