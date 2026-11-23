@@ -23,6 +23,7 @@ enum JarvisOllamaTextStream {
     static func receive(
         request: URLRequest,
         session: URLSession,
+        maxReplyChars: Int = 450,
         onPartial: @MainActor (String) -> Void
     ) async throws -> String {
         let (bytes,response)=try await session.bytes(for:request)
@@ -54,7 +55,7 @@ enum JarvisOllamaTextStream {
                           Date().timeIntervalSince(started)*1000)
                 }
                 if Date().timeIntervalSince(lastUIPush)>=0.07 {
-                    onPartial(String(content.prefix(900)))
+                    onPartial(String(content.prefix(max(450, min(maxReplyChars, 1200)))))
                     lastUIPush=Date()
                 }
             }
@@ -64,9 +65,9 @@ enum JarvisOllamaTextStream {
         guard finished else {throw URLError(.cannotParseResponse)}
         let final=content.trimmingCharacters(in:.whitespacesAndNewlines)
         guard !final.isEmpty else {throw URLError(.cannotParseResponse)}
-        onPartial(String(final.prefix(900)))
+        onPartial(String(final.prefix(max(450, min(maxReplyChars, 1200)))))
         NSLog("DECHIVE conversational stream completed_ms=%.1f",
               Date().timeIntervalSince(started)*1000)
-        return String(final.prefix(450))
+        return String(final.prefix(max(1, min(maxReplyChars, 1200))))
     }
 }

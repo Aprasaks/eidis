@@ -64,5 +64,5 @@ class CommandCenterContract(unittest.TestCase):
                      '실제 기록 시각', 'GitHub는 로그인 계정의 API 결과'):
             self.assertIn(text,COMMAND)
         self.assertNotIn('fake statistics', COMMAND.lower())
-        self.assertIn('<string>3.14.14</string>', INFO)
+        self.assertIn('<string>3.14.15</string>', INFO)
 if __name__=='__main__':unittest.main()

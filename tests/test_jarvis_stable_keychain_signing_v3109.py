@@ -17,7 +17,7 @@ class StableKeychainSigning(unittest.TestCase):
                        'anchor apple generic',
                        'exit 2'):
             self.assertIn(needle, PACKAGE)
-        self.assertIn('<string>3.14.14</string>', INFO)
+        self.assertIn('<string>3.14.15</string>', INFO)
     def test_key_never_moved_to_insecure_settings_or_files(self):
         for needle in ('kSecClassGenericPassword',
                        'dev.dechive.eidis.elevenlabs',

@@ -266,6 +266,7 @@ private struct JarvisSummonedView: View {
     @State private var controlsHovered = false
     @State private var closeHovered = false
     @State private var showDiagnostics = false
+    @State private var showChatMemoryReview = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         if dialogue.chromeWorkspaceVisible {
@@ -327,7 +328,7 @@ private struct JarvisSummonedView: View {
     private var standardBody: some View {
         GeometryReader { area in
             let commandCenter = liveDashboard.isVisible && liveDashboard.mode == .overview
-            let workspaceActive = !commandCenter && (dialogue.socialDashboardChannel != nil || browser.isVisible ||
+            let workspaceActive = !commandCenter && (dialogue.casualChatMode || dialogue.socialDashboardChannel != nil || browser.isVisible ||
                 vault.isVisible || liveDashboard.isVisible || dashboard.isVisible || dialogue.briefingVisible || stockBoard.visible || weatherCenter.visible || calendar.visible)
             let compactCore = commandCenter || workspaceActive
             let conversationWidth = min(max(area.size.width * 0.30, 255), 470)
@@ -450,6 +451,19 @@ private struct JarvisSummonedView: View {
                         _ = liveDashboard.hide()
                     }
                     .transition(.opacity)
+                } else if dialogue.casualChatMode {
+                    // Full-height text chat opens in place without launching tools.
+                    // Keep the existing animated core visible in the upper area.
+                    VStack(spacing: 0) {
+                        Spacer(minLength: max(95, area.size.height * 0.27))
+                        workspaceConversationPanel
+                            .frame(width: min(780, area.size.width - 52),
+                                   height: max(300, area.size.height * 0.63))
+                        Spacer(minLength: 12)
+                    }
+                    .frame(width: area.size.width, height: area.size.height)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    .zIndex(8)
                 } else if workspaceActive {
                     // A dedicated two-column workspace: the browser, even as
                     // an NSView, can never overlap text history or the composer.
@@ -537,6 +551,14 @@ private struct JarvisSummonedView: View {
     private var restingControls: some View {
         VStack(spacing: 0) {
             HStack(spacing: 9) {
+                Button {
+                    dialogue.setCasualChatMode(true)
+                } label: {
+                    Label("일상 채팅", systemImage: "bubble.left.and.bubble.right.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color(red: 0.68, green: 0.37, blue: 0.06))
+                .accessibilityIdentifier("jarvis-casual-chat-open")
                 Button { dialogue.toggleMicrophone() } label: {
                     Label(dialogue.isListening ? "질문 마치기" :
                           (dialogue.isThinking || dialogue.isSpeaking ? "끼어들기" : "대화 시작"),
@@ -544,7 +566,7 @@ private struct JarvisSummonedView: View {
                 }
                 .buttonStyle(.bordered)
                 .accessibilityIdentifier("jarvis-overlay-microphone")
-                TextField("자비스에게 질문", text: $typedText)
+                TextField("자비스에게 이야기하기", text: $typedText)
                     .textFieldStyle(.roundedBorder)
                     .font(.system(size: 12))
                     .focused($isInputFocused)
@@ -570,7 +592,8 @@ private struct JarvisSummonedView: View {
             .frame(maxWidth: 720)
             .padding(12)
             .background(.black.opacity(0.88), in: RoundedRectangle(cornerRadius: 12))
-            .opacity(controlsHovered || isInputFocused || showDiagnostics || !typedText.isEmpty ? 1 : 0)
+            // Text chat must be discoverable without hunting for a hover area.
+            .opacity(controlsHovered || isInputFocused || showDiagnostics || !typedText.isEmpty ? 1 : 0.93)
         }
         .frame(maxWidth: 760)
         .padding(.vertical, 14)
@@ -635,10 +658,16 @@ private struct JarvisSummonedView: View {
             HStack(spacing: 8) {
                 Image(systemName: "waveform.circle.fill")
                     .foregroundStyle(.orange)
-                Text("JARVIS / CONVERSATION")
+                Text(dialogue.casualChatMode ? "JARVIS / 일상 채팅" : "JARVIS / CONVERSATION")
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.92))
                 Spacer(minLength: 0)
+                if dialogue.casualChatMode {
+                    Button("채팅 닫기") { dialogue.setCasualChatMode(false) }
+                        .font(.system(size: 11))
+                        .buttonStyle(.bordered)
+                        .accessibilityIdentifier("jarvis-casual-chat-close")
+                }
                 Button { showDiagnostics.toggle() } label: {
                     Image(systemName: "terminal")
                         .font(.system(size: 11))
@@ -662,6 +691,28 @@ private struct JarvisSummonedView: View {
                 }
             }
             Rectangle().fill(.orange.opacity(0.24)).frame(height: 1)
+            if dialogue.casualChatMode {
+                HStack(spacing: 7) {
+                    Image(systemName: "brain.head.profile")
+                    Text(dialogue.learning.enabled
+                         ? "대화 학습 켜짐 · 승인한 기억만 답변에 반영"
+                         : "대화 학습 꺼짐 · 채팅은 계속 이용 가능")
+                    Spacer(minLength: 2)
+                    Button(dialogue.learning.pendingCount > 0
+                           ? "기억 후보 \(dialogue.learning.pendingCount)개 검토" : "기억 설정") {
+                        showChatMemoryReview = true
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.orange)
+                    .popover(isPresented: $showChatMemoryReview, arrowEdge: .bottom) {
+                        JarvisLearningReviewView(learning: dialogue.learning)
+                            .padding(16).frame(width: 350)
+                    }
+                }
+                .font(.system(size: 10))
+                .foregroundStyle(.white.opacity(0.62))
+                .accessibilityIdentifier("jarvis-casual-chat-learning")
+            }
             ScrollViewReader { proxy in
                 ScrollView(.vertical) {
                     LazyVStack(alignment: .leading, spacing: 14) {
@@ -703,7 +754,9 @@ private struct JarvisSummonedView: View {
                             }
                         }
                         if dialogue.dialogueTurns.isEmpty && !dialogue.isListening {
-                            Text("브라우저를 열어도 대화 내용은 여기 남아 있습니다.")
+                            Text(dialogue.casualChatMode
+                                 ? "오늘 있었던 일이나 그냥 떠오른 생각을 편하게 말해 주세요."
+                                 : "브라우저를 열어도 대화 내용은 여기 남아 있습니다.")
                                 .font(.system(size: 12))
                                 .foregroundStyle(.white.opacity(0.57))
                         }
@@ -744,7 +797,7 @@ private struct JarvisSummonedView: View {
                 .tint(Color(red: 0.68, green: 0.37, blue: 0.06))
                 .accessibilityLabel(dialogue.isListening ? "질문 마치기" : "마이크 시작 또는 끼어들기")
                 .accessibilityIdentifier("jarvis-workspace-microphone")
-                TextField("자비스에게 질문", text: $typedText)
+                TextField(dialogue.casualChatMode ? "편하게 이야기해 주세요…" : "자비스에게 질문", text: $typedText)
                     .textFieldStyle(.roundedBorder)
                     .font(.system(size: 12))
                     .focused($isInputFocused)

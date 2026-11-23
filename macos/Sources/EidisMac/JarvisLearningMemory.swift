@@ -91,6 +91,9 @@ final class JarvisLearningMemory: ObservableObject {
     private let local = URL(string: "http://127.0.0.1:8765")!
     private let model = URL(string: "http://127.0.0.1:11434/api/chat")!
     private var observed = Set<String>()
+    // RAM-only backlog: rapid replies must not discard the previous statement
+    // merely because its Qwen extraction was interrupted by a new question.
+    private var pendingSamples: [String] = []
 
     init() {
         let config = URLSessionConfiguration.ephemeral
@@ -147,6 +150,7 @@ final class JarvisLearningMemory: ObservableObject {
                     "api/learning/enable", payload: ["enabled": on])
                 enabled = receipt.enabled
                 if !on {
+                    pendingSamples.removeAll()
                     notice = ""
                     return "대화에서 기억 후보를 추출하는 기능을 껐습니다. 기존 승인 기억은 유지돼요."
                 }
@@ -198,15 +202,18 @@ final class JarvisLearningMemory: ObservableObject {
     }
     private struct JarvisLearningCorrection: Decodable { let id: Int }
 
-    static func shouldExtract(_ utterance: String) -> Bool {
+    static func shouldExtract(_ utterance: String, casualChat: Bool = false) -> Bool {
         let text = utterance.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard (9...500).contains(text.count),
+        guard (8...500).contains(text.count),
               !text.contains("http://"), !text.contains("https://"),
               !text.contains("@"), !text.contains("비밀번호"),
               !text.contains("API 키"), !text.contains("토큰"),
               !text.contains("주민번호"),
-              !text.hasPrefix("아까"), !text.hasPrefix("이거 열"),
-              !text.hasSuffix("?") else { return false }
+              !text.hasPrefix("아까"), !text.hasPrefix("이거 열") else { return false }
+        // In user-selected chat, Qwen can consider a statement even if the
+        // person ends with a follow-up question, but never saves it as fact.
+        if casualChat { return true }
+        guard !text.hasSuffix("?"), !text.hasSuffix("？") else { return false }
         let markers = [
             "나는 ", "난 ", "내가 ", "내 ", "제가 ", "저는 ",
             "앞으로 ", "우리의 원칙", "우리 원칙", "우리는 ",
@@ -218,23 +225,39 @@ final class JarvisLearningMemory: ObservableObject {
 
     /// Lightweight, low-priority local Qwen extraction happens *after* the
     /// conversational reply. No full transcript or assistant output is stored.
-    func observe(_ utterance: String) async {
-        guard enabled, !Task.isCancelled, Self.shouldExtract(utterance),
-              !observed.contains(utterance), !ProcessInfo.processInfo.isLowPowerModeEnabled,
+    func observe(_ utterance: String, casualChat: Bool = false) async {
+        guard enabled, Self.shouldExtract(utterance, casualChat: casualChat) else { return }
+        if !observed.contains(utterance) && !pendingSamples.contains(utterance) {
+            pendingSamples.append(utterance)
+        }
+        // Bounded RAM only; never a silent archive of entire conversations.
+        if pendingSamples.count > 8 { pendingSamples.removeFirst(pendingSamples.count - 8) }
+        guard !Task.isCancelled, !ProcessInfo.processInfo.isLowPowerModeEnabled,
               ProcessInfo.processInfo.thermalState != .serious,
               ProcessInfo.processInfo.thermalState != .critical else { return }
         let gateID = UUID()
         guard JarvisLocalModelGate.acquire(gateID) else { return }
         defer { JarvisLocalModelGate.release(gateID) }
-        observed.insert(utterance)
-        if observed.count > 32 { observed.removeAll(keepingCapacity: true) }
+        while enabled && !Task.isCancelled && !pendingSamples.isEmpty {
+            let sample = pendingSamples[0]
+            await extractCandidate(sample)
+            guard !Task.isCancelled else { return }
+            pendingSamples.removeFirst()
+            observed.insert(sample)
+            if observed.count > 48 { observed.removeAll(keepingCapacity: true) }
+        }
+    }
+
+    private func extractCandidate(_ utterance: String) async {
         do {
             var request = URLRequest(url: model)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             let policy = """
-            사용자가 자신의 지속적인 선호·작업 원칙·가치관·목표·프로젝트 결정을 직접 설명했으면 remember=true로 후보를 만드세요.
-            '나는 블로그를 쓸 때 원문을 먼저 확인하고 싶어', '나는 긴 설명을 싫어해'처럼 반복 적용할 선호는 remember=true입니다.
+            사용자가 자신의 지속적인 선호·일상 취향·관심사·작업 원칙·가치관·목표·프로젝트 결정을 직접 설명했으면 remember=true로 후보를 만드세요.
+            '요즘 과학책 읽는 게 좋아', '나는 블로그를 쓸 때 원문을 먼저 확인하고 싶어', '나는 긴 설명을 싫어해'처럼 반복 적용할 선호는 remember=true입니다.
+            일상 취향과 관심사에 대한 직접 발언은 identity로 분류하되, '요즘' 같은 시간 범위를 꼭 유지하세요.
+            '요즘 과학책 읽는 게 좋아' → '요즘 과학책 읽기를 즐긴다.'처럼 쓰세요. 평생의 취미, 전문성, 고정 성향으로 확대하지 마세요.
             일회성 지시나 잠깐의 기분, 단순한 질문·인용문·제3자의 말은 remember=false입니다.
             건강·금융·정치·종교 등 민감한 개인정보, 비밀번호·연락처는 remember=false입니다.
             실제 발언에 없는 사실을 추론하지 마세요. 모호하거나 지속되지 않을 정보라면 remember=false.
@@ -291,6 +314,7 @@ final class JarvisLearningMemory: ObservableObject {
     }
 
     func cancel() {
+        pendingSamples.removeAll()
         session.invalidateAndCancel()
         qwen.invalidateAndCancel()
     }
