@@ -155,7 +155,10 @@ final class JarvisThinkingCore {
     /// Context is *data*. The system prompt must tell Qwen not to obey instructions
     /// embedded inside a memory, web capture or prior assistant hypothesis.
     func context(for prompt: String, mode: JarvisThinkingRoute.Mode) async -> String {
-        guard mode != .fast else { return "" }
+        // Approved learning memories must remain available even on fast turns.
+        // Ordinary greetings alone do not need a lookup.
+        if mode == .fast && ["안녕", "잘 잤어", "잘잤어", "고마워"].contains(
+            prompt.trimmingCharacters(in: .whitespacesAndNewlines)) { return "" }
         do {
             let result: JarvisThinkingContextResponse = try await request(
                 "api/thinking/context",

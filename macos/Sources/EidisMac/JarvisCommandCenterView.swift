@@ -748,6 +748,8 @@ struct JarvisCommandCenterView: View {
                         }
                         if count == 0 { status("활성 보관함이 비어 있습니다.", scale: scale) }
                     } else { status("자료 보관함 조회 안 됨", scale: scale) }
+                    Divider().overlay(muted.opacity(0.25))
+                    JarvisLearningReviewView(learning: dialogue.learning)
                     Text("로컬 SQLite · 외부 동기화 아님")
                         .font(.system(size: 9 * scale))
                         .foregroundStyle(muted)

@@ -17,7 +17,7 @@ from .vision import VisionError, VisionRemoteError, vision_ready, analyze_screen
 from .storage import MemoryStore
 from .thinking import related_context
 from .continuity import scan, snapshot, acknowledge, SCAN_INTERVAL
-from . import study, action, research, verification, briefing, calendar
+from . import study, action, research, verification, briefing, calendar, learning
 from .projects import ProjectCheckError, verify_public_github
 from .tools import ToolRunner, ToolDenied, ToolExecutionError
 from .google_youtube import GoogleYouTubeConnection, YouTubeConnectionError
@@ -123,6 +123,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
             return self._json(200, {"items": self.store.list_profile()})
         if path == "/api/memories":
             return self._json(200, {"items": self.store.recent_memories()})
+        if path == "/api/learning":
+            return self._json(200, learning.summary(self.store))
         if path == "/api/calendar/snapshot":
             try:
                 return self._json(200, {"records": calendar.sync_snapshot(self.store.db)})
@@ -217,6 +219,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
         if path not in ("/api/command", "/api/chat", "/api/design/suggest", "/api/vision/analyze",
                          "/api/projects", "/api/projects/task", "/api/projects/status",
                          "/api/projects/github/check", "/api/profile", "/api/profile/forget",
+                         "/api/learning/enable", "/api/learning/candidate",
+                         "/api/learning/review", "/api/learning/correct", "/api/learning/forget",
                          "/api/vault", "/api/vault/archive", "/api/vault/restore",
                          "/api/youtube/connect", "/api/thinking/context",
                          "/api/calendar/create", "/api/calendar/update", "/api/calendar/delete",
@@ -329,6 +333,27 @@ class JarvisHandler(BaseHTTPRequestHandler):
                 if type(data.get("id")) is not int:
                     raise ValueError("복원 번호를 정확히 지정해 주세요.")
                 return self._json(200, {"restored": self.store.restore_vault(data["id"])})
+            if path == "/api/learning/enable":
+                if set(data) != {"enabled"}:
+                    raise ValueError("학습 설정 값이 올바르지 않습니다.")
+                return self._json(200, {"enabled": learning.set_enabled(self.store, data["enabled"])})
+            if path == "/api/learning/candidate":
+                if set(data) != {"category", "content", "source_excerpt"}:
+                    raise ValueError("기억 후보의 항목이 올바르지 않습니다.")
+                return self._json(200, {"item": learning.propose(
+                    self.store, data["category"], data["content"], data["source_excerpt"])})
+            if path == "/api/learning/review":
+                if set(data) != {"id", "action"}:
+                    raise ValueError("기억 검토 항목이 올바르지 않습니다.")
+                return self._json(200, {"item": learning.review(self.store, data["id"], data["action"])})
+            if path == "/api/learning/correct":
+                if set(data) != {"id", "content"}:
+                    raise ValueError("기억 수정 항목이 올바르지 않습니다.")
+                return self._json(200, {"item": learning.correct(self.store, data["id"], data["content"])})
+            if path == "/api/learning/forget":
+                if set(data) != {"id"}:
+                    raise ValueError("기억 삭제 항목이 올바르지 않습니다.")
+                return self._json(200, learning.forget(self.store, data["id"]))
             if path == "/api/profile":
                 entry = self.store.upsert_profile(data.get("key"), data.get("value"),
                                                   source="user_direct", confirmed=True)

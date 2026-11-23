@@ -63,9 +63,9 @@ def related_context(store, query: str, limit: int = 5, *, include_thoughts: bool
     candidates: list[dict] = []
 
     def propose(kind: str, item_id: int, title: str, body: str, status: str,
-                when: str, weight: int = 0) -> None:
+                when: str, weight: int = 0, *, global_preference: bool = False) -> None:
         score = relevance(terms, f"{title} {body}")
-        if score <= 0:
+        if score <= 0 and not global_preference:
             return
         candidates.append({
             "kind": kind, "source_id": item_id,
@@ -75,6 +75,24 @@ def related_context(store, query: str, limit: int = 5, *, include_thoughts: bool
             "recorded_at": when,
             "_score": score + weight,
         })
+
+    # Only user-approved learned memories can affect model answers.
+    # Candidate guesses and rejected memories are never retrieved.
+    # Approved communication and value preferences stay relevant across topics.
+    from .learning import LABELS
+    global_ids = {
+        row["id"] for row in store.db.execute(
+            "SELECT id FROM learned_memories WHERE status='approved' "
+            "AND category IN ('communication','values') ORDER BY id DESC LIMIT 2"
+        )
+    }
+    for row in store.db.execute(
+        "SELECT id,category,content,updated_at FROM learned_memories "
+        "WHERE status='approved' ORDER BY id DESC LIMIT ?", (MAX_CANDIDATES,)
+    ):
+        propose("learned", row["id"], LABELS[row["category"]], row["content"],
+                "user_approved", row["updated_at"], 3,
+                global_preference=row["id"] in global_ids)
 
     for row in store.db.execute(
         "SELECT id,content,project,created_at FROM memories ORDER BY id DESC LIMIT ?",

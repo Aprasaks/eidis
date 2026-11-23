@@ -40,6 +40,6 @@ class NativeVaultContract(unittest.TestCase):
         self.assertIn('CREATE TABLE IF NOT EXISTS vault_items',STORAGE)
         self.assertIn('CREATE UNIQUE INDEX IF NOT EXISTS vault_active_fingerprint_idx',STORAGE)
         self.assertIn('source_status',STORAGE)
-        self.assertIn('<string>3.14.13</string>',PLIST)
+        self.assertIn('<string>3.14.14</string>',PLIST)
 
 if __name__=='__main__': unittest.main()

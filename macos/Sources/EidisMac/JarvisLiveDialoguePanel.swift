@@ -44,6 +44,17 @@ struct JarvisLiveDialoguePanel: View {
                 .accessibilityIdentifier("dechive-continuity-notice")
             }
 
+            if !quiet && !dialogue.learning.notice.isEmpty {
+                HStack(spacing: 6) {
+                    Image(systemName: "brain.head.profile")
+                    Text(dialogue.learning.notice)
+                        .lineLimit(2)
+                }
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(amber)
+                .accessibilityIdentifier("jarvis-learning-candidate-notice")
+            }
+
             if !quiet && !dialogue.studyNotice.isEmpty {
                 HStack(spacing: 6) {
                     Image(systemName: "doc.text.magnifyingglass")

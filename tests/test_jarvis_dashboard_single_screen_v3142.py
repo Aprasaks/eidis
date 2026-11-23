@@ -43,7 +43,7 @@ class FixedViewportContract(unittest.TestCase):
         self.assertIn('"열어"',ROUTER)
         self.assertIn('"켜줘"',ROUTER)
         self.assertIn('return .show(.overview)',ROUTER)
-        self.assertIn('<string>3.14.13</string>',INFO)
+        self.assertIn('<string>3.14.14</string>',INFO)
         self.assertIn('JarvisLoopingCore(videoURL: videoURL, compact: compactCore)',OVERLAY)
 
 if __name__=='__main__': unittest.main()

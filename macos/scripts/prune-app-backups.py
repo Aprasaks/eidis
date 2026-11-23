@@ -78,8 +78,11 @@ def plan(keep_count: int):
                 raise RuntimeError(f"Newest candidate has bad signature: {path.name}; stopped.")
             retained.append(entry)
             seen.add(build)
-    if len(retained) != keep_count:
-        raise RuntimeError(f"Expected {keep_count} unique signed versions, found {len(retained)}; stopped.")
+    # A newly cleaned installation may have fewer than keep_count backups.
+    # Keep every existing distinct valid version; never synthesize old apps.
+    available_versions = len({entry[0] for entry in eligible})
+    if len(retained) != min(keep_count, available_versions):
+        raise RuntimeError("Failed to retain all eligible distinct signed backups; stopped.")
     kept_paths = {entry[2] for entry in retained}
     deletions = [entry for entry in eligible if entry[2] not in kept_paths]
     return active, retained, deletions, protected

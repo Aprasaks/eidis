@@ -153,6 +153,7 @@ final class JarvisOverlayConversation: ObservableObject {
     let dashboard = JarvisOverlayDashboard()
     let browser = JarvisOverlayBrowser()
     let personalProfile = JarvisPersonalProfile()
+    let learning = JarvisLearningMemory()
     let vault = JarvisKnowledgeVault()
     private let thinkingCore = JarvisThinkingCore()
     private let studyClient = JarvisStudyClient()
@@ -168,6 +169,7 @@ final class JarvisOverlayConversation: ObservableObject {
     private var lastDiscussionTopic = ""
     private var generation = UUID()
     private var dialogueTask: Task<Void, Never>?
+    private var learningTask: Task<Void, Never>?
     private var listeningTask: Task<Void, Never>?
     private var silenceTask: Task<Void, Never>?
     private var transcriptObserver: AnyCancellable?
@@ -302,6 +304,8 @@ final class JarvisOverlayConversation: ObservableObject {
     private func interruptCurrentReply() {
         generation = UUID()
         dialogueTask?.cancel()
+        learningTask?.cancel()
+        learningTask = nil
         listeningTask?.cancel()
         silenceTask?.cancel()
         dialogueTask = nil
@@ -477,6 +481,9 @@ final class JarvisOverlayConversation: ObservableObject {
 
     private func handleQuestion(_ text: String, token: UUID) async {
         guard token == generation && !Task.isCancelled else { return }
+        // Foreground questions always take priority over background extraction.
+        learningTask?.cancel()
+        learningTask = nil
         let prompt = String(text.prefix(6000))
         let requestStarted = Date()
         question = prompt
@@ -508,6 +515,12 @@ final class JarvisOverlayConversation: ObservableObject {
             isThinking = false
             streamingAnswer = ""
             answer = response
+            // Learning is a post-reply, opt-in side process. Qwen proposals
+            // require explicit approval before they can affect future replies.
+            if JarvisLearningIntent.parse(prompt) == nil &&
+               JarvisPersonalProfile.parse(prompt) == nil {
+                learningTask = Task { [learning] in await learning.observe(prompt) }
+            }
             dialogueTurns.append(JarvisLiveDialogueTurn(role: "DECHIVE", content: response))
             if dialogueTurns.count > 12 { dialogueTurns.removeFirst(dialogueTurns.count - 12) }
             if JarvisVaultIntent.parse(prompt) == nil &&
@@ -860,8 +873,15 @@ final class JarvisOverlayConversation: ObservableObject {
             if conversation.count > 8 { conversation.removeFirst(conversation.count - 8) }
             return outcome
         }
-        // Personal memories require an explicit user instruction. This path
-        // never asks Qwen to invent or infer facts and persists no transcripts.
+        if let learningIntent = JarvisLearningIntent.parse(prompt) {
+            let outcome = await learning.respond(to: learningIntent)
+            guard !Task.isCancelled && token == generation else { return "" }
+            conversation.append(["role": "user", "content": prompt])
+            conversation.append(["role": "assistant", "content": outcome])
+            if conversation.count > 8 { conversation.removeFirst(conversation.count - 8) }
+            return outcome
+        }
+        // Explicit profile instructions remain separate from learning candidates.
         let profileIntent = JarvisPersonalProfile.parse(prompt)
         if let intent = profileIntent, intent != .needsField {
             let outcome: String
@@ -1360,6 +1380,8 @@ final class JarvisOverlayConversation: ObservableObject {
         wakeSessionTurns = 0
         generation = UUID()
         dialogueTask?.cancel()
+        learningTask?.cancel()
+        learningTask = nil
         listeningTask?.cancel()
         silenceTask?.cancel()
         silenceTask = nil
@@ -1388,6 +1410,7 @@ final class JarvisOverlayConversation: ObservableObject {
         vault.cancel()
         liveDashboard.cancel()
         personalProfile.cancel()
+        learning.cancel()
         continuityMonitor?.cancel()
         continuityMonitor = nil
         continuityNotice = ""

@@ -154,6 +154,8 @@ class MemoryStore:
         init_briefing_schema(self.db)
         from .calendar import schema as init_calendar_schema
         init_calendar_schema(self.db)
+        from .learning import init_schema as init_learning_schema
+        init_learning_schema(self.db)
         self.db.commit()
 
     VAULT_CATEGORIES = frozenset({'ideas','research','projects','references','notes','tasks'})
