@@ -37,10 +37,28 @@ enum JarvisMetaChannels {
             let error: Detail?
         }
         guard let parsed = try? JSONDecoder().decode(MetaError.self, from: data.prefix(16_384)),
-              let detail = parsed.error else { return "Meta API HTTP \(status) · 인증 또는 권한을 확인해 주세요." }
+              let detail = parsed.error else {
+            return "\(failureKind(code: nil, status: status)) · Meta API HTTP \(status)"
+        }
         let code = detail.code.map { " · code \($0)" } ?? ""
         let subcode = detail.error_subcode.map { " · subcode \($0)" } ?? ""
-        return "Meta API HTTP \(status)\(code)\(subcode) · 해당 계정의 토큰·권한을 확인하세요."
+        return "\(failureKind(code: detail.code, status: status)) · Meta API HTTP \(status)\(code)\(subcode)"
+    }
+
+    /// Owner-facing category for Meta's documented numeric error codes, so an
+    /// expired token, a missing permission and a temporary outage never look alike.
+    nonisolated static func failureKind(code: Int?, status: Int) -> String {
+        switch code {
+        case 190, 102, 463, 467: return "인증 만료 · 토큰을 다시 연결하세요"
+        case 10, 200, 3, 299: return "권한 부족 · 토큰 권한을 확인하세요"
+        case 4, 17, 32, 613: return "호출 한도 초과 · 잠시 후 다시 조회"
+        case 1, 2: return "Meta 서버 일시 오류 · 잠시 후 다시 조회"
+        default:
+            if status == 401 { return "인증 만료 · 토큰을 다시 연결하세요" }
+            if status == 403 { return "권한 부족 · 토큰 권한을 확인하세요" }
+            if status >= 500 { return "Meta 서버 일시 오류 · 잠시 후 다시 조회" }
+            return "조회 실패 · 해당 계정의 토큰·권한을 확인하세요"
+        }
     }
 
     nonisolated private static func validToken(_ token: String) -> Bool {
@@ -135,6 +153,56 @@ enum JarvisMetaChannels {
         return safeAvatar(details.threads_profile_picture_url)
     }
 
+    /// Real follower total from the Threads Insights API (needs the
+    /// threads_manage_insights permission). Optional: a rejected metric leaves
+    /// the value unknown ("—") and never marks a verified account disconnected.
+    nonisolated private static func threadsFollowers(token: String) async -> Int? {
+        struct Insights: Decodable {
+            struct Metric: Decodable {
+                struct Total: Decodable { let value: Int? }
+                let name: String
+                let total_value: Total?
+            }
+            let data: [Metric]
+        }
+        guard let url = URL(string: "https://graph.threads.net/v1.0/me/threads_insights?metric=followers_count"),
+              let (status, data) = await get(url, token: token), status == 200,
+              let reply = try? JSONDecoder().decode(Insights.self, from: data),
+              let value = reply.data.first(where: { $0.name == "followers_count" })?.total_value?.value,
+              value >= 0 else { return nil }
+        return value
+    }
+
+    /// Exact post count by paging the owner's own threads. Returns nil rather
+    /// than a partial number if the page cap is reached or any page fails.
+    nonisolated private static func threadsPostCount(token: String) async -> Int? {
+        struct Page: Decodable {
+            struct Item: Decodable { let id: String }
+            struct Paging: Decodable { let next: String? }
+            let data: [Item]
+            let paging: Paging?
+        }
+        var next = URL(string: "https://graph.threads.net/v1.0/me/threads?fields=id&limit=100")
+        var total = 0
+        for _ in 0..<10 {
+            guard let url = next else { return total }
+            guard url.scheme == "https", url.host == "graph.threads.net",
+                  let (status, data) = await get(url, token: token), status == 200,
+                  let page = try? JSONDecoder().decode(Page.self, from: data) else { return nil }
+            total += page.data.count
+            next = page.data.isEmpty ? nil : tokenFree(page.paging?.next)
+        }
+        return next == nil ? total : nil
+    }
+
+    /// Meta paging links can embed the access token. Strip it so the token only
+    /// ever travels in the Authorization header.
+    nonisolated private static func tokenFree(_ raw: String?) -> URL? {
+        guard let raw, var parts = URLComponents(string: raw) else { return nil }
+        parts.queryItems = parts.queryItems?.filter { $0.name != "access_token" }
+        return parts.url
+    }
+
     nonisolated static func verifyFacebook(pageID: String, token: String) async -> JarvisMetaChannelSnapshot {
         struct Page: Decodable { let id: String; let name: String?; let username: String? }
         let checked = Date()
@@ -181,9 +249,11 @@ enum JarvisMetaChannels {
               profile.username?.lowercased() == "dechive.wiki" else {
             return .init(connected: false, handle: nil, checkedAt: checked, error: "@dechive.wiki Threads 계정과 일치하지 않습니다.")
         }
-        let avatar = await threadsDetails(token: token)
+        async let avatar = threadsDetails(token: token)
+        async let followers = threadsFollowers(token: token)
+        async let posts = threadsPostCount(token: token)
         return .init(connected: true, handle: "@dechive.wiki", checkedAt: checked, error: nil,
-                     avatarURL: avatar)
+                     avatarURL: await avatar, followersCount: await followers, postsCount: await posts)
     }
 
     nonisolated static func scanFacebook() async -> JarvisMetaChannelSnapshot {
