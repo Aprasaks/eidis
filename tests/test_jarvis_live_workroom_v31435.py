@@ -5,6 +5,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "macos/Sources/EidisMac"
 UI = (SRC / "JarvisCommandCenterView.swift").read_text()
+# The SNS / YouTube channel monitor moved to its own file; check both.
+UI += "\n" + (SRC / "JarvisChannelMonitorView.swift").read_text()
 AGENTS = (SRC / "JarvisAgentTerminalBay.swift").read_text()
 ROUTE = (SRC / "JarvisLiveDashboard.swift").read_text()
 OVERLAY = (SRC / "JarvisFullscreenOverlay.swift").read_text()

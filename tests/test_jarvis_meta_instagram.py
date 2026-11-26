@@ -6,6 +6,8 @@ ROOT = Path(__file__).resolve().parents[1]
 META = (ROOT / "macos/Sources/EidisMac/JarvisMetaInstagramService.swift").read_text()
 DASH = (ROOT / "macos/Sources/EidisMac/JarvisLiveDashboard.swift").read_text()
 UI = (ROOT / "macos/Sources/EidisMac/JarvisCommandCenterView.swift").read_text()
+# The SNS / YouTube channel monitor moved to its own file; check both.
+UI += "\n" + (ROOT / "macos/Sources/EidisMac/JarvisChannelMonitorView.swift").read_text()
 
 
 class MetaInstagramSecurityContract(unittest.TestCase):

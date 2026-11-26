@@ -7,6 +7,8 @@ ROUTER = (SRC / 'JarvisSocialProfileIntent.swift').read_text()
 DIALOGUE = (SRC / 'JarvisOverlayConversation.swift').read_text()
 BROWSER = (SRC / 'JarvisOverlayBrowser.swift').read_text()
 CENTER = (SRC / 'JarvisCommandCenterView.swift').read_text()
+# The SNS / YouTube channel monitor moved to its own file; check both.
+CENTER += "\n" + (SRC / 'JarvisChannelMonitorView.swift').read_text()
 META = (SRC / 'JarvisMetaChannels.swift').read_text()
 INSTAGRAM = (SRC / 'JarvisMetaInstagramService.swift').read_text()
 YOUTUBE = (ROOT / 'jarvis' / 'google_youtube.py').read_text()

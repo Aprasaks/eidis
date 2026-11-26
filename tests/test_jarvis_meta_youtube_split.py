@@ -1,6 +1,8 @@
 from pathlib import Path
 import unittest
 UI=(Path(__file__).resolve().parents[1]/"macos/Sources/EidisMac/JarvisCommandCenterView.swift").read_text()
+# The SNS / YouTube channel monitor moved to its own file; check both.
+UI += "\n" + (Path(__file__).resolve().parents[1]/"macos/Sources/EidisMac/JarvisChannelMonitorView.swift").read_text()
 class MainOverviewSources(unittest.TestCase):
     def test_overview_left_column_is_projects_meta_youtube(self):
         column=UI.split("private func leftColumn(",1)[1].split("private func centerColumn(",1)[0]

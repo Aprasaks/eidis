@@ -3,6 +3,8 @@ import unittest
 
 ROOT=Path(__file__).resolve().parents[1]
 UI=(ROOT/'macos/Sources/EidisMac/JarvisCommandCenterView.swift').read_text()
+# The SNS / YouTube channel monitor moved to its own file; check both.
+UI += "\n" + (ROOT/'macos/Sources/EidisMac/JarvisChannelMonitorView.swift').read_text()
 ROUTER=(ROOT/'macos/Sources/EidisMac/JarvisLiveDashboard.swift').read_text()
 OVERLAY=(ROOT/'macos/Sources/EidisMac/JarvisFullscreenOverlay.swift').read_text()
 INFO=(ROOT/'macos/Resources/Info.plist').read_text()

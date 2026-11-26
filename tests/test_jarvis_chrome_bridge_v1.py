@@ -5,6 +5,8 @@ SRC = ROOT / 'macos' / 'Sources' / 'EidisMac'
 CHROME = (SRC / 'JarvisChromeSession.swift').read_text()
 DIALOGUE = (SRC / 'JarvisOverlayConversation.swift').read_text()
 UI = (SRC / 'JarvisCommandCenterView.swift').read_text()
+# The SNS / YouTube channel monitor moved to its own file; check both.
+UI += "\n" + (SRC / 'JarvisChannelMonitorView.swift').read_text()
 OVERLAY = (SRC / 'JarvisFullscreenOverlay.swift').read_text()
 BRIDGE = (ROOT / 'tools/chrome-bridge/check.mjs').read_text()
 POLICY = (ROOT / 'tools/chrome-bridge/policy.mjs').read_text()

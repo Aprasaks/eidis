@@ -5,6 +5,8 @@ MAC=ROOT/"macos/Sources/EidisMac"
 ACCOUNT=(MAC/"JarvisMetaChannels.swift").read_text()
 IG=(MAC/"JarvisMetaInstagramService.swift").read_text()
 UI=(MAC/"JarvisCommandCenterView.swift").read_text()
+# The SNS / YouTube channel monitor moved to its own file; check both.
+UI += "\n" + (MAC/"JarvisChannelMonitorView.swift").read_text()
 DASH=(MAC/"JarvisLiveDashboard.swift").read_text()
 STUDIO=(MAC/"JarvisWikiSocialStudio.swift").read_text()
 class MetaConnections(unittest.TestCase):
