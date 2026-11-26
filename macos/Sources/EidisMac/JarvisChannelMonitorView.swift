@@ -16,7 +16,6 @@ struct JarvisChannelMonitorView: View {
     @State private var instagramLoginMode = JarvisMetaInstagramService.savedMode()
     @State private var showFacebookConnectionSheet = false
     @State private var showThreadsConnectionSheet = false
-    @State private var facebookPageIDInput = ""
     @State private var facebookTokenInput = ""
     @State private var threadsTokenInput = ""
     @State private var facebookSnapshot: JarvisMetaChannelSnapshot?
@@ -65,23 +64,23 @@ struct JarvisChannelMonitorView: View {
         .sheet(isPresented: $showFacebookConnectionSheet) {
             VStack(alignment: .leading, spacing: 14) {
                 Text("DECHIVE.WIKI / Facebook 페이지 연결").font(.headline)
-                Text("Meta에서 DECHIVE.WIKI Facebook 페이지 ID와 해당 페이지의 Page Access Token을 확인해 입력하세요. 개인 Facebook 사용자 토큰과 다릅니다.")
+                Text("토큰 하나만 붙여넣으세요. 액세스 토큰 디버거에서 \"Extend Access Token\"으로 받은 60일 사용자 토큰을 넣으면, 자비스가 Dechive WIKI 페이지 토큰(만료 없음)을 직접 찾아 검증 후 저장합니다. 페이지 토큰을 넣어도 됩니다.")
                     .font(.subheadline).foregroundStyle(.secondary)
-                TextField("Facebook Page ID (숫자)", text: $facebookPageIDInput)
-                    .textFieldStyle(.roundedBorder)
-                    .accessibilityIdentifier("jarvis-meta-facebook-page-id")
-                SecureField("Facebook Page Access Token", text: $facebookTokenInput)
+                    .fixedSize(horizontal: false, vertical: true)
+                SecureField("Facebook 토큰 (60일 사용자 토큰 또는 Facebook Page Access Token)", text: $facebookTokenInput)
                     .textFieldStyle(.roundedBorder)
                     .accessibilityIdentifier("jarvis-meta-facebook-page-token")
+                Text("대상 페이지: Dechive WIKI · ID \(JarvisMetaChannels.wikiPageID) · 사용자 토큰은 저장하지 않습니다")
+                    .font(.caption).foregroundStyle(.secondary)
+                if facebookVerifying { ProgressView().controlSize(.small) }
                 if let error = facebookSnapshot?.error { Text(error).font(.caption).foregroundStyle(.orange) }
                 HStack {
                     Button("취소") { facebookTokenInput = ""; showFacebookConnectionSheet = false }
                     Spacer()
                     Button("DECHIVE.WIKI 페이지 검증 후 저장") {
-                        let pageID = facebookPageIDInput.trimmingCharacters(in: .whitespacesAndNewlines)
-                        let token = facebookTokenInput
+                        let token = facebookTokenInput.trimmingCharacters(in: .whitespacesAndNewlines)
                         facebookTokenInput = ""
-                        Task { await connectFacebook(pageID: pageID, token: token) }
+                        Task { await connectFacebookAnyToken(token) }
                     }
                     .disabled(facebookTokenInput.isEmpty || facebookVerifying)
                     .keyboardShortcut(.defaultAction)
@@ -344,10 +343,10 @@ struct JarvisChannelMonitorView: View {
             .overlay(Capsule().stroke(amber.opacity(0.30), lineWidth: 0.8))
     }
 
-    private func connectFacebook(pageID: String, token: String) async {
+    private func connectFacebookAnyToken(_ token: String) async {
         guard !facebookVerifying else { return }
         facebookVerifying = true
-        facebookSnapshot = await JarvisMetaChannels.connectFacebook(pageID: pageID, token: token)
+        facebookSnapshot = await JarvisMetaChannels.connectFacebookAnyToken(token)
         facebookVerifying = false
         if facebookSnapshot?.connected == true { showFacebookConnectionSheet = false }
     }

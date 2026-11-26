@@ -28,6 +28,13 @@ class ThreadsMetricsAndFailureStates(unittest.TestCase):
         verify = META.split("func verifyThreads(", 1)[1].split("func scanFacebook(", 1)[0]
         self.assertIn('return .init(connected: true, handle: "@dechive.wiki"', verify)
 
+    def test_facebook_one_paste_saves_only_verified_page_token(self):
+        body = META.split("func connectFacebookAnyToken(", 1)[1].split("func connectThreads(", 1)[0]
+        self.assertIn("me/accounts?fields=id,access_token", body)
+        self.assertIn("$0.id == wikiPageID", body)
+        self.assertIn("return await connectFacebook(pageID: wikiPageID, token: pageToken)", body)
+        self.assertNotIn("save(token", body)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -324,6 +324,37 @@ enum JarvisMetaChannels {
         return checked
     }
 
+    /// The fixed DECHIVE.WIKI Facebook page (also used for recent posts).
+    nonisolated static let wikiPageID = "1433547446509432"
+
+    /// One-paste connection. Accepts either the page token itself, or a user
+    /// token (ideally the 60-day "Extend Access Token" one) from which the
+    /// page token is read via /me/accounts. A page token obtained from a
+    /// long-lived user token does not expire. Only the verified page token is
+    /// saved; the user token is never stored or logged.
+    nonisolated static func connectFacebookAnyToken(_ token: String) async -> JarvisMetaChannelSnapshot {
+        let direct = await connectFacebook(pageID: wikiPageID, token: token)
+        if direct.connected { return direct }
+        struct Accounts: Decodable {
+            struct Page: Decodable { let id: String; let access_token: String? }
+            let data: [Page]
+        }
+        guard let url = URL(string: "https://graph.facebook.com/v27.0/me/accounts?fields=id,access_token&limit=100"),
+              let (status, data) = await get(url, token: token) else {
+            return .init(connected: false, handle: nil, checkedAt: Date(),
+                         error: "조회 불가 · 네트워크 · Facebook 토큰을 확인하지 못했습니다.")
+        }
+        guard status == 200 else {
+            return .init(connected: false, handle: nil, checkedAt: Date(), error: sanitizedFailure(data, status: status))
+        }
+        guard let accounts = try? JSONDecoder().decode(Accounts.self, from: data),
+              let pageToken = accounts.data.first(where: { $0.id == wikiPageID })?.access_token else {
+            return .init(connected: false, handle: nil, checkedAt: Date(),
+                         error: "권한 부족 · 이 토큰으로 Dechive WIKI 페이지를 찾지 못했습니다. pages_show_list 권한과 페이지 선택을 확인하세요.")
+        }
+        return await connectFacebook(pageID: wikiPageID, token: pageToken)
+    }
+
     nonisolated static func connectThreads(token: String) async -> JarvisMetaChannelSnapshot {
         let checked = await verifyThreads(token: token)
         guard checked.connected else { return checked }
