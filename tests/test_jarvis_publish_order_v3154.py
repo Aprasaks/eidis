@@ -1,4 +1,4 @@
-import unittest, json, subprocess, shutil
+import unittest, json, subprocess, shutil, re
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 M=(ROOT/"macos/Sources/EidisMac/JarvisMacNearbyCalendar.swift").read_text()
@@ -14,9 +14,13 @@ class PublishOrder(unittest.TestCase):
     @unittest.skipUnless(shutil.which("node") and P.exists(),"Node and publisher required")
     def test_actual_order_guard_with_fake_cms(self):
         s=P.read_text()
-        block=s.split("  // Check the live draft queue")[1].split("  const {_id,_rev")[0]
-        block=block[block.index("  const catalog"):]
-        self.assertLess(s.index("EARLIER_REVIEW_PENDING"),s.index("await client.transaction()"))
+        start=s.index("const catalog",s.index("// Check the live draft queue"))
+        end=re.search(r"const\s*\{\s*_id\s*,",s[start:])
+        self.assertIsNotNone(end)
+        block=s[start:start+end.start()]
+        transaction=re.search(r"await\s+client\s*\.\s*transaction\s*\(",s)
+        self.assertIsNotNone(transaction)
+        self.assertLess(s.index("EARLIER_REVIEW_PENDING"),transaction.start())
         catalog=json.loads((ROOT/"docs/knowledge/knowledge-catalog.json").read_text())
         code="""
 const assert=require("node:assert/strict");
