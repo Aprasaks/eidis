@@ -22,8 +22,8 @@ class LiveWorkroomContract(unittest.TestCase):
         self.assertIn('JarvisWorkroomProject.allCases', left)
         self.assertIn('showChannelOverview = true', left)
         self.assertNotIn('projectsCard(scale:', left)
-        self.assertIn('metaCard(scale: 1.1)', UI)
-        self.assertIn('youtubeCard(scale: 1.1)', UI)
+        self.assertIn('metaCard(scale: scale)', UI)  # SNS workroom scales like project workrooms
+        self.assertIn('youtubeCard(scale: scale)', UI)
 
     def test_youtube_expanded_area_is_backed_by_real_api_data(self):
         youtube = UI.split('private func youtubeCard(',1)[1].split('private func knowledgeCard(',1)[0]

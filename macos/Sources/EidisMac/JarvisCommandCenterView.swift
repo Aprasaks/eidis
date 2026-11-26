@@ -74,9 +74,18 @@ struct JarvisCommandCenterView: View {
             .frame(width: width, height: height, alignment: .top)
             .clipped()
             .accessibilityIdentifier("jarvis-command-center")
-            .allowsHitTesting(model.workroomProject == nil)
+            .allowsHitTesting(model.workroomProject == nil && !showChannelOverview)
             .overlay {
-                if let project = model.workroomProject {
+                if showChannelOverview {
+                    // SNS / YouTube workroom: same full-size layer as project workrooms.
+                    JarvisChannelMonitorView(model: model, dialogue: dialogue, agentBay: agentBay) {
+                        withAnimation(.easeInOut(duration: 0.28)) { showChannelOverview = false }
+                    }
+                    .padding(outer)
+                    .frame(width: width, height: height)
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                    .zIndex(21)
+                } else if let project = model.workroomProject {
                     JarvisProjectWorkspace(project: project, agentBay: agentBay) {
                         withAnimation(.easeInOut(duration: 0.28)) { model.workroomProject = nil }
                     }
@@ -124,9 +133,6 @@ struct JarvisCommandCenterView: View {
             if day != nil && model.workroomProject == .dev {
                 withAnimation(.easeInOut(duration: 0.28)) { model.workroomProject = nil }
             }
-        }
-        .sheet(isPresented: $showChannelOverview) {
-            JarvisChannelMonitorView(model: model, dialogue: dialogue) { showChannelOverview = false }
         }
     }
 
@@ -195,20 +201,29 @@ struct JarvisCommandCenterView: View {
                 .accessibilityIdentifier("jarvis-project-" + project.rawValue)
             }
             Button {
-                showChannelOverview = true
+                withAnimation(.easeInOut(duration: 0.28)) { showChannelOverview = true }
             } label: {
-                HStack {
+                // Live API values only; unknown stays "—".
+                let instagram = model.instagramSnapshot?.followersCount.map { String($0) } ?? "—"
+                let youtube = (model.youtubeSummary?.connected == true ? model.youtubeSummary?.data?.subscriberCount : nil) ?? "—"
+                HStack(spacing: 10) {
                     Image(systemName: "waveform.path")
-                    Text("SNS / YOUTUBE")
+                    Text("SNS / YOUTUBE").fontWeight(.semibold)
+                    Text("IG \(instagram) · YT \(youtube)")
+                        .foregroundStyle(.white.opacity(0.75))
+                        .lineLimit(1)
                     Spacer()
+                    Text("CLAUDE CODE")
+                        .font(.system(size: 9 * scale, weight: .medium, design: .monospaced))
+                        .foregroundStyle(JarvisAgentID.claude.workroomAccent)
                     Image(systemName: "arrow.up.right")
                 }
                 .font(.system(size: 11 * scale, design: .monospaced))
                 .foregroundStyle(amber)
                 .padding(.horizontal, 12)
                 .frame(height: 42)
-                .background(amber.opacity(0.05), in: RoundedRectangle(cornerRadius: 6))
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(amber.opacity(0.25)))
+                .background(amber.opacity(0.10), in: RoundedRectangle(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(amber.opacity(0.55), lineWidth: 1))
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("jarvis-channel-overview")

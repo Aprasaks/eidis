@@ -8,7 +8,9 @@ CENTER = (SRC / "JarvisCommandCenterView.swift").read_text()
 
 class ChannelMonitorSplit(unittest.TestCase):
     def test_command_center_only_presents_the_monitor(self):
-        self.assertIn("JarvisChannelMonitorView(model: model, dialogue: dialogue)", CENTER)
+        self.assertIn("JarvisChannelMonitorView(model: model, dialogue: dialogue, agentBay: agentBay)", CENTER)
+        self.assertNotIn(".sheet(isPresented: $showChannelOverview)", CENTER)
+        self.assertIn("model.workroomProject == nil && !showChannelOverview", CENTER)
         for moved in ("private func metaCard(", "private func youtubeCard(", "refreshMetaAccounts",
                       "showThreadsConnectionSheet", "JarvisWikiSocialStudio()"):
             self.assertNotIn(moved, CENTER)
@@ -31,6 +33,20 @@ class ChannelMonitorSplit(unittest.TestCase):
         self.assertIn("guard !metaRefreshing", MONITOR)
         self.assertNotIn("TextField(\"Threads User Access Token\"", MONITOR)
         self.assertIn("SecureField(\"Threads User Access Token\"", MONITOR)
+
+    def test_claude_lane_is_read_only_and_gets_no_tokens(self):
+        studio = MONITOR.split("private func claudeStudio(", 1)[1].split("private func refreshMetaAccounts(", 1)[0]
+        self.assertIn("agentBay.runReadOnly(.claude", MONITOR)
+        self.assertIn("agentBay.nightShiftRunning", studio)
+        summary = MONITOR.split("private func verifiedSummary(", 1)[1].split("private func runClaude(", 1)[0]
+        self.assertNotIn("readToken", summary)
+        self.assertNotIn("Token", summary)
+        self.assertIn(".prefix(500)", MONITOR)
+
+    def test_workroom_is_full_size_and_escape_closes(self):
+        self.assertIn('"jarvis-sns-workroom"', MONITOR)
+        self.assertIn(".keyboardShortcut(.escape, modifiers: [])", MONITOR)
+        self.assertIn("CLAUDE CODE / SNS STUDIO", MONITOR)
 
 
 if __name__ == "__main__":

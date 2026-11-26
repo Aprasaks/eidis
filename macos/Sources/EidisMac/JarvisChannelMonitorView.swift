@@ -1,13 +1,16 @@
 import SwiftUI
 
-/// SNS / YouTube channel monitor, opened from the workroom's "SNS / YOUTUBE"
-/// button. Every number comes from a live, read-only platform API; unknown
-/// values stay "—". Tokens stay in Keychain and never reach this view.
+/// SNS / YouTube workroom, a full-size layer like the DECHIVE.DEV workroom,
+/// opened from the overview's "SNS / YOUTUBE" button. Every number comes from
+/// a live, read-only platform API; unknown values stay "—". Tokens stay in
+/// Keychain and never reach this view or the Claude Code prompt.
 /// DECHIVE.WIKI (global, English) and DECHIVE (domestic, Korean) are shown apart.
 struct JarvisChannelMonitorView: View {
     @ObservedObject var model: JarvisLiveDashboard
     @ObservedObject var dialogue: JarvisOverlayConversation
+    @ObservedObject var agentBay: JarvisAgentTerminalBay
     let close: () -> Void
+    @State private var claudeRequest = ""
     @State private var showInstagramTokenSheet = false
     @State private var instagramTokenInput = ""
     @State private var instagramLoginMode = JarvisMetaInstagramService.savedMode()
@@ -28,29 +31,33 @@ struct JarvisChannelMonitorView: View {
     private let muted = Color(red: 0.64, green: 0.66, blue: 0.68)
     private let mint = Color(red: 0.46, green: 0.84, blue: 0.69)
 
+    private let claudeAccent = JarvisAgentID.claude.workroomAccent
+
     var body: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 12) {
-                Text("CHANNEL MONITOR").font(.system(.headline, design: .monospaced)).foregroundStyle(amber)
-                Spacer()
-                Button {
-                    Task { await refreshMetaAccounts() }
-                } label: {
-                    Label(metaRefreshing ? "조회 중…" : "다시 조회", systemImage: "arrow.clockwise")
+        GeometryReader { geo in
+            let scale = min(1.45, max(0.85, geo.size.width / 1460))
+            VStack(alignment: .leading, spacing: 16) {
+                header(scale)
+                Rectangle().fill(amber.opacity(0.45)).frame(height: 1)
+                HStack(alignment: .top, spacing: 18) {
+                    VStack(spacing: 14) {
+                        metaCard(scale: scale)
+                            .fixedSize(horizontal: false, vertical: true)
+                        youtubeCard(scale: scale)
+                    }
+                    .frame(width: max(300, geo.size.width * 0.38))
+                    claudeStudio(scale)
                 }
-                .disabled(metaRefreshing)
-                .accessibilityIdentifier("jarvis-channel-monitor-refresh")
-                Button("닫기", action: close)
+                .frame(maxHeight: .infinity)
             }
-            HStack(alignment: .top, spacing: 12) {
-                metaCard(scale: 1.1)
-                youtubeCard(scale: 1.1)
-            }
-            .frame(maxHeight: .infinity)
+            .padding(22)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(Color(red: 0.028, green: 0.034, blue: 0.040).opacity(0.98),
+                        in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(amber.opacity(0.58), lineWidth: 1.2))
         }
-        .padding(18)
-        .frame(minWidth: 960, minHeight: 640)
         .preferredColorScheme(.dark)
+        .accessibilityIdentifier("jarvis-sns-workroom")
         .task { await refreshMetaAccounts() }
         .sheet(isPresented: $showSocialStudio) {
             JarvisWikiSocialStudioView(studio: socialStudio)
@@ -146,6 +153,152 @@ struct JarvisChannelMonitorView: View {
             .frame(minWidth: 450, idealWidth: 510)
             .onDisappear { instagramTokenInput = "" }
         }
+    }
+
+    private func header(_ scale: CGFloat) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: "waveform.path").font(.system(size: 29 * scale, weight: .light))
+                .foregroundStyle(amber)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("SNS / YOUTUBE").font(.system(size: 25 * scale, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(amber)
+                Text("DECHIVE.WIKI · GLOBAL   /   DECHIVE · 국내")
+                    .font(.system(size: 11 * scale, design: .monospaced)).foregroundStyle(muted)
+            }
+            Spacer()
+            Button {
+                Task { await refreshMetaAccounts() }
+            } label: {
+                Label(metaRefreshing ? "조회 중…" : "다시 조회", systemImage: "arrow.clockwise")
+                    .font(.system(size: 12 * scale))
+            }
+            .buttonStyle(.bordered)
+            .disabled(metaRefreshing)
+            .accessibilityIdentifier("jarvis-channel-monitor-refresh")
+            Button(action: close) {
+                Label("관제실 복귀", systemImage: "xmark")
+                    .font(.system(size: 12 * scale))
+                    .foregroundStyle(amber)
+            }
+            .buttonStyle(.bordered)
+            .keyboardShortcut(.escape, modifiers: [])
+            .accessibilityIdentifier("jarvis-sns-workroom-close")
+        }
+    }
+
+    /// Verified numbers only (no tokens, no raw provider messages) for the
+    /// read-only Claude Code lane. Unknown values are passed as "미확인".
+    private func verifiedSummary() -> String {
+        func n(_ v: Int?) -> String { v.map { String($0) } ?? "미확인" }
+        func s(_ connected: Bool, _ error: String?, _ checked: Date?) -> String {
+            channelState(connected: connected, error: error, checkedAt: checked).label
+                .components(separatedBy: " · ").first ?? "미확인"
+        }
+        let ig = model.instagramSnapshot
+        let yt = model.youtubeSummary?.connected == true ? model.youtubeSummary?.data : nil
+        return "DECHIVE SNS 현황(자비스 API 확인값). 해외용 DECHIVE.WIKI: " +
+            "Instagram 팔로워 \(n(ig?.followersCount)) 게시물 \(n(ig?.mediaCount)) [\(s(ig?.connected == true, ig?.error, ig?.checkedAt))], " +
+            "Threads 팔로워 \(n(threadsSnapshot?.followersCount)) 게시물 \(n(threadsSnapshot?.postsCount)) [\(s(threadsSnapshot?.connected == true, threadsSnapshot?.error, threadsSnapshot?.checkedAt))], " +
+            "Facebook [\(s(facebookSnapshot?.connected == true, facebookSnapshot?.error, facebookSnapshot?.checkedAt))]. " +
+            "국내 DECHIVE YouTube 구독자 \(yt?.subscriberCount ?? "미확인") 영상 \(yt?.videoCount ?? "미확인")."
+    }
+
+    private func runClaude(_ request: String) {
+        let ask = request.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !ask.isEmpty else { return }
+        let prompt = String((verifiedSummary() + " 요청: " + ask).prefix(500))
+        agentBay.runReadOnly(.claude, prompt: prompt)
+    }
+
+    private func claudeStudio(_ scale: CGFloat) -> some View {
+        let lane = agentBay.lane(.claude)
+        let running = lane.state == .running
+        let blocked = agentBay.isAnyRunning || agentBay.nightShiftRunning || lane.state == .missing
+        let defaultRequest = "이 수치만 근거로, 오늘 해외 팔로워를 늘리기 위해 할 일 3가지를 짧게 제안해줘."
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Image(systemName: "terminal").foregroundStyle(claudeAccent)
+                Text("CLAUDE CODE / SNS STUDIO")
+                    .font(.system(size: 15 * scale, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(claudeAccent)
+                Spacer()
+                Text(lane.stateLabel + (lane.version.isEmpty ? "" : " · " + lane.version))
+                    .font(.system(size: 12 * scale, design: .monospaced))
+                    .foregroundStyle(running ? .green : muted)
+                    .lineLimit(1)
+            }
+            Rectangle().fill(claudeAccent.opacity(0.25)).frame(height: 1)
+            HStack(spacing: 10) {
+                Button {
+                    runClaude(defaultRequest)
+                } label: {
+                    Label("SNS 현황 분석", systemImage: "play.fill")
+                        .font(.system(size: 13 * scale, weight: .semibold))
+                        .padding(.horizontal, 10).padding(.vertical, 6)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(claudeAccent.opacity(0.85))
+                .disabled(blocked)
+                .accessibilityIdentifier("jarvis-sns-claude-analyze")
+                Button("중단") { agentBay.cancel(.claude) }
+                    .buttonStyle(.bordered)
+                    .disabled(!running)
+                    .accessibilityIdentifier("jarvis-sns-claude-stop")
+                Spacer()
+            }
+            HStack(spacing: 8) {
+                TextField("Claude Code에게 SNS 질문 (예: 이번 주 스레드 주제 추천)", text: $claudeRequest)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 12 * scale))
+                    .onSubmit { if !blocked { runClaude(claudeRequest); claudeRequest = "" } }
+                    .accessibilityIdentifier("jarvis-sns-claude-request")
+                Button("보내기") { runClaude(claudeRequest); claudeRequest = "" }
+                    .buttonStyle(.bordered)
+                    .disabled(blocked || claudeRequest.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            Text(agentBay.nightShiftRunning ? "야간 Knowledge 근무 중에는 실행하지 않습니다." :
+                 lane.state == .missing ? "Claude Code CLI를 찾지 못했습니다." :
+                 "읽기 전용 · 파일 수정·게시·토큰 접근 없음 · 확인된 수치만 전달")
+                .font(.system(size: 10 * scale)).foregroundStyle(muted)
+            Text("REAL CLI OUTPUT").font(.system(size: 10 * scale, weight: .medium, design: .monospaced))
+                .foregroundStyle(claudeAccent)
+            ScrollViewReader { proxy in
+                ScrollView(.vertical) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        if lane.lastRun == nil || lane.logs.isEmpty {
+                            Text("› SNS 현황 분석을 누르면 실제 Claude Code 출력이 표시됩니다.")
+                                .foregroundStyle(muted)
+                        } else {
+                            ForEach(Array(lane.logs.enumerated()), id: \.offset) { index, line in
+                                Text(line)
+                                    .foregroundStyle(Color.white.opacity(0.86))
+                                    .textSelection(.enabled)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .id(index)
+                            }
+                        }
+                    }
+                    .font(.system(size: 11 * scale, design: .monospaced))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(14)
+                }
+                .onChange(of: lane.updatedAt) { _, _ in
+                    if let last = lane.logs.indices.last { proxy.scrollTo(last, anchor: .bottom) }
+                }
+            }
+            .background(Color.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 7))
+            .overlay(RoundedRectangle(cornerRadius: 7).stroke(claudeAccent.opacity(0.22)))
+            .frame(maxHeight: .infinity)
+            Text("분석 결과는 제안입니다. 게시는 항상 사용자가 직접 승인합니다.")
+                .font(.system(size: 11 * scale)).foregroundStyle(muted)
+        }
+        .padding(19)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(LinearGradient(colors: [claudeAccent.opacity(0.065), .black.opacity(0.52)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing),
+                    in: RoundedRectangle(cornerRadius: 9))
+        .overlay(RoundedRectangle(cornerRadius: 9).stroke(claudeAccent.opacity(0.50)))
+        .onAppear { agentBay.probeAll() }
     }
 
     private func refreshMetaAccounts() async {
