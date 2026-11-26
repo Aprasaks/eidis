@@ -41,7 +41,8 @@ class ChannelMonitorSplit(unittest.TestCase):
         summary = MONITOR.split("private func verifiedSummary(", 1)[1].split("private func runClaude(", 1)[0]
         self.assertNotIn("readToken", summary)
         self.assertNotIn("Token", summary)
-        self.assertIn(".prefix(500)", MONITOR)
+        self.assertIn("prefix(500 - request.count)", MONITOR)
+        self.assertIn("해외 영어권 팔로워만", MONITOR)
 
     def test_workroom_is_full_size_and_escape_closes(self):
         self.assertIn('"jarvis-sns-workroom"', MONITOR)

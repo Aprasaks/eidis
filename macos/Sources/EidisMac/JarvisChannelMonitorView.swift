@@ -195,17 +195,21 @@ struct JarvisChannelMonitorView: View {
         }
         let ig = model.instagramSnapshot
         let yt = model.youtubeSummary?.connected == true ? model.youtubeSummary?.data : nil
-        return "DECHIVE SNS 현황(자비스 API 확인값). 해외용 DECHIVE.WIKI: " +
+        return "목표: DECHIVE.WIKI는 해외 영어권 팔로워만 키움(한국 팔로워 유입은 목표 아님). 근거 있는 사실만, 출처 표기. " +
+            "현황(자비스 API 확인값). 해외용 DECHIVE.WIKI: " +
             "Instagram 팔로워 \(n(ig?.followersCount)) 게시물 \(n(ig?.mediaCount)) [\(s(ig?.connected == true, ig?.error, ig?.checkedAt))], " +
             "Threads 팔로워 \(n(threadsSnapshot?.followersCount)) 게시물 \(n(threadsSnapshot?.postsCount)) [\(s(threadsSnapshot?.connected == true, threadsSnapshot?.error, threadsSnapshot?.checkedAt))], " +
-            "Facebook [\(s(facebookSnapshot?.connected == true, facebookSnapshot?.error, facebookSnapshot?.checkedAt))]. " +
+            "Facebook 팔로워 \(n(facebookSnapshot?.followersCount)) [\(s(facebookSnapshot?.connected == true, facebookSnapshot?.error, facebookSnapshot?.checkedAt))]. " +
             "국내 DECHIVE YouTube 구독자 \(yt?.subscriberCount ?? "미확인") 영상 \(yt?.videoCount ?? "미확인")."
     }
 
     private func runClaude(_ request: String) {
         let ask = request.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !ask.isEmpty else { return }
-        let prompt = String((verifiedSummary() + " 요청: " + ask).prefix(500))
+        // The lane accepts at most 500 characters; keep the owner's request whole
+        // and shorten the context instead.
+        let request = " 요청: " + String(ask.prefix(200))
+        let prompt = String(verifiedSummary().prefix(500 - request.count)) + request
         agentBay.runReadOnly(.claude, prompt: prompt)
     }
 
@@ -213,7 +217,7 @@ struct JarvisChannelMonitorView: View {
         let lane = agentBay.lane(.claude)
         let running = lane.state == .running
         let blocked = agentBay.isAnyRunning || agentBay.nightShiftRunning || lane.state == .missing
-        let defaultRequest = "이 수치만 근거로, 오늘 해외 팔로워를 늘리기 위해 할 일 3가지를 짧게 제안해줘."
+        let defaultRequest = "이 수치만 근거로, 오늘 해외 영어권 팔로워를 늘리기 위해 할 일 3가지를 짧게 제안해줘."
         return VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Image(systemName: "terminal").foregroundStyle(claudeAccent)
