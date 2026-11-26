@@ -33,6 +33,9 @@ struct JarvisChannelMonitorView: View {
     @State private var lastSync: Date?
     @State private var showRawLog = false
     @State private var lastClaudeTitle: String?
+    @State private var studioMode = 0
+    @State private var carouselURL = ""
+    @ObservedObject private var carousel = JarvisCarouselRunner.shared
 
     private let amber = Color(red: 0.94, green: 0.67, blue: 0.30)
     private let muted = Color(red: 0.64, green: 0.66, blue: 0.68)
@@ -55,13 +58,17 @@ struct JarvisChannelMonitorView: View {
                         youtubeCard(scale: scale)
                     }
                     .frame(width: max(280, geo.size.width * 0.29))
-                    VStack(spacing: 14) {
-                        todayCard(scale)
-                            .fixedSize(horizontal: false, vertical: true)
-                        feedCard(scale)
+                    if studioMode == 0 {
+                        // Carousel production uses the full right side; the routine returns after.
+                        VStack(spacing: 14) {
+                            todayCard(scale)
+                                .fixedSize(horizontal: false, vertical: true)
+                            feedCard(scale)
+                        }
+                        .frame(width: max(260, geo.size.width * 0.27))
+                        .transition(.opacity)
                     }
-                    .frame(width: max(260, geo.size.width * 0.27))
-                    claudeStudio(scale)
+                    studioColumn(scale)
                 }
                 .frame(maxHeight: .infinity)
             }
@@ -652,6 +659,202 @@ struct JarvisChannelMonitorView: View {
                     in: RoundedRectangle(cornerRadius: 9))
         .overlay(RoundedRectangle(cornerRadius: 9).stroke(claudeAccent.opacity(0.50)))
         .onAppear { agentBay.probeAll() }
+    }
+
+    // MARK: - Claude studio switcher and carousel production
+
+    private func studioColumn(_ scale: CGFloat) -> some View {
+        VStack(spacing: 10) {
+            Picker("", selection: $studioMode) {
+                Text("분석 브리핑").tag(0)
+                Text("캐러셀 제작").tag(1)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .accessibilityIdentifier("jarvis-sns-studio-mode")
+            if studioMode == 0 { claudeStudio(scale) } else { carouselStudio(scale) }
+        }
+        .onAppear { if carousel.isRunning { studioMode = 1 } }
+        .onChange(of: carousel.stage) { _, stage in
+            if stage == .fetching { withAnimation { studioMode = 1 } }
+        }
+    }
+
+    private func pipeline(_ scale: CGFloat) -> some View {
+        let steps: [JarvisCarouselRunner.Stage] = [.fetching, .writing, .rendering, .review]
+        let current = carousel.stage
+        return HStack(spacing: 6) {
+            ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+                let done = current != .failed && current.rawValue > step.rawValue
+                let active = current == step
+                HStack(spacing: 6) {
+                    ZStack {
+                        Circle().fill(done ? mint : (active ? claudeAccent : Color.white.opacity(0.08)))
+                            .frame(width: 20 * scale, height: 20 * scale)
+                        if done {
+                            Image(systemName: "checkmark").font(.system(size: 10 * scale, weight: .bold)).foregroundStyle(.black)
+                        } else if active && carousel.isRunning {
+                            ProgressView().controlSize(.mini).tint(.black)
+                        } else {
+                            Text("\(index + 1)").font(.system(size: 10 * scale, weight: .bold)).foregroundStyle(active ? .black : muted)
+                        }
+                    }
+                    Text(step.label)
+                        .font(.system(size: 11 * scale, weight: active ? .semibold : .regular))
+                        .foregroundStyle(active ? claudeAccent : (done ? mint : muted))
+                        .lineLimit(1)
+                }
+                if index < steps.count - 1 {
+                    Rectangle().fill(done ? mint.opacity(0.6) : Color.white.opacity(0.12)).frame(height: 1)
+                }
+            }
+        }
+        .accessibilityIdentifier("jarvis-sns-carousel-pipeline")
+    }
+
+    private func carouselStudio(_ scale: CGFloat) -> some View {
+        let running = carousel.isRunning
+        let blocked = running || agentBay.nightShiftRunning
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "rectangle.stack").foregroundStyle(claudeAccent)
+                Text("CLAUDE CODE / CAROUSEL STUDIO")
+                    .font(.system(size: 15 * scale, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(claudeAccent)
+                Spacer()
+                Circle().fill(running ? Color.green : (carousel.stage == .failed ? .orange : claudeAccent))
+                    .frame(width: 7, height: 7)
+                Text(carousel.stage.label).font(.system(size: 12 * scale, design: .monospaced))
+                    .foregroundStyle(running ? .green : muted)
+            }
+            Rectangle().fill(claudeAccent.opacity(0.25)).frame(height: 1)
+            pipeline(scale)
+            HStack(spacing: 8) {
+                TextField("dechive.wiki/knowledge/… 위키 글 주소", text: $carouselURL)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 12 * scale))
+                    .accessibilityIdentifier("jarvis-sns-carousel-url")
+                Button("이 글로 제작") { carousel.start(articleURL: carouselURL) }
+                    .buttonStyle(.bordered)
+                    .disabled(blocked || carouselURL.trimmingCharacters(in: .whitespaces).isEmpty)
+                Button {
+                    carousel.startNewest()
+                } label: {
+                    Label("최신 위키 글로 제작", systemImage: "play.fill").font(.system(size: 12 * scale, weight: .semibold))
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(claudeAccent.opacity(0.85))
+                .disabled(blocked)
+                .accessibilityIdentifier("jarvis-sns-carousel-start")
+                Button("중단") { carousel.cancel() }
+                    .buttonStyle(.bordered)
+                    .disabled(!running)
+            }
+            HStack(spacing: 10) {
+                Image(systemName: "clock").foregroundStyle(muted)
+                Text(carousel.scheduleStatus + " · Knowledge(00~01시) 이후 실행 · 게시는 승인 후")
+                    .lineLimit(1)
+                if let title = carousel.meta?.title {
+                    Text("· " + title).foregroundStyle(.white.opacity(0.85)).lineLimit(1)
+                }
+                Spacer()
+                if let dir = carousel.runDirectory {
+                    Button("작업 폴더") { NSWorkspace.shared.open(dir) }.buttonStyle(.plain).foregroundStyle(claudeAccent)
+                }
+            }
+            .font(.system(size: 10 * scale))
+            .foregroundStyle(muted)
+            HStack(alignment: .top, spacing: 12) {
+                // Live Claude stream
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("LIVE · CLAUDE CODE").font(.system(size: 10 * scale, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(claudeAccent)
+                    ScrollViewReader { proxy in
+                        ScrollView(.vertical) {
+                            VStack(alignment: .leading, spacing: 5) {
+                                if carousel.logs.isEmpty {
+                                    Text("› \"최신 위키 글로 제작\"을 누르면 Claude Code가 글을 읽고 캐러셀을 쓰는 과정이 그대로 표시됩니다.")
+                                        .foregroundStyle(muted)
+                                }
+                                ForEach(Array(carousel.logs.enumerated()), id: \.offset) { index, line in
+                                    Text(line)
+                                        .foregroundStyle(line.contains("⚠️") ? .orange : Color.white.opacity(0.86))
+                                        .textSelection(.enabled)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .id(index)
+                                }
+                            }
+                            .font(.system(size: 10.5 * scale, design: .monospaced))
+                            .padding(12)
+                        }
+                        .onChange(of: carousel.updatedAt) { _, _ in
+                            if let last = carousel.logs.indices.last {
+                                withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(last, anchor: .bottom) }
+                            }
+                        }
+                    }
+                    .background(Color.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 8))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(claudeAccent.opacity(running ? 0.6 : 0.22),
+                                                                      lineWidth: running ? 1.4 : 1))
+                }
+                .frame(maxWidth: .infinity)
+                // Slides appearing as Jarvis renders them
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("SLIDES · \(carousel.slides.count)/\(max(carousel.expectedSlides, carousel.slides.count))")
+                        .font(.system(size: 10 * scale, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(claudeAccent)
+                    ScrollView(.vertical) {
+                      VStack(alignment: .leading, spacing: 10) {
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
+                            ForEach(0..<max(carousel.expectedSlides, carousel.slides.count, 0), id: \.self) { index in
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 5).fill(Color.white.opacity(0.04))
+                                    if index < carousel.slides.count, let image = NSImage(contentsOf: carousel.slides[index]) {
+                                        Image(nsImage: image).resizable().scaledToFit().padding(3)
+                                            .transition(.scale(scale: 0.85).combined(with: .opacity))
+                                    } else {
+                                        VStack(spacing: 4) {
+                                            ProgressView().controlSize(.small)
+                                            Text(String(format: "%02d", index + 1)).font(.system(size: 9, design: .monospaced))
+                                                .foregroundStyle(muted)
+                                        }
+                                    }
+                                }
+                                // Explicit height: aspect-ratio cells report no height inside a
+                                // lazy grid, which let the caption draw over the slides.
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 150 * scale)
+                                .overlay(RoundedRectangle(cornerRadius: 5).stroke(amber.opacity(0.25)))
+                            }
+                        }
+                        .animation(.spring(duration: 0.45), value: carousel.slides.count)
+                        if let caption = carousel.caption {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("CAPTION").font(.system(size: 9 * scale, weight: .semibold, design: .monospaced))
+                                    .foregroundStyle(claudeAccent)
+                                Text(caption).font(.system(size: 10 * scale)).foregroundStyle(.white.opacity(0.85))
+                                    .textSelection(.enabled)
+                            }
+                            .padding(.top, 8)
+                        }
+                      }
+                      .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .frame(maxHeight: .infinity)
+            Text(carousel.error ?? "Claude는 격리 폴더에서 읽기·쓰기만 합니다 · 웹·명령 실행·게시·토큰 접근 없음 · 렌더링은 자비스가 수행")
+                .font(.system(size: 10 * scale))
+                .foregroundStyle(carousel.error == nil ? muted : .orange)
+        }
+        .padding(19)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(LinearGradient(colors: [claudeAccent.opacity(0.08), .black.opacity(0.52)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing),
+                    in: RoundedRectangle(cornerRadius: 9))
+        .overlay(RoundedRectangle(cornerRadius: 9).stroke(claudeAccent.opacity(0.50)))
+        .accessibilityIdentifier("jarvis-sns-carousel-studio")
     }
 
     private func refreshAll() async {

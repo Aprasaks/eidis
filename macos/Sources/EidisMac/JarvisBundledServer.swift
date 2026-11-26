@@ -193,6 +193,8 @@ final class JarvisAppLifecycle: NSObject, NSApplicationDelegate {
         }
         fullscreen.start()
         JarvisAgentTerminalBay.shared.startNightScheduler()
+        // SNS: DECHIVE.WIKI carousel draft at 01:30 KST, after Knowledge ends (review only, never posts).
+        JarvisCarouselRunner.shared.startDailySchedule()
         Task {
             await server.connectOnLaunch()
             if server.ready {
