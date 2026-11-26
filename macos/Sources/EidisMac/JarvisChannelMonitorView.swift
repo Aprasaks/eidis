@@ -681,7 +681,7 @@ struct JarvisChannelMonitorView: View {
     }
 
     private func pipeline(_ scale: CGFloat) -> some View {
-        let steps: [JarvisCarouselRunner.Stage] = [.fetching, .writing, .rendering, .review]
+        let steps: [JarvisCarouselRunner.Stage] = [.fetching, .writing, .rendering, .checking, .review]
         let current = carousel.stage
         return HStack(spacing: 6) {
             ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
@@ -783,12 +783,21 @@ struct JarvisChannelMonitorView: View {
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .id(index)
                                 }
+                                if let live = carousel.liveStatus, carousel.isRunning {
+                                    HStack(spacing: 8) {
+                                        ProgressView().controlSize(.mini)
+                                        Text(live).foregroundStyle(claudeAccent)
+                                    }
+                                    .id("live")
+                                }
                             }
                             .font(.system(size: 10.5 * scale, design: .monospaced))
                             .padding(12)
                         }
                         .onChange(of: carousel.updatedAt) { _, _ in
-                            if let last = carousel.logs.indices.last {
+                            if carousel.liveStatus != nil && carousel.isRunning {
+                                proxy.scrollTo("live", anchor: .bottom)
+                            } else if let last = carousel.logs.indices.last {
                                 withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(last, anchor: .bottom) }
                             }
                         }

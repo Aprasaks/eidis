@@ -12,13 +12,14 @@ final class JarvisCarouselRunner: ObservableObject {
     static let shared = JarvisCarouselRunner()
 
     enum Stage: Int, CaseIterable {
-        case idle, fetching, writing, rendering, review, failed
+        case idle, fetching, writing, rendering, checking, review, failed
         var label: String {
             switch self {
             case .idle: "대기"
             case .fetching: "위키 글 가져오기"
             case .writing: "Claude 집필"
             case .rendering: "슬라이드 렌더링"
+            case .checking: "Claude 시각 검수"
             case .review: "검토 대기"
             case .failed: "중단·오류"
             }
@@ -44,8 +45,17 @@ final class JarvisCarouselRunner: ObservableObject {
     @Published private(set) var error: String?
     @Published private(set) var updatedAt = Date()
     @Published private(set) var scheduleStatus = "매일 01:30 KST 자동 제작 대기"
+    /// One live line (thinking / writing progress) so the screen is never silent.
+    @Published private(set) var liveStatus: String?
+    private var streamingTool: String?
+    private var streamingChars = 0
 
-    var isRunning: Bool { [.fetching, .writing, .rendering].contains(stage) }
+    var isRunning: Bool { [.fetching, .writing, .rendering, .checking].contains(stage) }
+
+    /// Draft writes the carousel; check makes Claude look at every rendered PNG
+    /// and fix layout problems before the owner ever sees the result.
+    private enum Phase { case draft, check }
+    private var phase: Phase = .draft
 
     static let root = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent(".jarvis-lab/sns-carousel/runs", isDirectory: true)
@@ -53,7 +63,8 @@ final class JarvisCarouselRunner: ObservableObject {
     private static let chrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
     private static let styleReference = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Desktop/dechive-instagram/01-herculaneum-library/slides.html")
-    private static let timeLimit: TimeInterval = 15 * 60
+    private static let draftLimit: TimeInterval = 25 * 60
+    private static let checkLimit: TimeInterval = 12 * 60
 
     private var process: Process?
     private var watchdog: Task<Void, Never>?
@@ -194,23 +205,35 @@ final class JarvisCarouselRunner: ObservableObject {
         saveMeta()
         append("글 확보 · \"" + title + "\" · 본문 \(text.count)자 · 이미지 \(images.count)개")
         guard !cancelled else { return fail("중단됨") }
-        launchClaude(in: dir)
+        launchClaude(in: dir, phase: .draft)
     }
 
-    private func launchClaude(in dir: URL) {
+    private func launchClaude(in dir: URL, phase: Phase) {
         guard let claude = Self.claudeExecutable() else { return fail("Claude Code CLI를 찾지 못했습니다.") }
-        stage = .writing
-        append("Claude Code 시작 · 격리 폴더 읽기/쓰기만 허용 (명령 실행·웹·게시 차단)")
-        let task = "CLAUDE.md의 규칙대로 source.md의 위키 글로 DECHIVE.WIKI 인스타그램 캐러셀을 만드세요. " +
-            "reference/example-slides.html의 디자인을 따르고 slides.html, caption.txt, report.md 세 파일을 작성하세요."
+        self.phase = phase
+        let task: String
+        switch phase {
+        case .draft:
+            stage = .writing
+            append("Claude Code 시작 · 격리 폴더 읽기/쓰기만 허용 (명령 실행·웹·게시 차단)")
+            task = "CLAUDE.md의 규칙대로 source.md의 위키 글로 DECHIVE.WIKI 인스타그램 캐러셀을 만드세요. " +
+                "reference/example-slides.html의 디자인을 따르고 slides.html, caption.txt, report.md 세 파일을 작성하세요."
+        case .check:
+            stage = .checking
+            append("Claude 시각 검수 시작 · 렌더링된 PNG를 한 장씩 직접 확인")
+            task = "CLAUDE.md의 '시각 검수' 기준으로 slide-01.png부터 마지막 slide PNG까지 모든 이미지를 Read로 직접 보고 검사하세요. " +
+                "문제가 있으면 slides.html만 수정하세요(사실·문장 의미는 바꾸지 말 것). review.md에 슬라이드별 PASS 또는 FIXED와 이유를 쓰고, " +
+                "마지막 줄에 정확히 'RESULT: PASS' 또는 'RESULT: FIXED'를 쓰세요."
+        }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: claude)
         p.currentDirectoryURL = dir
-        p.arguments = ["-p", task, "--permission-mode", "acceptEdits",
+        // Medium effort: high/default effort spent 15+ minutes thinking silently on long articles.
+        p.arguments = ["-p", task, "--effort", "medium", "--permission-mode", "acceptEdits",
                        "--allowedTools", "Read(./**),Write(./**),Edit(./**),Glob,Grep",
                        "--disallowedTools", "Bash,WebFetch,WebSearch,NotebookEdit,Task",
-                       "--max-turns", "40", "--output-format", "stream-json", "--verbose",
-                       "--no-session-persistence"]
+                       "--max-turns", phase == .draft ? "40" : "30", "--output-format", "stream-json", "--verbose",
+                       "--include-partial-messages", "--no-session-persistence"]
         var env = ProcessInfo.processInfo.environment
         for key in Array(env.keys) where ["ANTHROPIC_API_KEY", "OPENAI", "SANITY", "VERCEL", "GEMINI",
                                           "ELEVENLABS", "META", "TOKEN", "SECRET"].contains(where: { key.uppercased().contains($0) }) {
@@ -238,9 +261,10 @@ final class JarvisCarouselRunner: ObservableObject {
         do { try p.run() } catch { return fail("Claude Code를 실행하지 못했습니다.") }
         process = p
         watchdog = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(Self.timeLimit))
+            let limit = phase == .draft ? Self.draftLimit : Self.checkLimit
+            try? await Task.sleep(for: .seconds(limit))
             guard let self, let proc = self.process, proc.isRunning else { return }
-            self.append("제한 시간 15분 초과 · 중단합니다.")
+            self.append("제한 시간 \(Int(limit / 60))분 초과 · 중단합니다.")
             proc.terminate()
         }
     }
@@ -250,8 +274,40 @@ final class JarvisCarouselRunner: ObservableObject {
         while let newline = buffer.firstIndex(of: 0x0A) {
             let line = String(decoding: buffer[buffer.startIndex..<newline], as: UTF8.self)
             buffer.removeSubrange(buffer.startIndex...newline)
-            if let readable = Self.readable(line) { append(readable) }
+            if trackPartial(line) { continue }
+            if let readable = Self.readable(line) { liveStatus = nil; append(readable) }
         }
+    }
+
+    /// Partial events only update the single live line; they never enter the log.
+    private func trackPartial(_ line: String) -> Bool {
+        guard line.contains("\"stream_event\"") || line.contains("\"thinking_tokens\""),
+              let data = line.data(using: .utf8),
+              let item = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return false }
+        if item["type"] as? String == "system", item["subtype"] as? String == "thinking_tokens" {
+            if let n = item["estimated_tokens"] as? Int { liveStatus = "🧠 Claude 생각 중 · 약 \(n.formatted()) 토큰" }
+            updatedAt = Date()
+            return true
+        }
+        guard item["type"] as? String == "stream_event", let event = item["event"] as? [String: Any] else { return false }
+        switch event["type"] as? String {
+        case "content_block_start":
+            if let block = event["content_block"] as? [String: Any], block["type"] as? String == "tool_use" {
+                streamingTool = block["name"] as? String
+                streamingChars = 0
+            }
+        case "content_block_delta":
+            if let delta = event["delta"] as? [String: Any], delta["type"] as? String == "input_json_delta",
+               let part = delta["partial_json"] as? String, let tool = streamingTool, tool == "Write" || tool == "Edit" {
+                streamingChars += part.count
+                liveStatus = "✍️ " + tool + " 작성 중 · \(streamingChars.formatted())자"
+                updatedAt = Date()
+            }
+        case "content_block_stop":
+            streamingTool = nil
+        default: break
+        }
+        return true
     }
 
     /// Real stream-json events only; nothing is invented.
@@ -294,33 +350,59 @@ final class JarvisCarouselRunner: ObservableObject {
         watchdog?.cancel()
         process = nil
         guard !cancelled else { return fail("중단됨") }
-        guard code == 0, let dir = runDirectory else { return fail("Claude Code가 오류로 끝났습니다 (코드 \(code)).") }
+        guard let dir = runDirectory else { return fail("작업 폴더를 찾지 못했습니다.") }
+        switch phase {
+        case .draft:
+            guard code == 0 else { return fail("Claude Code가 오류로 끝났습니다 (코드 \(code)).") }
+            guard await renderAll(dir) else { return }
+            launchClaude(in: dir, phase: .check)
+        case .check:
+            let review = (try? String(contentsOf: dir.appendingPathComponent("review.md"), encoding: .utf8)) ?? ""
+            let last = review.split(separator: "\n").last.map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
+            if code == 0 && last == "RESULT: FIXED" {
+                append("검수에서 수정됨 · 수정된 slides.html로 다시 렌더링")
+                guard await renderAll(dir) else { return }
+            } else if code == 0 && last == "RESULT: PASS" {
+                append("✅ 시각 검수 통과 · 모든 슬라이드 PASS")
+            } else {
+                // Never pretend a check happened. The draft stays, clearly flagged.
+                error = "시각 검수 결과를 확인하지 못했습니다 · 게시 전 직접 확인 필요"
+                append("⚠️ 시각 검수 미완료 (코드 \(code)) · 직접 확인 필요")
+            }
+            stage = .review
+            meta?.status = "review"
+            saveMeta()
+            append("검토 대기 · 게시는 승인 후에만 진행됩니다.")
+        }
+    }
+
+    /// Validate slides.html and render every slide. Returns false after fail().
+    private func renderAll(_ dir: URL) async -> Bool {
         let slidesFile = dir.appendingPathComponent("slides.html")
         guard let html = try? String(contentsOf: slidesFile, encoding: .utf8), html.utf8.count < 600_000 else {
-            return fail("slides.html이 없거나 너무 큽니다.")
+            fail("slides.html이 없거나 너무 큽니다."); return false
         }
         let numbers = Set(Self.matches(#"data-n="(\d{1,2})""#, in: html, group: 1).compactMap(Int.init))
         guard let count = numbers.max(), count >= 3, count <= 12, numbers.count == count else {
-            return fail("슬라이드 번호(data-n)를 확인할 수 없습니다.")
+            fail("슬라이드 번호(data-n)를 확인할 수 없습니다."); return false
         }
         caption = try? String(contentsOf: dir.appendingPathComponent("caption.txt"), encoding: .utf8)
         report = try? String(contentsOf: dir.appendingPathComponent("report.md"), encoding: .utf8)
+        slides = []
         expectedSlides = count
         stage = .rendering
         append("렌더링 시작 · 1080×1350 · \(count)장")
         for n in 1...count {
-            guard !cancelled else { return fail("중단됨") }
+            guard !cancelled else { fail("중단됨"); return false }
             let out = dir.appendingPathComponent(String(format: "slide-%02d.png", n))
+            try? FileManager.default.removeItem(at: out)
             let ok = await render(slidesFile, n: n, to: out, profile: dir.appendingPathComponent(".chrome-profile"))
-            guard ok else { return fail("\(n)번 슬라이드 렌더링 실패") }
+            guard ok else { fail("\(n)번 슬라이드 렌더링 실패"); return false }
             slides.append(out)
             append("🖼 slide-" + String(format: "%02d", n) + ".png 완성")
         }
         try? FileManager.default.removeItem(at: dir.appendingPathComponent(".chrome-profile"))
-        stage = .review
-        meta?.status = "review"
-        saveMeta()
-        append("검토 대기 · 게시는 승인 후에만 진행됩니다.")
+        return true
     }
 
     private func render(_ file: URL, n: Int, to out: URL, profile: URL) async -> Bool {
@@ -466,6 +548,19 @@ final class JarvisCarouselRunner: ObservableObject {
     - 모든 문장은 source.md에 있는 내용과 출처로만 쓴다. 없는 사실·숫자·연도를 만들지 않는다.
     - 과장 금지("mostly", "destroyed" 등은 원문이 그렇게 말할 때만). 불확실하면 원문의 단서(예: preprint, not yet peer reviewed)를 그대로 살린다.
     - 이미지는 images.txt에 있는 https://dechive.wiki/media/… 주소만 사용하고, source.md에 라이선스/출처가 있을 때만 쓰며 화면과 캡션에 출처를 표기한다. 확인 안 되면 이미지 없이 만든다.
+
+    ## 시각 규칙 (반드시 지킬 것)
+    - 논문·보고서 그림처럼 (a)(b) 같은 패널 라벨, 여러 장이 붙은 패널, 축·눈금·화살표가 있는 이미지는 그대로 넣지 않는다.
+      CSS(object-fit: cover; object-position)로 피사체 하나만 보이게 잘라 쓰거나, 깔끔하게 자를 수 없으면 쓰지 않는다. 잘랐다면 출처 끝에 "Cropped."를 붙인다.
+    - 모든 글자·이미지·출처 줄은 안쪽 금색 테두리(가장자리에서 56px) 안쪽에 두고, 테두리와 최소 40px 떨어뜨린다. 테두리 위에 겹치면 안 된다.
+    - 하단 DECHIVE.WIKI 표시(.foot)와 출처 줄·본문이 겹치지 않게 한다. 이미지가 있는 슬라이드는 출처 줄을 이미지 바로 아래에 두고 높이를 줄여서라도 공간을 확보한다.
+    - 글자가 잘리거나 넘치거나 서로 겹치지 않게 한다. 본문은 한 슬라이드에 60단어 이하.
+    - 화면의 3분의 1 이상이 비어 보이면 안 된다. 글만 있는 슬라이드는 내용 묶음을 세로 가운데에 두고, 표지는 제목·부제·(있다면) 이미지가 화면을 고르게 채우게 한다.
+
+    ## 시각 검수 (렌더링 후 단계)
+    - slide-NN.png를 한 장씩 실제로 보고 위 시각 규칙, 오탈자, 잘린 글자, 겹침, 이미지 라벨 노출, 빈 이미지(로드 실패), 한쪽으로 쏠려 크게 비어 있는 화면을 확인한다.
+    - 고칠 것이 있으면 slides.html만 수정한다. 사실·숫자·문장 의미는 바꾸지 않는다.
+    - review.md 마지막 줄은 정확히 RESULT: PASS 또는 RESULT: FIXED.
 
     ## slides.html (영어)
     - 1080×1350 슬라이드 6~8장. reference/example-slides.html의 디자인(짙은 녹색 배경, 크림색 글씨, 금색 테두리, 세리프)을 그대로 따른다.
