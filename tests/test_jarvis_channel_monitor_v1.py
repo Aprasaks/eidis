@@ -35,7 +35,7 @@ class ChannelMonitorSplit(unittest.TestCase):
         self.assertIn("SecureField(\"Threads User Access Token\"", MONITOR)
 
     def test_claude_lane_is_read_only_and_gets_no_tokens(self):
-        studio = MONITOR.split("private func claudeStudio(", 1)[1].split("private func refreshMetaAccounts(", 1)[0]
+        studio = MONITOR.split("private func claudeStudio(", 1)[1].split("private func refreshAll(", 1)[0]
         self.assertIn("agentBay.runReadOnly(.claude", MONITOR)
         self.assertIn("agentBay.nightShiftRunning", studio)
         summary = MONITOR.split("private func verifiedSummary(", 1)[1].split("private func runClaude(", 1)[0]
@@ -48,6 +48,26 @@ class ChannelMonitorSplit(unittest.TestCase):
         self.assertIn('"jarvis-sns-workroom"', MONITOR)
         self.assertIn(".keyboardShortcut(.escape, modifiers: [])", MONITOR)
         self.assertIn("CLAUDE CODE / SNS STUDIO", MONITOR)
+
+    def test_operations_room_uses_only_real_sources(self):
+        for ident in ("jarvis-sns-kpi-strip", "jarvis-sns-today-routine", "jarvis-sns-published-feed",
+                      "jarvis-sns-world-clock", "jarvis-sns-claude-raw-toggle"):
+            self.assertIn(ident, MONITOR)
+        refresh = MONITOR.split("private func refreshAll(", 1)[1]
+        self.assertIn("JarvisMetaInstagramService.recentVerifiedPosts()", refresh)
+        self.assertIn("JarvisMetaChannels.recentVerifiedPosts(.threads)", refresh)
+        kpi = MONITOR.split("private func kpiStrip(", 1)[1].split("private func checklistRow(", 1)[0]
+        self.assertIn('knownFollowers.isEmpty ? "—"', kpi)
+        self.assertNotIn("random", kpi.lower())
+
+    def test_briefing_shows_only_real_result_line(self):
+        body = MONITOR.split("private func latestBriefing(", 1)[1].split("private func markdown(", 1)[0]
+        self.assertIn('lane.state == .completed', body)
+        self.assertIn('$0.hasPrefix("[result] ")', body)
+
+    def test_auto_refresh_stops_when_closed(self):
+        self.assertIn("Task.sleep(for: .seconds(300))", MONITOR)
+        self.assertIn("while !Task.isCancelled", MONITOR)
 
 
 if __name__ == "__main__":

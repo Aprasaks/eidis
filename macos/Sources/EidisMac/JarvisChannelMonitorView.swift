@@ -25,6 +25,14 @@ struct JarvisChannelMonitorView: View {
     @State private var metaRefreshing = false
     @StateObject private var socialStudio = JarvisWikiSocialStudio()
     @State private var showSocialStudio = false
+    @State private var instagramPosts: [JarvisSocialPost] = []
+    @State private var threadsPosts: [JarvisSocialPost] = []
+    @State private var facebookPosts: [JarvisSocialPost] = []
+    @State private var feedLoaded = false
+    @State private var feedError: String?
+    @State private var lastSync: Date?
+    @State private var showRawLog = false
+    @State private var lastClaudeTitle: String?
 
     private let amber = Color(red: 0.94, green: 0.67, blue: 0.30)
     private let muted = Color(red: 0.64, green: 0.66, blue: 0.68)
@@ -35,16 +43,24 @@ struct JarvisChannelMonitorView: View {
     var body: some View {
         GeometryReader { geo in
             let scale = min(1.45, max(0.85, geo.size.width / 1460))
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 14) {
                 header(scale)
-                Rectangle().fill(amber.opacity(0.45)).frame(height: 1)
-                HStack(alignment: .top, spacing: 18) {
+                Rectangle().fill(LinearGradient(colors: [amber.opacity(0.6), claudeAccent.opacity(0.5), amber.opacity(0.1)],
+                                                startPoint: .leading, endPoint: .trailing)).frame(height: 1)
+                kpiStrip(scale)
+                HStack(alignment: .top, spacing: 16) {
                     VStack(spacing: 14) {
                         metaCard(scale: scale)
                             .fixedSize(horizontal: false, vertical: true)
                         youtubeCard(scale: scale)
                     }
-                    .frame(width: max(300, geo.size.width * 0.38))
+                    .frame(width: max(280, geo.size.width * 0.29))
+                    VStack(spacing: 14) {
+                        todayCard(scale)
+                            .fixedSize(horizontal: false, vertical: true)
+                        feedCard(scale)
+                    }
+                    .frame(width: max(260, geo.size.width * 0.27))
                     claudeStudio(scale)
                 }
                 .frame(maxHeight: .infinity)
@@ -57,7 +73,13 @@ struct JarvisChannelMonitorView: View {
         }
         .preferredColorScheme(.dark)
         .accessibilityIdentifier("jarvis-sns-workroom")
-        .task { await refreshMetaAccounts() }
+        .task {
+            // Live while open: re-read every 5 minutes; stops when the room closes.
+            while !Task.isCancelled {
+                await refreshAll()
+                do { try await Task.sleep(for: .seconds(300)) } catch { return }
+            }
+        }
         .sheet(isPresented: $showSocialStudio) {
             JarvisWikiSocialStudioView(studio: socialStudio)
         }
@@ -154,25 +176,96 @@ struct JarvisChannelMonitorView: View {
         }
     }
 
-    private func header(_ scale: CGFloat) -> some View {
-        HStack(spacing: 14) {
-            Image(systemName: "waveform.path").font(.system(size: 29 * scale, weight: .light))
-                .foregroundStyle(amber)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("SNS / YOUTUBE").font(.system(size: 25 * scale, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(amber)
-                Text("DECHIVE.WIKI · GLOBAL   /   DECHIVE · 국내")
-                    .font(.system(size: 11 * scale, design: .monospaced)).foregroundStyle(muted)
+    // MARK: - Operations room (all values come from live APIs or the real clock)
+
+    private static let seoul = TimeZone(identifier: "Asia/Seoul")!
+
+    private func clock(_ date: Date, _ zone: String) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "ko_KR")
+        f.timeZone = TimeZone(identifier: zone)
+        f.dateFormat = "HH:mm"
+        return f.string(from: date)
+    }
+
+    /// Next posting window: 09:00 KST (US evening) for Threads, 22:00 KST
+    /// (US morning, Europe afternoon) for the Instagram carousel.
+    private func nextWindow(after now: Date) -> (title: String, at: Date) {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = Self.seoul
+        let slots: [(Int, String)] = [(9, "Threads · 미국 저녁"), (22, "Instagram 캐러셀 · 미국 아침")]
+        var best: (String, Date)?
+        for dayOffset in 0...1 {
+            guard let day = calendar.date(byAdding: .day, value: dayOffset, to: now) else { continue }
+            for (hour, title) in slots {
+                guard let at = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: day), at > now else { continue }
+                if best == nil || at < best!.1 { best = (title, at) }
             }
-            Spacer()
+        }
+        return best ?? ("Threads · 미국 저녁", now)
+    }
+
+    private func countdown(_ from: Date, _ to: Date) -> String {
+        let minutes = max(0, Int(to.timeIntervalSince(from) / 60))
+        return minutes >= 60 ? "\(minutes / 60)시간 \(minutes % 60)분 후" : "\(minutes)분 후"
+    }
+
+    private func header(_ scale: CGFloat) -> some View {
+        let lane = agentBay.lane(.claude)
+        let live = lane.state == .running
+        return HStack(spacing: 16) {
+            ZStack {
+                Circle().stroke(claudeAccent.opacity(0.35), lineWidth: 1.2)
+                    .frame(width: 46 * scale, height: 46 * scale)
+                    .scaleEffect(live ? 1.25 : 1)
+                    .opacity(live ? 0.2 : 1)
+                    .animation(live ? .easeOut(duration: 1.1).repeatForever(autoreverses: false) : .default, value: live)
+                Image(systemName: "waveform.path").font(.system(size: 22 * scale, weight: .light))
+                    .foregroundStyle(amber)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text("SNS OPERATIONS").font(.system(size: 25 * scale, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(amber)
+                HStack(spacing: 8) {
+                    Circle().fill(live ? Color.green : (lane.state == .missing ? .orange : claudeAccent))
+                        .frame(width: 7, height: 7)
+                    Text("CLAUDE CODE 운영 중 · DECHIVE.WIKI GLOBAL / DECHIVE 국내 · 실제 API 값만 표시")
+                        .font(.system(size: 11 * scale, design: .monospaced)).foregroundStyle(muted)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 12)
+            TimelineView(.periodic(from: .now, by: 30)) { context in
+                let window = nextWindow(after: context.date)
+                HStack(spacing: 14 * scale) {
+                    ForEach([("서울", "Asia/Seoul"), ("뉴욕", "America/New_York"), ("런던", "Europe/London")], id: \.0) { item in
+                        VStack(alignment: .trailing, spacing: 1) {
+                            Text(item.0).font(.system(size: 9 * scale)).foregroundStyle(muted)
+                            Text(clock(context.date, item.1))
+                                .font(.system(size: 15 * scale, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(.white)
+                        }
+                    }
+                    Rectangle().fill(amber.opacity(0.3)).frame(width: 1, height: 28 * scale)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("다음 골든타임 · " + clock(window.at, "Asia/Seoul") + " KST")
+                            .font(.system(size: 9 * scale)).foregroundStyle(muted)
+                        Text(window.title + " · " + countdown(context.date, window.at))
+                            .font(.system(size: 12 * scale, weight: .semibold))
+                            .foregroundStyle(amber)
+                    }
+                }
+            }
+            .accessibilityIdentifier("jarvis-sns-world-clock")
             Button {
-                Task { await refreshMetaAccounts() }
+                Task { await refreshAll() }
             } label: {
-                Label(metaRefreshing ? "조회 중…" : "다시 조회", systemImage: "arrow.clockwise")
+                Label(metaRefreshing ? "동기화 중…" : "다시 조회", systemImage: "arrow.clockwise")
                     .font(.system(size: 12 * scale))
             }
             .buttonStyle(.bordered)
             .disabled(metaRefreshing)
+            .help(lastSync.map { "마지막 동기화 " + $0.formatted(date: .omitted, time: .standard) } ?? "아직 동기화 전")
             .accessibilityIdentifier("jarvis-channel-monitor-refresh")
             Button(action: close) {
                 Label("관제실 복귀", systemImage: "xmark")
@@ -185,6 +278,203 @@ struct JarvisChannelMonitorView: View {
         }
     }
 
+    // MARK: Feed and KPI data
+
+    private struct FeedItem: Identifiable {
+        let id: String
+        let platform: String
+        let symbol: String
+        let date: Date?
+        let text: String
+        let image: URL?
+        let likes: Int?
+        let comments: Int?
+    }
+
+    private static func parseDate(_ raw: String) -> Date? {
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = iso.date(from: raw) { return d }
+        iso.formatOptions = [.withInternetDateTime]
+        if let d = iso.date(from: raw) { return d }
+        let meta = DateFormatter()          // Meta returns e.g. 2026-11-25T14:02:11+0000
+        meta.locale = Locale(identifier: "en_US_POSIX")
+        meta.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+        return meta.date(from: raw)
+    }
+
+    private var feed: [FeedItem] {
+        func items(_ posts: [JarvisSocialPost], _ platform: String, _ symbol: String) -> [FeedItem] {
+            posts.map { post in
+                FeedItem(id: platform + post.id, platform: platform, symbol: symbol,
+                         date: Self.parseDate(post.dateText), text: post.bodyText,
+                         image: post.imageURL, likes: post.like_count, comments: post.comments_count)
+            }
+        }
+        return (items(instagramPosts, "Instagram", "camera") + items(threadsPosts, "Threads", "at") +
+                items(facebookPosts, "Facebook", "f.square"))
+            .sorted { ($0.date ?? .distantPast) > ($1.date ?? .distantPast) }
+    }
+
+    private func isTodayKST(_ date: Date?) -> Bool {
+        guard let date else { return false }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = Self.seoul
+        return calendar.isDate(date, inSameDayAs: Date())
+    }
+
+    private func relative(_ date: Date?) -> String {
+        guard let date else { return "시각 미확인" }
+        let f = RelativeDateTimeFormatter()
+        f.locale = Locale(identifier: "ko_KR")
+        return f.localizedString(for: date, relativeTo: Date())
+    }
+
+    private func kpiTile(_ title: String, _ value: String, _ note: String, tint: Color, scale: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(.system(size: 10 * scale, design: .monospaced)).foregroundStyle(muted)
+            Text(value)
+                .font(.system(size: 26 * scale, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
+                .contentTransition(.numericText())
+                .lineLimit(1).minimumScaleFactor(0.6)
+            Text(note).font(.system(size: 9 * scale)).foregroundStyle(tint).lineLimit(1)
+        }
+        .padding(.horizontal, 14).padding(.vertical, 11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(LinearGradient(colors: [tint.opacity(0.10), .black.opacity(0.45)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing),
+                    in: RoundedRectangle(cornerRadius: 9))
+        .overlay(RoundedRectangle(cornerRadius: 9).stroke(tint.opacity(0.35), lineWidth: 1))
+    }
+
+    private func kpiStrip(_ scale: CGFloat) -> some View {
+        let ig = model.instagramSnapshot
+        let followerParts = [ig?.connected == true ? ig?.followersCount : nil,
+                             threadsSnapshot?.connected == true ? threadsSnapshot?.followersCount : nil,
+                             facebookSnapshot?.connected == true ? facebookSnapshot?.followersCount : nil]
+        let knownFollowers = followerParts.compactMap { $0 }
+        let postParts = [ig?.connected == true ? ig?.mediaCount : nil,
+                         threadsSnapshot?.connected == true ? threadsSnapshot?.postsCount : nil].compactMap { $0 }
+        let weekAgo = Date().addingTimeInterval(-7 * 86_400)
+        let lastWeek = feed.filter { ($0.date ?? .distantPast) > weekAgo }.count
+        let reactions = instagramPosts.reduce(0) { $0 + ($1.like_count ?? 0) + ($1.comments_count ?? 0) }
+        let yt = model.youtubeSummary?.connected == true ? model.youtubeSummary?.data : nil
+        return HStack(spacing: 12) {
+            kpiTile("GLOBAL 팔로워", knownFollowers.isEmpty ? "—" : knownFollowers.reduce(0, +).formatted(),
+                    "확인 \(knownFollowers.count)/3 채널 · IG+Threads+FB", tint: mint, scale: scale)
+            kpiTile("GLOBAL 게시물", postParts.isEmpty ? "—" : postParts.reduce(0, +).formatted(),
+                    "Instagram + Threads", tint: amber, scale: scale)
+            kpiTile("최근 7일 게시", feedLoaded ? "\(lastWeek)" : "—",
+                    "최근 게시물 API 기준", tint: claudeAccent, scale: scale)
+            kpiTile("IG 반응", feedLoaded && !instagramPosts.isEmpty ? reactions.formatted() : "—",
+                    "최근 \(instagramPosts.count)개 좋아요+댓글", tint: .pink, scale: scale)
+            kpiTile("YOUTUBE 구독자", yt?.subscriberCount ?? "—", "DECHIVE · 국내", tint: .red.opacity(0.85), scale: scale)
+            kpiTile("YT 기간 조회수", yt?.analytics.map { $0.views.formatted() } ?? "—",
+                    yt.map { $0.periodStart + " ~ " + $0.periodEnd } ?? "YouTube Analytics", tint: .red.opacity(0.85), scale: scale)
+        }
+        .accessibilityIdentifier("jarvis-sns-kpi-strip")
+    }
+
+    // MARK: Today's routine and published feed
+
+    private func checklistRow(_ title: String, _ detail: String, done: Bool, scale: CGFloat) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: done ? "checkmark.circle.fill" : "circle.dashed")
+                .font(.system(size: 15 * scale))
+                .foregroundStyle(done ? mint : muted)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.system(size: 12 * scale, weight: .medium)).foregroundStyle(.white)
+                Text(detail).font(.system(size: 9 * scale)).foregroundStyle(done ? mint : muted).lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func todayCard(_ scale: CGFloat) -> some View {
+        let lane = agentBay.lane(.claude)
+        let today = feed.filter { isTodayKST($0.date) }
+        func posted(_ platform: String) -> FeedItem? { today.first { $0.platform == platform } }
+        let claudeDone = lane.state == .completed && isTodayKST(lane.updatedAt)
+        let allConnected = model.instagramSnapshot?.connected == true &&
+            threadsSnapshot?.connected == true && facebookSnapshot?.connected == true
+        return panel("TODAY / 오늘의 운영 루틴", symbol: "checklist", scale: scale) {
+            VStack(alignment: .leading, spacing: 10 * scale) {
+                checklistRow("채널 연결 점검", allConnected ? "IG · Threads · FB 모두 API 연결됨" : "연결 확인이 필요한 채널이 있습니다",
+                             done: allConnected, scale: scale)
+                checklistRow("Claude 현황 분석", claudeDone ? "완료 · " + (lane.updatedAt?.formatted(date: .omitted, time: .shortened) ?? "") : "SNS 현황 분석 대기",
+                             done: claudeDone, scale: scale)
+                checklistRow("Threads 글 게시 · 09시 골든타임",
+                             posted("Threads").map { "게시됨 · " + relative($0.date) } ?? "오늘 게시 기록 없음",
+                             done: posted("Threads") != nil, scale: scale)
+                checklistRow("Instagram 캐러셀 · 22시 골든타임",
+                             posted("Instagram").map { "게시됨 · " + relative($0.date) } ?? "오늘 게시 기록 없음",
+                             done: posted("Instagram") != nil, scale: scale)
+                checklistRow("Facebook 교차 게시",
+                             posted("Facebook").map { "게시됨 · " + relative($0.date) } ?? "오늘 게시 기록 없음",
+                             done: posted("Facebook") != nil, scale: scale)
+                Text("체크는 실제 API의 게시 시각과 Claude 실행 기록으로만 표시됩니다.")
+                    .font(.system(size: 9 * scale)).foregroundStyle(muted)
+            }
+        }
+        .accessibilityIdentifier("jarvis-sns-today-routine")
+    }
+
+    private func feedCard(_ scale: CGFloat) -> some View {
+        panel("PUBLISHED / 최근 게시 흐름", symbol: "list.bullet.rectangle", scale: scale) {
+            ScrollView(.vertical) {
+                VStack(alignment: .leading, spacing: 9 * scale) {
+                    if !feedLoaded {
+                        HStack(spacing: 8) { ProgressView().controlSize(.small); Text("게시물 API 조회 중…").foregroundStyle(muted) }
+                            .font(.system(size: 11 * scale))
+                    } else if feed.isEmpty {
+                        Text(feedError ?? "확인된 게시물이 없습니다.")
+                            .font(.system(size: 11 * scale)).foregroundStyle(muted)
+                    }
+                    ForEach(feed.prefix(12)) { item in
+                        HStack(alignment: .top, spacing: 10) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 6).fill(amber.opacity(0.08))
+                                if let url = item.image {
+                                    AsyncImage(url: url) { phase in
+                                        if case .success(let image) = phase { image.resizable().scaledToFill() }
+                                        else { Image(systemName: item.symbol).foregroundStyle(amber.opacity(0.7)) }
+                                    }
+                                } else {
+                                    Image(systemName: item.symbol).foregroundStyle(amber.opacity(0.7))
+                                }
+                            }
+                            .frame(width: 46 * scale, height: 46 * scale)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            VStack(alignment: .leading, spacing: 3) {
+                                HStack(spacing: 6) {
+                                    Text(item.platform).font(.system(size: 10 * scale, weight: .semibold, design: .monospaced))
+                                        .foregroundStyle(amber)
+                                    Text(relative(item.date)).font(.system(size: 9 * scale)).foregroundStyle(muted)
+                                    Spacer(minLength: 0)
+                                    if let likes = item.likes {
+                                        Label("\(likes)", systemImage: "heart").font(.system(size: 9 * scale)).foregroundStyle(.pink)
+                                    }
+                                    if let comments = item.comments {
+                                        Label("\(comments)", systemImage: "bubble.right").font(.system(size: 9 * scale)).foregroundStyle(mint)
+                                    }
+                                }
+                                Text(item.text.isEmpty ? "(본문 없음)" : item.text)
+                                    .font(.system(size: 11 * scale)).foregroundStyle(.white.opacity(0.88))
+                                    .lineLimit(2)
+                            }
+                        }
+                        .padding(8)
+                        .background(Color.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 7))
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .scrollIndicators(.visible)
+        }
+        .accessibilityIdentifier("jarvis-sns-published-feed")
+    }
+
     /// Verified numbers only (no tokens, no raw provider messages) for the
     /// read-only Claude Code lane. Unknown values are passed as "미확인".
     private func verifiedSummary() -> String {
@@ -195,7 +485,7 @@ struct JarvisChannelMonitorView: View {
         }
         let ig = model.instagramSnapshot
         let yt = model.youtubeSummary?.connected == true ? model.youtubeSummary?.data : nil
-        return "목표: DECHIVE.WIKI는 해외 영어권 팔로워만 키움(한국 팔로워 유입은 목표 아님). 근거 있는 사실만, 출처 표기. " +
+        return "목표: DECHIVE.WIKI(역사·과학·자연 지식 위키, 출처 검증)는 해외 영어권 팔로워만 키움(한국 유입 목표 아님). 주제 밖 해시태그·전략 제안 금지. " +
             "현황(자비스 API 확인값). 해외용 DECHIVE.WIKI: " +
             "Instagram 팔로워 \(n(ig?.followersCount)) 게시물 \(n(ig?.mediaCount)) [\(s(ig?.connected == true, ig?.error, ig?.checkedAt))], " +
             "Threads 팔로워 \(n(threadsSnapshot?.followersCount)) 게시물 \(n(threadsSnapshot?.postsCount)) [\(s(threadsSnapshot?.connected == true, threadsSnapshot?.error, threadsSnapshot?.checkedAt))], " +
@@ -208,49 +498,70 @@ struct JarvisChannelMonitorView: View {
         guard !ask.isEmpty else { return }
         // The lane accepts at most 500 characters; keep the owner's request whole
         // and shorten the context instead.
-        let request = " 요청: " + String(ask.prefix(200))
+        let request = " 요청: " + String(ask.prefix(160)) + " (한국어, 600자 이내, 짧은 목록)"
         let prompt = String(verifiedSummary().prefix(500 - request.count)) + request
+        lastClaudeTitle = String(ask.prefix(40))
         agentBay.runReadOnly(.claude, prompt: prompt)
+    }
+
+    /// The final answer Claude Code streamed for the latest run, if any.
+    private func latestBriefing(_ lane: JarvisAgentLane) -> String? {
+        guard lane.state == .completed,
+              let line = lane.logs.last(where: { $0.hasPrefix("[result] ") }) else { return nil }
+        let text = String(line.dropFirst("[result] ".count))
+            .components(separatedBy: "\n")
+            .filter { $0.trimmingCharacters(in: .whitespaces) != "---" }
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? nil : text
+    }
+
+    private func markdown(_ text: String) -> AttributedString {
+        (try? AttributedString(markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
+            ?? AttributedString(text)
     }
 
     private func claudeStudio(_ scale: CGFloat) -> some View {
         let lane = agentBay.lane(.claude)
         let running = lane.state == .running
         let blocked = agentBay.isAnyRunning || agentBay.nightShiftRunning || lane.state == .missing
-        let defaultRequest = "이 수치만 근거로, 오늘 해외 영어권 팔로워를 늘리기 위해 할 일 3가지를 짧게 제안해줘."
-        return VStack(alignment: .leading, spacing: 14) {
+        let quick: [(String, String, String)] = [
+            ("오늘 할 일", "sparkles", "이 수치만 근거로, 오늘 해외 영어권 팔로워를 늘리기 위해 할 일 3가지를 제안해줘."),
+            ("스레드 주제", "at", "DECHIVE.WIKI 주제(역사·과학·자연)로 이번 주 영어 Threads 글 주제 5개를 추천해줘. 각 1줄."),
+            ("댓글 전략", "bubble.left.and.bubble.right", "팔로워 0에서 시작하는 영어권 지식 계정이 큰 계정에 댓글을 다는 전략 3가지를 알려줘."),
+            ("주간 리포트", "chart.bar.xaxis", "현재 수치로 이번 주 SNS 운영 리포트를 써줘: 현황, 잘된 점, 다음 주 목표.")
+        ]
+        return VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "terminal").foregroundStyle(claudeAccent)
                 Text("CLAUDE CODE / SNS STUDIO")
                     .font(.system(size: 15 * scale, weight: .semibold, design: .monospaced))
                     .foregroundStyle(claudeAccent)
                 Spacer()
+                Circle().fill(running ? Color.green : (lane.state == .failed ? .orange : claudeAccent))
+                    .frame(width: 7, height: 7)
                 Text(lane.stateLabel + (lane.version.isEmpty ? "" : " · " + lane.version))
                     .font(.system(size: 12 * scale, design: .monospaced))
                     .foregroundStyle(running ? .green : muted)
                     .lineLimit(1)
             }
             Rectangle().fill(claudeAccent.opacity(0.25)).frame(height: 1)
-            HStack(spacing: 10) {
-                Button {
-                    runClaude(defaultRequest)
-                } label: {
-                    Label("SNS 현황 분석", systemImage: "play.fill")
-                        .font(.system(size: 13 * scale, weight: .semibold))
-                        .padding(.horizontal, 10).padding(.vertical, 6)
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                ForEach(quick, id: \.0) { item in
+                    Button { runClaude(item.2) } label: {
+                        Label(item.0, systemImage: item.1)
+                            .font(.system(size: 12 * scale, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 7)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(item.0 == "오늘 할 일" ? claudeAccent.opacity(0.85) : claudeAccent.opacity(0.35))
+                    .disabled(blocked)
+                    .accessibilityIdentifier(item.0 == "오늘 할 일" ? "jarvis-sns-claude-analyze" : "jarvis-sns-claude-quick")
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(claudeAccent.opacity(0.85))
-                .disabled(blocked)
-                .accessibilityIdentifier("jarvis-sns-claude-analyze")
-                Button("중단") { agentBay.cancel(.claude) }
-                    .buttonStyle(.bordered)
-                    .disabled(!running)
-                    .accessibilityIdentifier("jarvis-sns-claude-stop")
-                Spacer()
             }
             HStack(spacing: 8) {
-                TextField("Claude Code에게 SNS 질문 (예: 이번 주 스레드 주제 추천)", text: $claudeRequest)
+                TextField("Claude Code에게 SNS 질문 (예: 이 캐러셀 캡션 영어로 다듬어줘)", text: $claudeRequest)
                     .textFieldStyle(.roundedBorder)
                     .font(.system(size: 12 * scale))
                     .onSubmit { if !blocked { runClaude(claudeRequest); claudeRequest = "" } }
@@ -258,61 +569,114 @@ struct JarvisChannelMonitorView: View {
                 Button("보내기") { runClaude(claudeRequest); claudeRequest = "" }
                     .buttonStyle(.bordered)
                     .disabled(blocked || claudeRequest.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                Button("중단") { agentBay.cancel(.claude) }
+                    .buttonStyle(.bordered)
+                    .disabled(!running)
+                    .accessibilityIdentifier("jarvis-sns-claude-stop")
             }
             Text(agentBay.nightShiftRunning ? "야간 Knowledge 근무 중에는 실행하지 않습니다." :
                  lane.state == .missing ? "Claude Code CLI를 찾지 못했습니다." :
                  "읽기 전용 · 파일 수정·게시·토큰 접근 없음 · 확인된 수치만 전달")
                 .font(.system(size: 10 * scale)).foregroundStyle(muted)
-            Text("REAL CLI OUTPUT").font(.system(size: 10 * scale, weight: .medium, design: .monospaced))
-                .foregroundStyle(claudeAccent)
-            ScrollViewReader { proxy in
-                ScrollView(.vertical) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        if lane.lastRun == nil || lane.logs.isEmpty {
-                            Text("› SNS 현황 분석을 누르면 실제 Claude Code 출력이 표시됩니다.")
-                                .foregroundStyle(muted)
-                        } else {
-                            ForEach(Array(lane.logs.enumerated()), id: \.offset) { index, line in
-                                Text(line)
-                                    .foregroundStyle(Color.white.opacity(0.86))
+
+            // Briefing: the final answer of the latest real run, rendered cleanly.
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("BRIEFING").font(.system(size: 10 * scale, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(claudeAccent)
+                    if let title = lastClaudeTitle {
+                        Text("· " + title).font(.system(size: 10 * scale)).foregroundStyle(muted).lineLimit(1)
+                    }
+                    Spacer()
+                    if let at = lane.updatedAt, lane.lastRun != nil {
+                        Text(at.formatted(date: .omitted, time: .shortened))
+                            .font(.system(size: 10 * scale, design: .monospaced)).foregroundStyle(muted)
+                    }
+                    Toggle("원본 로그", isOn: $showRawLog)
+                        .toggleStyle(.switch).controlSize(.mini)
+                        .font(.system(size: 10 * scale))
+                        .accessibilityIdentifier("jarvis-sns-claude-raw-toggle")
+                }
+                ScrollViewReader { proxy in
+                    ScrollView(.vertical) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            if running {
+                                HStack(spacing: 10) {
+                                    ProgressView().controlSize(.small)
+                                    Text("Claude Code가 채널 데이터를 분석하고 있습니다…")
+                                        .foregroundStyle(claudeAccent)
+                                }
+                                .font(.system(size: 13 * scale, weight: .medium))
+                            }
+                            if showRawLog || running || lane.state == .failed {
+                                ForEach(Array(lane.logs.enumerated()), id: \.offset) { index, line in
+                                    Text(line)
+                                        .font(.system(size: 11 * scale, design: .monospaced))
+                                        .foregroundStyle(Color.white.opacity(0.78))
+                                        .textSelection(.enabled)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .id(index)
+                                }
+                            } else if let briefing = latestBriefing(lane) {
+                                Text(markdown(briefing))
+                                    .font(.system(size: 14 * scale))
+                                    .lineSpacing(5)
+                                    .foregroundStyle(.white.opacity(0.93))
                                     .textSelection(.enabled)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                    .id(index)
+                            } else {
+                                Text("› 위 버튼을 누르면 Claude Code가 실제 채널 수치를 읽고 운영 브리핑을 작성합니다.")
+                                    .font(.system(size: 12 * scale)).foregroundStyle(muted)
                             }
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(16)
                     }
-                    .font(.system(size: 11 * scale, design: .monospaced))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(14)
+                    .onChange(of: lane.updatedAt) { _, _ in
+                        if (showRawLog || running), let last = lane.logs.indices.last { proxy.scrollTo(last, anchor: .bottom) }
+                    }
                 }
-                .onChange(of: lane.updatedAt) { _, _ in
-                    if let last = lane.logs.indices.last { proxy.scrollTo(last, anchor: .bottom) }
-                }
+                .background(Color.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(claudeAccent.opacity(running ? 0.6 : 0.22),
+                                                                  lineWidth: running ? 1.4 : 1))
+                .animation(.easeInOut(duration: 0.3), value: running)
             }
-            .background(Color.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 7))
-            .overlay(RoundedRectangle(cornerRadius: 7).stroke(claudeAccent.opacity(0.22)))
             .frame(maxHeight: .infinity)
             Text("분석 결과는 제안입니다. 게시는 항상 사용자가 직접 승인합니다.")
                 .font(.system(size: 11 * scale)).foregroundStyle(muted)
         }
         .padding(19)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(LinearGradient(colors: [claudeAccent.opacity(0.065), .black.opacity(0.52)],
+        .background(LinearGradient(colors: [claudeAccent.opacity(0.08), .black.opacity(0.52)],
                                    startPoint: .topLeading, endPoint: .bottomTrailing),
                     in: RoundedRectangle(cornerRadius: 9))
         .overlay(RoundedRectangle(cornerRadius: 9).stroke(claudeAccent.opacity(0.50)))
         .onAppear { agentBay.probeAll() }
     }
 
-    private func refreshMetaAccounts() async {
+    private func refreshAll() async {
         guard !metaRefreshing else { return }
         metaRefreshing = true
         async let facebook = JarvisMetaChannels.scanFacebook()
         async let threads = JarvisMetaChannels.scanThreads()
+        async let igPosts = JarvisMetaInstagramService.recentVerifiedPosts()
+        async let thPosts = JarvisMetaChannels.recentVerifiedPosts(.threads)
+        async let fbPosts = JarvisMetaChannels.recentVerifiedPosts(.facebook)
         facebookSnapshot = await facebook
         threadsSnapshot = await threads
+        let results = await (igPosts, thPosts, fbPosts)
+        withAnimation(.easeInOut(duration: 0.4)) {
+            instagramPosts = results.0.posts ?? []
+            threadsPosts = results.1.posts ?? []
+            facebookPosts = results.2.posts ?? []
+            feedError = [results.0.error.map { "Instagram: " + $0 }, results.1.error.map { "Threads: " + $0 },
+                         results.2.error.map { "Facebook: " + $0 }].compactMap { $0 }.first
+            feedLoaded = true
+        }
+        lastSync = Date()
         metaRefreshing = false
     }
+
 
     /// One owner-facing state per channel. Never shows "connected" without a
     /// verified API read, and keeps expired / no-permission / outage distinct.
