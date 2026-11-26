@@ -17,8 +17,8 @@ class JarvisLiveDialogueContract(unittest.TestCase):
                       'self.transcript = self.assembled.receive('):
             self.assertIn(value, SPEECH)
         for value in ('listener.$transcript.sink', 'liveTranscript = String(partial.prefix(6000))',
-                      'lastPartialAt = Date()', '오빠 / LIVE TRANSCRIPT',
-                      '인식 중 · 아직 확정되지 않은 문장'):
+                      'lastPartialAt = Date()', 'LIVE · 음성 받아쓰기',
+                      '받아쓰기 중 · 멈추면 질문 자동 전송'):
             self.assertIn(value, CHAT + PANEL)
         self.assertNotIn('prediction =', PANEL)
         self.assertNotIn('predictedText', CHAT)
@@ -52,10 +52,12 @@ class JarvisLiveDialogueContract(unittest.TestCase):
                       'dialogueTurns.append(JarvisLiveDialogueTurn(role: "DECHIVE"',
                       'dialogueTurns.removeAll()', 'private let elevenLabs'):
             self.assertIn(value, CHAT)
-        self.assertIn('JarvisLiveDialoguePanel(dialogue: dialogue, quiet: true)', OVERLAY)
-        self.assertIn('JarvisLiveDialoguePanel(dialogue: dialogue)', ROOM)
-        self.assertIn('jarvis-overview-core-clear-lane', ROOM)
-        self.assertIn('JarvisLoopingCore(videoURL: videoURL, compact: compactCore)', OVERLAY)
+        self.assertNotIn('JarvisLiveDialoguePanel(dialogue: dialogue, quiet: true)', OVERLAY)
+        self.assertIn('workspaceConversationPanel', OVERLAY)
+        self.assertIn('dialogue.liveTranscript', ROOM)
+        self.assertIn('jarvis-workroom-center-conversation', ROOM)
+        self.assertIn('jarvis-workroom-command-input', ROOM)
+        self.assertIn('JarvisLoopingCore(videoURL: videoURL, compact: compactCore,', OVERLAY)
         self.assertIn('jarvis-live-dialogue-panel', PANEL)
         self.assertIn('window.orderOut(nil)', OVERLAY)
 

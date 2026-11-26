@@ -27,7 +27,7 @@ class OwnerAddressContract(unittest.TestCase):
         self.assertIn('answer = "오빠, 뭘 도와드릴까요?"', dialogue)
         self.assertIn("예외 없이 '오빠'라는 호칭", command)
         self.assertIn('"오빠라고 부르겠습니다."', profile)
-        self.assertIn('"오빠 / LIVE TRANSCRIPT"', panel)
+        self.assertIn('"LIVE · 음성 받아쓰기"', panel)
 
 
 if __name__ == '__main__':

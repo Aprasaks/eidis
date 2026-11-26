@@ -77,9 +77,9 @@ struct JarvisMacCalendarView: View {
                 } label: { Label("새로고침", systemImage: "arrow.clockwise") }
                     .disabled(model.loading || model.saving)
                 Button {
-                    nearby.connected ? nearby.disconnect() : nearby.startPairing()
+                    nearby.remembered || nearby.connected ? nearby.disconnect() : nearby.startPairing()
                 } label: {
-                    Label(nearby.connected ? "연결 해제" : "iPhone 연결",
+                    Label(nearby.remembered || nearby.connected ? "기기 등록 해제" : "iPhone 연결",
                           systemImage: "iphone.gen3.radiowaves.left.and.right")
                 }
                 .tint(.orange)
@@ -96,13 +96,15 @@ struct JarvisMacCalendarView: View {
             }
             .font(.system(size: 12))
 
-            if nearby.isAdvertising || nearby.connected {
+            if nearby.isAdvertising || nearby.connected || nearby.remembered {
                 HStack(spacing: 10) {
                     Image(systemName: nearby.connected ? "checkmark.circle.fill" : "lock.iphone")
                         .foregroundStyle(.orange)
                     if nearby.connected {
                         Text("iPhone 연결됨")
                             .font(.system(size: 12, weight: .medium))
+                    } else if nearby.remembered {
+                        Text("등록된 iPhone 대기")
                     } else {
                         Text("연결 코드")
                             .font(.system(size: 12))

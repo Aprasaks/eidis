@@ -7,7 +7,7 @@ enum JarvisLocalClock {
 
     static func parse(_ utterance: String) -> Intent? {
         let withoutWake = utterance.trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: #"^(애기야|아기야|자비스|jarvis)[,，.!！?？\s]*"#,
+            .replacingOccurrences(of: #"^(자비스|jarvis)[,，.!！?？\s]*"#,
                                   with: "", options: [.regularExpression, .caseInsensitive])
             .lowercased()
         let clean=withoutWake.replacingOccurrences(of: #"[ \t\n\r.!,，?？!！]+"#,
@@ -72,15 +72,15 @@ enum JarvisLocalClock {
 enum JarvisDialogueInput {
     static func command(_ text: String) -> String {
         text.trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: #"^(애기야|아기야|데카|자비스|jarvis)(?=$|[\s,，.!！?？])[,，.!！?？\s]*"#,
+            .replacingOccurrences(of: #"^(자비스|데카|jarvis)(?=$|[\s,，.!！?？])[,，.!！?？\s]*"#,
                                   with: "", options: [.regularExpression,.caseInsensitive])
     }
     // Only an isolated personal wake phrase is a greeting. A following
-    // command such as "애기야, 오늘 날씨" must still be routed normally.
+    // command such as "자비스, 오늘 날씨" must still be routed normally.
     static func personalWakeGreeting(_ text:String) -> (reply:String, end:Bool)? {
         let compact = text.trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: #"[,，.!！?？\s]+"#, with: "", options: .regularExpression)
-        guard ["애기야", "아기야"].contains(compact) else { return nil }
+        guard ["자비스", "자비스야"].contains(compact) else { return nil }
         return ("네 오빠", false)
     }
     static func presenceOrEnd(_ text:String) -> (reply:String, end:Bool)? {

@@ -104,7 +104,7 @@ private final class JarvisOverlayPanel: NSPanel {
     override var canBecomeMain: Bool { true }
 }
 
-private final class JarvisVideoSurface: NSView {
+final class JarvisVideoSurface: NSView {
     override func makeBackingLayer() -> CALayer { AVPlayerLayer() }
     var playerLayer: AVPlayerLayer? { layer as? AVPlayerLayer }
     override func layout() {
@@ -113,21 +113,120 @@ private final class JarvisVideoSurface: NSView {
     }
 }
 
-private struct JarvisLoopingCore: NSViewRepresentable {
+// Keep fullscreen playback separate from the SwiftUI surface. Opening casual
+// chat can invalidate or remount the video NSView; it must not restart the film.
+final class JarvisVideoPlayback {
+    let player = AVQueuePlayer()
+    private let url: URL
+    private var looper: AVPlayerLooper?
+    private weak var activeSurface: JarvisVideoSurface?
+    private var healthTimer: Timer?
+    private var previousTime: Double?
+    private var lastHealthyAt = Date()
+    private var repairStage = 0
+    private var lastRebuildAt = Date.distantPast
+
+    init(url: URL) {
+        self.url = url
+        player.isMuted = true
+        player.actionAtItemEnd = .none
+        player.automaticallyWaitsToMinimizeStalling = false
+        looper = AVPlayerLooper(player: player, templateItem: AVPlayerItem(url: url))
+        // Long-lived fullscreen playback can lose its visible video while the
+        // SwiftUI overlay and all APIs remain responsive. Observe the *real*
+        // AVPlayer timeline and display layer instead of animating a fake core.
+        healthTimer = Timer.scheduledTimer(withTimeInterval: 4.3, repeats: true) { [weak self] _ in
+            self?.restorePlaybackIfStalled()
+        }
+    }
+
+    func attach(surface: JarvisVideoSurface) {
+        activeSurface = surface
+        if surface.playerLayer?.player !== player {
+            surface.playerLayer?.player = player
+        }
+        previousTime = nil
+        lastHealthyAt = Date()
+        repairStage = 0
+        player.play()
+    }
+
+    private func restorePlaybackIfStalled() {
+        guard let surface = activeSurface, surface.window?.isVisible == true else {
+            // Do not start or rebuild the player when fullscreen is hidden.
+            lastHealthyAt = Date()
+            previousTime = nil
+            repairStage = 0
+            return
+        }
+        let now = Date()
+        let time = CMTimeGetSeconds(player.currentTime())
+        let progressed: Bool
+        if time.isFinite, let previousTime {
+            // 10-second source loops, so backward wrap is healthy progress.
+            progressed = abs(time - previousTime) > 0.08
+        } else {
+            progressed = false
+        }
+        previousTime = time.isFinite ? time : nil
+        let ready = surface.playerLayer?.isReadyForDisplay == true
+        if progressed && ready {
+            lastHealthyAt = now
+            repairStage = 0
+            return
+        }
+        guard now.timeIntervalSince(lastHealthyAt) >= 13 else { return }
+
+        if repairStage == 0 {
+            // Recover a lost display layer and a merely paused queue first.
+            surface.playerLayer?.player = nil
+            surface.playerLayer?.player = player
+            player.play()
+            repairStage = 1
+            lastHealthyAt = now
+            NSLog("JARVIS: core video recovery: reattached player layer")
+            return
+        }
+        // If the AVPlayerLooper has stopped producing items after the first
+        // repair, rebuild only its queue. Never recreate the SwiftUI window.
+        guard now.timeIntervalSince(lastRebuildAt) >= 60 else { return }
+        lastRebuildAt = now
+        looper?.disableLooping()
+        player.removeAllItems()
+        looper = AVPlayerLooper(player: player, templateItem: AVPlayerItem(url: url))
+        player.play()
+        repairStage = 0
+        lastHealthyAt = now
+        previousTime = nil
+        NSLog("JARVIS: core video recovery: rebuilt stopped looping queue")
+    }
+
+    deinit {
+        healthTimer?.invalidate()
+        player.pause()
+    }
+}
+
+struct JarvisLoopingCore: NSViewRepresentable {
     let videoURL: URL
     let compact: Bool
+    // Owned by the fullscreen view, not by the ephemeral NSView coordinator.
+    var persistentPlayback: JarvisVideoPlayback? = nil
+
     final class Coordinator {
-        let player = AVQueuePlayer()
-        var looper: AVPlayerLooper?
-        init(url: URL) {
-            player.isMuted = true
-            player.actionAtItemEnd = .none
-            player.automaticallyWaitsToMinimizeStalling = false
-            looper = AVPlayerLooper(player: player, templateItem: AVPlayerItem(url: url))
+        let playback: JarvisVideoPlayback
+        let persistent: Bool
+
+        init(url: URL, persistentPlayback: JarvisVideoPlayback?) {
+            self.persistent = persistentPlayback != nil
+            self.playback = persistentPlayback ?? JarvisVideoPlayback(url: url)
         }
-        deinit { player.pause() }
     }
-    func makeCoordinator() -> Coordinator { Coordinator(url: videoURL) }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(url: videoURL, persistentPlayback: persistentPlayback)
+    }
+
     func makeNSView(context: Context) -> JarvisVideoSurface {
         let view = JarvisVideoSurface(frame: .zero)
         view.wantsLayer = true
@@ -135,124 +234,74 @@ private struct JarvisLoopingCore: NSViewRepresentable {
         view.playerLayer?.backgroundColor = NSColor.clear.cgColor
         view.playerLayer?.isOpaque = false
         view.playerLayer?.videoGravity = compact ? .resizeAspectFill : .resizeAspect
-        view.playerLayer?.player = context.coordinator.player
-        context.coordinator.player.play()
+        context.coordinator.playback.attach(surface: view)
         return view
     }
+
     func updateNSView(_ view: JarvisVideoSurface, context: Context) {
         view.playerLayer?.frame = view.bounds
-        // One AVPlayerLooper remains alive during the idle-to-command-center
-        // movement. Only its aspect crop and its SwiftUI position change.
+        // SwiftUI updates may alter the crop, but never replace the player.
         view.playerLayer?.videoGravity = compact ? .resizeAspectFill : .resizeAspect
+        if view.playerLayer?.player !== context.coordinator.playback.player {
+            context.coordinator.playback.attach(surface: view)
+        }
     }
+
     static func dismantleNSView(_ view: JarvisVideoSurface, coordinator: Coordinator) {
-        coordinator.player.pause()
         view.playerLayer?.player = nil
+        // Only transient secondary cores end playback on view teardown.
+        // The fullscreen core keeps playing across chat/overview transitions.
+        if !coordinator.persistent { coordinator.playback.player.pause() }
     }
 }
 
 
-/// A dedicated drag surface: dragging the core's button would otherwise
-/// activate the full workspace rather than move the floating panel.
-private struct JarvisMiniDragHandle: NSViewRepresentable {
-    final class Handle: NSView {
-        override func mouseDown(with event: NSEvent) {
-            window?.performDrag(with: event)
-        }
-        override func resetCursorRects() {
-            addCursorRect(bounds, cursor: .openHand)
-        }
-    }
-    func makeNSView(context: Context) -> Handle { Handle(frame: .zero) }
-    func updateNSView(_ view: Handle, context: Context) {}
-}
-
-/// Compact companion. Microphone capture requires an explicit button/hotkey.
+/// The mini companion is intentionally just the gold core. It opens its
+/// conversation on click and stays visible as a wake-word standby surface.
+/// Dragging works on the core itself; hiding uses the existing mini shortcut.
 private struct JarvisMiniCoreView: View {
     let videoURL: URL
     let diameter: CGFloat
-    @ObservedObject var dialogue: JarvisOverlayConversation
-    let expand: () -> Void
-    let hide: () -> Void
-    let resize: (CGFloat) -> Void
-    let microphone: () -> Void
-    let captionChanged: (Bool) -> Void
-
-    private var caption: String {
-        if dialogue.isListening { return dialogue.liveTranscript.isEmpty ? "듣는 중…" : dialogue.liveTranscript }
-        if dialogue.isThinking { return dialogue.streamingAnswer.isEmpty ? dialogue.status : dialogue.streamingAnswer }
-        if dialogue.isSpeaking { return dialogue.answer }
-        if dialogue.status.hasPrefix("마이크·") || dialogue.status.contains("권한") ||
-            dialogue.status.contains("실패") ||
-            dialogue.status.contains("수 없습니다") || dialogue.status.contains("문장이 없습니다") {
-            return dialogue.status
-        }
-        return ""
-    }
+    let openChat: () -> Void
+    let dragCore: (CGSize) -> Void
+    @State private var lastDragTranslation: CGSize = .zero
 
     var body: some View {
-        VStack(spacing: 3) {
-            Button(action: expand) {
-                JarvisLoopingCore(videoURL: videoURL, compact: true)
-                    .frame(width: diameter, height: diameter)
-                    .clipShape(Circle())
-                    .allowsHitTesting(false)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("전체화면 자비스 열기")
-            .accessibilityIdentifier("jarvis-mini-expand")
-            HStack(spacing: 7) {
-                JarvisMiniDragHandle()
-                    .frame(width: 17, height: 18)
-                    .background {
-                        Image(systemName: "line.3.horizontal")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.white.opacity(0.70))
-                    }
-                    .accessibilityLabel("코어 위치 이동")
-                Button { resize(-30) } label: { Image(systemName: "minus.circle") }
-                    .accessibilityLabel("코어 작게")
-                Button(action: microphone) {
-                    Image(systemName: dialogue.isListening ? "stop.circle.fill" : "mic.circle.fill")
-                        .foregroundStyle(dialogue.isListening ? .green : .orange)
-                }
-                .accessibilityLabel(dialogue.isListening ? "질문 마치기" : "음성 질문 시작")
-                .accessibilityIdentifier("jarvis-mini-microphone")
-                Button { resize(30) } label: { Image(systemName: "plus.circle") }
-                    .accessibilityLabel("코어 크게")
-                Button(action: hide) { Image(systemName: "xmark.circle") }
-                    .accessibilityLabel("작은 코어 숨기기")
-                    .accessibilityIdentifier("jarvis-mini-hide")
-            }
-            .buttonStyle(.plain)
-            .font(.system(size: 16))
-            .foregroundStyle(.white.opacity(0.88))
-            .padding(.horizontal, 10).padding(.vertical, 4)
-            .background(.black.opacity(0.72), in: Capsule())
-            if !caption.isEmpty {
-                Text(caption)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.white)
-                    .lineLimit(4)
-                    .frame(width: diameter - 12, height: 64, alignment: .topLeading)
-                    .padding(6)
-                    .background(.black.opacity(0.88), in: RoundedRectangle(cornerRadius: 10))
-                    .accessibilityIdentifier("jarvis-mini-caption")
-            }
+        Button(action: openChat) {
+            JarvisLoopingCore(videoURL: videoURL, compact: true)
+                .frame(width: diameter, height: diameter)
+                .clipShape(Circle())
+                .contentShape(Circle())
+                .allowsHitTesting(false)
         }
-        .frame(width: diameter + 12, height: diameter + 38 + (caption.isEmpty ? 0 : 78),
-               alignment: .top)
-        .onChange(of: caption.isEmpty) { _, empty in captionChanged(!empty) }
-        .onAppear { captionChanged(!caption.isEmpty) }
+        .buttonStyle(.plain)
+        .accessibilityLabel("자비스 일상 채팅 열기")
+        .accessibilityIdentifier("jarvis-mini-open-chat")
+        .frame(width: diameter, height: diameter)
+        // A drag is different from a click; no visible handle is needed.
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 9)
+                .onChanged { value in
+                    let delta = CGSize(
+                        width: value.translation.width - lastDragTranslation.width,
+                        height: value.translation.height - lastDragTranslation.height
+                    )
+                    lastDragTranslation = value.translation
+                    dragCore(delta)
+                }
+                .onEnded { _ in lastDragTranslation = .zero }
+        )
         .accessibilityIdentifier("jarvis-mini-core")
     }
 }
 
 private struct JarvisSummonedView: View {
     let videoURL: URL
+    let corePlayback: JarvisVideoPlayback
     let dismiss: () -> Void
     let moveToAdjacentScreen: (Int) -> Void
     @ObservedObject var dialogue: JarvisOverlayConversation
+    @ObservedObject var wake: JarvisDekaWake
     @ObservedObject var dashboard: JarvisOverlayDashboard
     @ObservedObject var browser: JarvisOverlayBrowser
     @ObservedObject var vault: JarvisKnowledgeVault
@@ -328,7 +377,7 @@ private struct JarvisSummonedView: View {
     private var standardBody: some View {
         GeometryReader { area in
             let commandCenter = liveDashboard.isVisible && liveDashboard.mode == .overview
-            let workspaceActive = !commandCenter && (dialogue.casualChatMode || dialogue.socialDashboardChannel != nil || browser.isVisible ||
+            let workspaceActive = !commandCenter && (dialogue.socialDashboardChannel != nil || browser.isVisible ||
                 vault.isVisible || liveDashboard.isVisible || dashboard.isVisible || dialogue.briefingVisible || stockBoard.visible || weatherCenter.visible || calendar.visible)
             let compactCore = commandCenter || workspaceActive
             let conversationWidth = min(max(area.size.width * 0.30, 255), 470)
@@ -342,11 +391,12 @@ private struct JarvisSummonedView: View {
                 // chroma-key artifacts or a visibly scaled transparency matte.
                 Color.black.opacity(appeared ? 1 : 0)
                     .ignoresSafeArea()
-                JarvisLoopingCore(videoURL: videoURL, compact: compactCore)
+                JarvisLoopingCore(videoURL: videoURL, compact: compactCore,
+                                  persistentPlayback: corePlayback)
                     .frame(width: commandCenter ? overviewCoreSize : (compactCore ? smallCore : area.size.width),
                            height: commandCenter ? overviewCoreSize : (compactCore ? smallCore : area.size.height))
-                    // The 10-second film has the original JARVIS caption at its
-                    // bottom. Mask ONLY the compact crop, never alter the source.
+                    // Use the original stable ten-second gold core movie.
+                    // Fade only the baked-in caption; never stack video effects.
                     .mask {
                         if commandCenter {
                             // Keep the complete orbit and its outer light
@@ -358,15 +408,7 @@ private struct JarvisSummonedView: View {
                                 .init(color: .clear, location: 1)
                             ], center: UnitPoint(x: 0.5, y: 0.47),
                                startRadius: 0, endRadius: overviewCoreSize * 0.50)
-                                .mask {
-                                    // Hide the film's baked-in DECHIVE caption
-                                    // below the orbit, without trimming the ring.
-                                    LinearGradient(stops: [
-                                        .init(color: .white, location: 0),
-                                        .init(color: .white, location: 0.813),
-                                        .init(color: .clear, location: 0.845)
-                                    ], startPoint: .top, endPoint: .bottom)
-                                }
+
                         } else if compactCore {
                             LinearGradient(stops: [
                                 .init(color: .white, location: 0.0),
@@ -375,25 +417,65 @@ private struct JarvisSummonedView: View {
                             ], startPoint: .top, endPoint: .bottom)
                             .clipShape(Circle())
                         } else {
-                            Rectangle().fill(.white)
+                            // The original clip contains text below the orbit.
+                            // Keep the core visible while fading out the caption.
+                            LinearGradient(stops: [
+                                .init(color: .white, location: 0),
+                                .init(color: .white, location: 0.765),
+                                .init(color: .clear, location: 0.815),
+                                .init(color: .clear, location: 1)
+                            ], startPoint: .top, endPoint: .bottom)
                         }
                     }
                     .position(x: commandCenter ? overviewFrame.midX : area.size.width / 2,
                               y: commandCenter ? overviewFrame.midY :
                                 workspaceActive ? area.size.height * 0.17 : area.size.height / 2)
-                    .opacity(dialogue.socialDashboardChannel != nil ? 0 : (appeared ? (workspaceActive ? 0.65 : 1) : 0))
+                    .opacity(dialogue.socialDashboardChannel != nil ? 0 : (appeared ? (workspaceActive ? 0.65 : (liveDashboard.workroomProject == nil ? 1 : 0.18)) : 0))
                     .animation(reduceMotion ? nil : .easeInOut(duration: 0.72), value: compactCore)
                     // In the overview this is a foreground hologram, never a
                     // child of a dashboard card. Its transparent lane keeps
                     // it away from the interactive side panels.
                     .zIndex(commandCenter ? 9 : 0)
                     .allowsHitTesting(false)
-                // The cinematic resting surface keeps the core and right dialogue.
-                // Controls are revealed intentionally at the screen edge.
-                VStack {
-                    HStack {
-                        Spacer()
-                        if !commandCenter {
+
+                // The glowing core is a direct, model-free way to open
+                // the same live workroom as the voice command. Clicking it
+                // again in the workroom returns to the clean central core.
+                if !workspaceActive && liveDashboard.workroomProject == nil {
+                    let hitDiameter = commandCenter
+                        ? overviewCoreSize * 0.77
+                        : min(area.size.width * 0.43, area.size.height * 0.66)
+                    Button {
+                        if commandCenter {
+                            _ = liveDashboard.hide()
+                        } else {
+                            Task { _ = await liveDashboard.show(.overview) }
+                        }
+                    } label: {
+                        Circle()
+                            .fill(Color.white.opacity(0.001))
+                            .contentShape(Circle())
+                            .frame(width: hitDiameter, height: hitDiameter)
+                    }
+                    .buttonStyle(.plain)
+                    .position(x: commandCenter ? overviewFrame.midX : area.size.width / 2,
+                              y: commandCenter ? overviewFrame.midY : area.size.height / 2)
+                    .zIndex(11)
+                    .help(commandCenter ? "코어 화면으로 돌아가기" : "실시간 대시보드 열기")
+                    .accessibilityLabel(commandCenter ? "코어 화면으로 돌아가기" : "실시간 대시보드 열기")
+                    .accessibilityIdentifier("jarvis-core-tap-workroom-toggle")
+                }
+
+                // No reactive graphics in HOME: one stable video player only.
+                // Wake-word and TTS remain available without visual overlays.
+
+                // HOME / STANDBY intentionally shows only the orbit.
+                // Dismissal is available through the menu / Command-Option-J.
+                // A dashboard keeps its existing close action in its own view.
+                if workspaceActive {
+                    VStack {
+                        HStack {
+                            Spacer()
                             Button(action: dismiss) {
                                 Image(systemName: "xmark")
                                     .font(.system(size: 13, weight: .medium))
@@ -402,19 +484,14 @@ private struct JarvisSummonedView: View {
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("DECHIVE 화면 닫기")
-                            .opacity(workspaceActive || closeHovered ? 1 : 0)
-                            .onHover { closeHovered = $0 }
                         }
+                        Spacer()
                     }
-                    Spacer()
-                    if !workspaceActive && !commandCenter {
-                        restingControls
-                    }
+                    .padding(.horizontal, 30)
+                    .zIndex(12)
                 }
-                .padding(.horizontal, 30)
-                .zIndex(12)
 
-                if !dialogue.chromeWorkspaceNotice.isEmpty {
+                if (workspaceActive || commandCenter) && !dialogue.chromeWorkspaceNotice.isEmpty {
                     VStack {
                         Spacer()
                         Text(dialogue.chromeWorkspaceNotice)
@@ -428,42 +505,14 @@ private struct JarvisSummonedView: View {
                     .zIndex(15)
                 }
 
-                // Keep the original right-hand dialogue surface, with spoken
-                // content only. Never duplicate it over a focused workspace.
-                if !commandCenter && !workspaceActive {
-                    HStack {
-                        Spacer(minLength: 0)
-                        JarvisLiveDialoguePanel(dialogue: dialogue, quiet: true)
-                            .frame(width: min(370, max(295, area.size.width * 0.235)),
-                                   height: min(540, area.size.height * 0.64))
-                            .padding(.trailing, 24)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                    .padding(.bottom, 55)
-                    .transition(.opacity)
-                    .zIndex(3)
-                }
-
                 // A single immersive control room for the entire monitor.
                 // Core is still rendered by the original, continuous AVPlayer.
                 if commandCenter {
-                    JarvisCommandCenterView(model: liveDashboard, dialogue: dialogue) {
+                    JarvisCommandCenterView(model: liveDashboard, dialogue: dialogue, agentBay: dialogue.agentBay) {
                         _ = liveDashboard.hide()
                     }
                     .transition(.opacity)
-                } else if dialogue.casualChatMode {
-                    // Full-height text chat opens in place without launching tools.
-                    // Keep the existing animated core visible in the upper area.
-                    VStack(spacing: 0) {
-                        Spacer(minLength: max(95, area.size.height * 0.27))
-                        workspaceConversationPanel
-                            .frame(width: min(780, area.size.width - 52),
-                                   height: max(300, area.size.height * 0.63))
-                        Spacer(minLength: 12)
-                    }
-                    .frame(width: area.size.width, height: area.size.height)
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
-                    .zIndex(8)
+                    .zIndex(10)
                 } else if workspaceActive {
                     // A dedicated two-column workspace: the browser, even as
                     // an NSView, can never overlap text history or the composer.
@@ -551,14 +600,6 @@ private struct JarvisSummonedView: View {
     private var restingControls: some View {
         VStack(spacing: 0) {
             HStack(spacing: 9) {
-                Button {
-                    dialogue.setCasualChatMode(true)
-                } label: {
-                    Label("일상 채팅", systemImage: "bubble.left.and.bubble.right.fill")
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Color(red: 0.68, green: 0.37, blue: 0.06))
-                .accessibilityIdentifier("jarvis-casual-chat-open")
                 Button { dialogue.toggleMicrophone() } label: {
                     Label(dialogue.isListening ? "질문 마치기" :
                           (dialogue.isThinking || dialogue.isSpeaking ? "끼어들기" : "대화 시작"),
@@ -1418,9 +1459,12 @@ final class JarvisFullscreenOverlay: ObservableObject {
     // Persistent opt-in: launch and wake restore the user-selected preference.
     @Published private(set) var dekaEnabled = false
     @Published private(set) var dekaArmed = false
-    @Published private(set) var dekaStatus = "애기야 상시 대기 꺼짐"
+    @Published private(set) var dekaStatus = "Jarvis 상시 대기 꺼짐"
     private let deka = JarvisDekaWake()
     private let dekaPreferenceKey = "jarvis.deka.autoStandby"
+    // One-time transition to mini-owned wake standby. The menu's subsequent
+    // explicit off selection is respected on future launches.
+    private let miniWakeMigrationKey = "jarvis.mini.autoWakeV1"
     private var dekaSleepObserver: NSObjectProtocol?
     private var dekaWakeObserver: NSObjectProtocol?
     private var dekaResumeTask: Task<Void,Never>?
@@ -1435,7 +1479,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
         else if dekaEnabled && dekaStatus != reason { dekaStatus = reason }
         dekaNotBefore = Date().addingTimeInterval(0.6)
     }
-    func stopDeka(_ reason: String = "애기야 상시 대기 꺼짐") {
+    func stopDeka(_ reason: String = "Jarvis 상시 대기 꺼짐") {
         dekaEnabled = false
         dekaMonitorTask?.cancel()
         dekaMonitorTask = nil
@@ -1463,15 +1507,22 @@ final class JarvisFullscreenOverlay: ObservableObject {
     private func startPreferredDeka() {
         guard !dekaEnabled, !dekaSleeping,
               UserDefaults.standard.bool(forKey: dekaPreferenceKey) else { return }
-        guard !NSApp.windows.contains(where: { $0 !== miniPanel && $0 !== panel && $0.isVisible && $0.level == .normal && $0.canBecomeKey }) else {
-            dekaStatus = "작업 및 음성 설정 창을 닫고 시작하세요."; return
-        }
-        // Keep a visible companion when the fullscreen workspace is closed.
-        if !miniEnabled {
+        // Local wake detection is independent of the app currently in front.
+        // Other macOS windows must not prevent standby.
+        // At the three-screen desk the full HOME is the visible companion.
+        // Don't spawn a second floating core just to arm the microphone.
+        let atHomeDesk = JarvisDisplayRoles.hasHouseholdArrangement()
+        if !atHomeDesk && !miniEnabled {
             miniEnabled = true
             UserDefaults.standard.set(true, forKey: "jarvis.mini.enabled")
         }
-        if panel == nil && miniPanel == nil { showMini() }
+        if panel == nil && miniPanel == nil {
+            if atHomeDesk {
+                dekaStatus = "HOME 화면 연결 대기 중…"
+                return
+            }
+            showMini()
+        }
         guard let voice = dialogue ?? miniDialogue else {
             dekaStatus = "코어를 열 수 없습니다."; return
         }
@@ -1480,7 +1531,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
         // Explicitly switch an empty continuous-listening turn into wake
         // standby. A turn containing words is allowed to finish normally.
         if voice.isListening && voice.liveTranscript.isEmpty { voice.pauseMicrophone() }
-        dekaStatus = "애기야 상시 대기 준비 중…"
+        dekaStatus = "Jarvis 상시 대기 준비 중…"
         dekaNotBefore = Date()
         dekaMonitorTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -1495,9 +1546,12 @@ final class JarvisFullscreenOverlay: ObservableObject {
         guard let voice = dialogue ?? miniDialogue else {
             pauseDeka("코어 전환 중"); return
         }
-        if voice.wakeCaptureBusy || greetingTask != nil ||
-            greetingFallback.isSpeaking || ElevenLabsVoiceService.shared.outputActive {
-            pauseDeka()
+        // Keep wake detection active while the AI thinks, invokes tools or
+        // speaks. Otherwise a fresh "자비스" would be ignored precisely
+        // when the user is trying to interrupt it.
+        // Yield ONLY when full microphone transcription is underway.
+        if voice.microphoneCaptureBusy {
+            pauseDeka("음성 받아쓰기 중 · 자비스 호출은 받아쓰기로 감지")
             return
         }
         guard Date() >= dekaNotBefore, !deka.armed else { return }
@@ -1506,11 +1560,12 @@ final class JarvisFullscreenOverlay: ObservableObject {
 
     private var hotkey: JarvisOverlayHotkey?
     private var panel: JarvisOverlayPanel?
+    private var detachedChatPanel: JarvisOverlayPanel?
+    private var detachedChatCloseObserver: NSObjectProtocol?
     private var miniPanel: JarvisOverlayPanel?
     private var miniDialogue: JarvisOverlayConversation?
     private var miniObservers: [NSObjectProtocol] = []
     private var miniDiameter: CGFloat = 190
-    private var miniHasCaption = false
     private var lastMiniToggle = Date.distantPast
     private var interactionMonitor: Any?
     private var lastScrollInput = Date.distantPast
@@ -1525,6 +1580,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
     var onPresentationChanged: ((Bool) -> Void)?
 
     func start() {
+        JarvisDisplayRoles.registerConnectedScreens()
         deka.onStatus = { [weak self] text in
             guard let self else { return }
             self.dekaArmed = self.deka.armed
@@ -1534,11 +1590,22 @@ final class JarvisFullscreenOverlay: ObservableObject {
         }
         deka.onFailure = { [weak self] reason in self?.stopDeka(reason) }
         deka.onHit = { [weak self] in
-            guard let self, self.dekaEnabled, let voice=self.dialogue ?? self.miniDialogue, !voice.wakeCaptureBusy, self.greetingTask == nil else { return }
+            guard let self, self.dekaEnabled,
+                  let voice=self.dialogue ?? self.miniDialogue else { return }
+            // The wake has priority over current speech or unfinished replies.
+            self.greetingTask?.cancel()
+            self.greetingTask = nil
+            self.greetingFallback.stop()
+            ElevenLabsVoiceService.shared.stopSpeakingNow()
+            // The small always-on core opens only its companion chat.
+            // A wake event never promotes the mini into fullscreen.
+            if self.panel == nil && self.miniPanel != nil {
+                self.openMiniCasualChat()
+            }
             self.onPresentationChanged?(true)
             voice.beginDekaWakeTurn()
         }
-        LocalSpeechListener.beforeCapture = { [weak self] in self?.pauseDeka("질문 듣는 중 · 호출 감지 일시정지") }
+        LocalSpeechListener.beforeCapture = { [weak self] in self?.pauseDeka("질문 듣는 중 · 받아쓰기로 호출 감지") }
         dekaSleepObserver = NSWorkspace.shared.notificationCenter.addObserver(forName:NSWorkspace.willSleepNotification,object:nil,queue:.main) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
@@ -1571,9 +1638,29 @@ final class JarvisFullscreenOverlay: ObservableObject {
         } else {
             NSLog("JARVIS: Command-Option-J shortcut unavailable; overlay not activated")
         }
-        if miniEnabled { showMini() }
+        if miniEnabled {
+            // The user opted into an always-ready mini companion. Adopt wake
+            // standby once, preserving any later manual microphone opt-out.
+            if !UserDefaults.standard.bool(forKey: miniWakeMigrationKey) &&
+               !ProcessInfo.processInfo.arguments.contains("--overlay-preview") {
+                UserDefaults.standard.set(true, forKey: miniWakeMigrationKey)
+                UserDefaults.standard.set(true, forKey: dekaPreferenceKey)
+            }
+            showMini()
+        }
         if !ProcessInfo.processInfo.arguments.contains("--overlay-preview") {
             startPreferredDeka()
+        }
+        // A real three-screen home desk starts HOME on the verified left LG,
+        // but a MacBook-only launch remains unobtrusive. Explicit inspection
+        // and preview launch modes retain their specialized behavior.
+        if JarvisDisplayRoles.hasHouseholdArrangement() &&
+           !ProcessInfo.processInfo.arguments.contains("--overlay-preview") &&
+           !ProcessInfo.processInfo.arguments.contains("--dashboard-inspection") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                guard let self, self.panel == nil else { return }
+                self.show()
+            }
         }
         // Explicit local visual inspection: open the live overview without
         // synthesizing speech, forwarding audio, or beginning a voice turn.
@@ -1615,7 +1702,11 @@ final class JarvisFullscreenOverlay: ObservableObject {
         miniEnabled.toggle()
         UserDefaults.standard.set(miniEnabled, forKey: "jarvis.mini.enabled")
         if miniEnabled {
+            // Turning on the companion is the user's explicit standby choice.
+            UserDefaults.standard.set(true, forKey: miniWakeMigrationKey)
+            UserDefaults.standard.set(true, forKey: dekaPreferenceKey)
             if panel == nil { showMini() }
+            startPreferredDeka()
         } else {
             if panel == nil {
                 UserDefaults.standard.set(false, forKey: dekaPreferenceKey)
@@ -1634,8 +1725,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
         let preferences = UserDefaults.standard
         let savedSize = preferences.object(forKey: "jarvis.mini.diameter") as? Double ?? 190
         miniDiameter = CGFloat(savedSize.isFinite ? min(max(savedSize, 160), 340) : 190)
-        miniHasCaption = false
-        let size = NSSize(width: miniDiameter + 12, height: miniDiameter + 38)
+        let size = NSSize(width: miniDiameter, height: miniDiameter)
         var frame = Self.miniFrame(visible: screen.visibleFrame, size: size)
         if let saved = preferences.string(forKey: "jarvis.mini.frame") {
             let old = NSRectFromString(saved)
@@ -1661,6 +1751,10 @@ final class JarvisFullscreenOverlay: ObservableObject {
             if self?.panel == nil { self?.onPresentationChanged?(false) }
         }
         voice.onWorkspaceRequested = { [weak self] in self?.promoteMini() }
+        voice.onCasualChatModeChanged = { [weak self] enabled in
+            if enabled { self?.showDetachedChat() }
+            else { self?.closeDetachedChat() }
+        }
         miniDialogue = voice
         miniPanel = mini
         mountMini(url: url)
@@ -1676,20 +1770,27 @@ final class JarvisFullscreenOverlay: ObservableObject {
         })
         mini.orderFrontRegardless()
         if hotkey?.installMicrophone() != true {
-            NSLog("JARVIS: mini Option-Space unavailable; microphone button remains available")
+            NSLog("JARVIS: mini Option-Space unavailable; chat microphone is available when opened")
         }
         NSLog("JARVIS: opt-in mini core shown")
     }
 
     private func mountMini(url: URL) {
-        guard let miniPanel, let miniDialogue else { return }
+        guard let miniPanel, miniDialogue != nil else { return }
         miniPanel.contentView = NSHostingView(rootView: JarvisMiniCoreView(
-            videoURL: url, diameter: miniDiameter, dialogue: miniDialogue,
-            expand: { [weak self] in self?.promoteMini() },
-            hide: { [weak self] in self?.toggleMini() },
-            resize: { [weak self] amount in self?.resizeMini(amount) },
-            microphone: { [weak self] in self?.handleMicrophoneShortcut() },
-            captionChanged: { [weak self] visible in self?.setMiniCaption(visible) }))
+            videoURL: url, diameter: miniDiameter,
+            openChat: { [weak self] in self?.openMiniCasualChat() },
+            dragCore: { [weak self] delta in self?.dragMiniCore(by: delta) }))
+    }
+
+    private func dragMiniCore(by delta: CGSize) {
+        guard let miniPanel else { return }
+        let frame = miniPanel.frame
+        let visible = (miniPanel.screen ?? NSScreen.main)?.visibleFrame ?? frame
+        let moved = NSRect(x: frame.minX + delta.width,
+                           y: frame.minY - delta.height,
+                           width: frame.width, height: frame.height)
+        miniPanel.setFrame(Self.clampMini(moved, visible: visible), display: true)
     }
 
     static func clampMini(_ frame: NSRect, visible: NSRect) -> NSRect {
@@ -1709,26 +1810,11 @@ final class JarvisFullscreenOverlay: ObservableObject {
         UserDefaults.standard.set(Double(miniDiameter), forKey: "jarvis.mini.diameter")
     }
 
-    private func resizeMini(_ amount: CGFloat) {
-        guard miniPanel != nil,
-              let url = Bundle.main.url(forResource:"DECHIVE_FullHD_Loop",withExtension:"mp4") else { return }
-        miniDiameter = min(max(miniDiameter+amount,160),340)
-        layoutMini()
-        mountMini(url:url)
-        saveMiniFrame()
-    }
-
-    private func setMiniCaption(_ visible: Bool) {
-        guard miniHasCaption != visible else { return }
-        miniHasCaption = visible
-        layoutMini()
-    }
-
     private func layoutMini() {
         guard let miniPanel else { return }
         let old=miniPanel.frame
-        let height=miniDiameter+38+(miniHasCaption ? 78 : 0)
-        let proposed=NSRect(x:old.minX,y:old.maxY-height,width:miniDiameter+12,height:height)
+        let height = miniDiameter
+        let proposed = NSRect(x:old.minX,y:old.maxY-height,width:miniDiameter,height:height)
         let visible=(miniPanel.screen ?? NSScreen.main)?.visibleFrame ?? old
         miniPanel.setFrame(Self.clampMini(proposed,visible:visible),display:true)
         saveMiniFrame()
@@ -1737,6 +1823,9 @@ final class JarvisFullscreenOverlay: ObservableObject {
     private func hideMini(preserveDialogue: Bool = false) {
         pauseDeka("코어 전환 중")
         guard let miniPanel else { return }
+        miniDialogue?.onCasualChatModeChanged = nil
+        miniDialogue?.setCasualChatMode(false)
+        closeDetachedChat()
         saveMiniFrame()
         for observer in miniObservers { NotificationCenter.default.removeObserver(observer) }
         miniObservers.removeAll()
@@ -1783,7 +1872,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
     private func present(fullscreenDialogue: JarvisOverlayConversation?) {
         NSLog("JARVIS: show requested")
         guard panel == nil,
-              let screen = NSScreen.main ?? NSScreen.screens.first,
+              let screen = JarvisDisplayRoles.screen(for: .home),
               let url = Bundle.main.url(forResource: "DECHIVE_FullHD_Loop", withExtension: "mp4")
         else {
             NSLog("JARVIS: fullscreen video asset or active screen missing")
@@ -1833,11 +1922,17 @@ final class JarvisFullscreenOverlay: ObservableObject {
             panel.orderFrontRegardless()
         }
         self.dialogue = dialogue
+        // Fullscreen is a task dashboard, not a second casual-chat entrypoint.
+        // This player survives SwiftUI chat rebuilds; releasing the root view
+        // at fullscreen dismissal releases the player and AVPlayerLooper.
+        let corePlayback = JarvisVideoPlayback(url: url)
         window.contentView = NSHostingView(rootView: JarvisSummonedView(
             videoURL: url,
+            corePlayback: corePlayback,
             dismiss: { [weak self] in self?.dismiss() },
             moveToAdjacentScreen: { [weak self] direction in self?.moveToAdjacentScreen(direction) },
             dialogue: dialogue,
+            wake: deka,
             dashboard: dialogue.dashboard,
             browser: dialogue.browser,
             vault: dialogue.vault,
@@ -1848,15 +1943,22 @@ final class JarvisFullscreenOverlay: ObservableObject {
         hiddenAppWindows = NSApp.windows.filter { $0 !== window && $0.isVisible }
         for oldWindow in hiddenAppWindows { oldWindow.orderOut(nil) }
         panel = window
-        if hotkey?.installEscape() != true {
-            NSLog("JARVIS: global Esc hotkey unavailable; local Esc remains enabled")
+        // HOME owns the only wake listener when no floating mini is present.
+        if !dekaEnabled && UserDefaults.standard.bool(forKey: dekaPreferenceKey) {
+            startPreferredDeka()
         }
+        // JARVIS HOME is always-on beside the primary workspace: do not
+        // capture global Escape while GPT, Codex or Finder have keyboard focus.
+        // Command-Option-J still dismisses this window explicitly.
         if hotkey?.installMicrophone() != true {
             NSLog("JARVIS: global Option-Space hotkey unavailable; local key monitor remains enabled")
         }
         NSLog("JARVIS: panel created, frame=%@", NSStringFromRect(window.frame))
         interactionMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .scrollWheel]) { [weak self] event in
             guard let self, self.panel != nil else { return event }
+            // Text editing and scrolling in the detached chat belong only to
+            // that window, never to fullscreen navigation or core hotkeys.
+            if event.window === self.detachedChatPanel { return event }
             if event.type == .keyDown {
                 // Escape must win over animation, dialogue and other overlay states.
                 if event.keyCode == 53 {
@@ -1894,34 +1996,97 @@ final class JarvisFullscreenOverlay: ObservableObject {
         // A restored hidden SwiftUI scene can prevent ordinary orderFront from
         // raising a new panel. Explicitly unhide the app and raise the panel.
         NSApp.unhide(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        // Do not activate JARVIS or steal keyboard focus from the work monitor.
+        // The panel remains interactive when the user clicks its dashboard.
         // Keep window opacity at 1; animate SwiftUI contents instead. Fading the
         // window itself can leave a background NSPanel offscreen on macOS.
         window.alphaValue = 1
         window.orderFrontRegardless()
-        window.makeKey()
         NSLog("JARVIS: overlay ordered front, isVisible=%@ alpha=%.2f appHidden=%@",
               window.isVisible.description, window.alphaValue, NSApp.isHidden.description)
-        // Speak only after the core is onscreen. This reuses the already
-        // consented ElevenLabs service; no wake-word/microphone runs here.
+        // Quiet HOME standby: no automatic greeting, Qwen request or speech
+        // recognition session when the large gold core first appears.
+        // The shared local wake engine handles "자비스".
         greetingTask?.cancel()
         if continuingActiveTurn {
             dialogue.resumeFullWorkspace()
-            return
-        }
-        greetingTask = Task { [weak self] in
-            guard let self, self.panel != nil else { return }
-            dialogue.showSummonCaption()
-            await ElevenLabsVoiceService.shared.speakSummonGreeting(fallback: self.greetingFallback)
-            await ElevenLabsVoiceService.shared.waitForOutputToFinish(fallback: self.greetingFallback)
-            guard !Task.isCancelled, self.panel != nil, self.dialogue === dialogue else { return }
-            await dialogue.afterGreeting()
-            self.greetingTask = nil
+        } else {
+            dialogue.prepareHomeStandby()
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
             NSLog("JARVIS: overlay stable, isVisible=%@ alpha=%.2f appHidden=%@",
                   window.isVisible.description, window.alphaValue, NSApp.isHidden.description)
         }
+    }
+
+    /// A standalone chat anchored to the MINI core. A wake hit opens this
+    /// panel but does not change the core window or promote fullscreen.
+    private func openMiniCasualChat() {
+        guard panel == nil, miniPanel != nil, let miniDialogue else { return }
+        miniDialogue.setCasualChatMode(true)
+    }
+
+    private func showDetachedChat() {
+        guard panel == nil, let miniPanel, let miniDialogue else { return }
+        if let existing = detachedChatPanel {
+            existing.orderFrontRegardless()
+            existing.makeKey()
+            return
+        }
+        guard let screen = miniPanel.screen ?? NSScreen.main ?? NSScreen.screens.first else { return }
+        let visible = screen.visibleFrame
+        let size = NSSize(width: min(550, max(390, visible.width * 0.37)),
+                          height: min(720, max(390, visible.height * 0.78)))
+        // Prefer the space to the left of the mini core. On narrow screens,
+        // use the opposite side and clamp to the visible desktop work area.
+        let left = miniPanel.frame.minX - size.width - 14
+        let right = miniPanel.frame.maxX + 14
+        let preferredX = left >= visible.minX + 8 ? left : right
+        let x = min(max(preferredX, visible.minX + 8),
+                    max(visible.minX + 8, visible.maxX - size.width - 8))
+        let y = min(max(miniPanel.frame.midY - size.height / 2, visible.minY + 8),
+                    max(visible.minY + 8, visible.maxY - size.height - 8))
+        let frame = NSRect(x: x, y: y, width: size.width, height: size.height)
+        let chat = JarvisOverlayPanel(contentRect: frame,
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered, defer: false)
+        chat.title = "JARVIS / 일상 채팅"
+        chat.titlebarAppearsTransparent = true
+        chat.titleVisibility = .hidden
+        chat.backgroundColor = NSColor(calibratedRed: 0.035, green: 0.042, blue: 0.055, alpha: 1)
+        chat.isOpaque = true
+        chat.hasShadow = true
+        chat.hidesOnDeactivate = false
+        chat.isReleasedWhenClosed = false
+        chat.minSize = NSSize(width: 360, height: 390)
+        chat.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        chat.level = NSWindow.Level(rawValue: NSWindow.Level.floating.rawValue + 1)
+        chat.contentView = NSHostingView(rootView: JarvisDetachedCasualChatView(dialogue: miniDialogue))
+        detachedChatPanel = chat
+        detachedChatCloseObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification, object: chat, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.detachedChatPanel === chat else { return }
+                self.miniDialogue?.setCasualChatMode(false)
+            }
+        }
+        chat.orderFrontRegardless()
+        chat.makeKey()
+        NSLog("JARVIS: mini casual chat opened beside active gold core")
+    }
+
+    private func closeDetachedChat() {
+        if let observer = detachedChatCloseObserver {
+            NotificationCenter.default.removeObserver(observer)
+            detachedChatCloseObserver = nil
+        }
+        guard let chat = detachedChatPanel else { return }
+        detachedChatPanel = nil
+        chat.orderOut(nil)
+        chat.contentView = nil
+        miniDialogue?.textInputFocused = false
+        NSLog("JARVIS: mini casual chat closed; mini core remains active")
     }
 
     /// Two native windows, one visual workspace. Preserve the current dialogue
@@ -2012,6 +2177,8 @@ final class JarvisFullscreenOverlay: ObservableObject {
     /// Immediate dismissal: do not wait for a fade when the user presses Esc.
     func dismiss() {
         guard let window = panel else { return }
+        closeDetachedChat()
+        dialogue?.onCasualChatModeChanged = nil
         chromeFullscreenFrame = nil
         pauseDeka("전체 화면 닫기 · 코어 전환")
         hotkey?.uninstallEscape()
@@ -2035,6 +2202,8 @@ final class JarvisFullscreenOverlay: ObservableObject {
     }
 
     func stop() {
+        closeDetachedChat()
+        dialogue?.onCasualChatModeChanged = nil
         stopDeka()
         hideMini()
         LocalSpeechListener.beforeCapture = nil

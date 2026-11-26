@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// A session-only live transcript. Never archives microphone audio or partial
@@ -6,7 +7,9 @@ import SwiftUI
 struct JarvisLiveDialoguePanel: View {
     @ObservedObject var dialogue: JarvisOverlayConversation
     var quiet: Bool = false
-    // The presentation-only panel has no settings or action controls.
+    @State private var draftText = ""
+    @State private var blinkingCaret = false
+    @FocusState private var draftFocused: Bool
 
     private let amber = Color(red: 0.94, green: 0.67, blue: 0.30)
     private let muted = Color(red: 0.65, green: 0.69, blue: 0.72)
@@ -201,25 +204,8 @@ struct JarvisLiveDialoguePanel: View {
                             }
                             .id("streaming")
                         }
-                        if !dialogue.liveTranscript.isEmpty || (!quiet && dialogue.isListening) {
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text(quiet ? "오빠" : "오빠 / LIVE TRANSCRIPT")
-                                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                                    .foregroundStyle(amber)
-                                Text(dialogue.liveTranscript.isEmpty ?
-                                     "말씀하시면 여기에 실시간으로 받아적습니다…" : dialogue.liveTranscript)
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(dialogue.liveTranscript.isEmpty ?
-                                                    muted : .white.opacity(0.9))
-                                    .fixedSize(horizontal: false, vertical: true)
-                                if !quiet && !dialogue.liveTranscript.isEmpty {
-                                    Text("인식 중 · 아직 확정되지 않은 문장")
-                                        .font(.system(size: 9))
-                                        .foregroundStyle(muted)
-                                }
-                            }
-                            .id("live")
-                        }
+                        // Live recognition appears in the editable composer
+                        // below, not duplicated in the scrollback area.
                         if !quiet && dialogue.dialogueTurns.isEmpty && !dialogue.isListening {
                             Text("대화를 시작하면 실제 인식 내용과 응답이 이곳에 표시됩니다.")
                                 .font(.system(size: 12))
@@ -245,7 +231,27 @@ struct JarvisLiveDialoguePanel: View {
                     proxy.scrollTo("end", anchor: .bottom)
                 }
             }
-
+            if !quiet {
+                voiceComposer
+            }
+        }
+        .onChange(of: dialogue.liveTranscript) { _, transcript in
+            // Display Apple's real provisional recognition, not fabricated text.
+            if dialogue.isListening || !transcript.isEmpty {
+                draftText = transcript
+            }
+        }
+        .onChange(of: dialogue.dialogueTurns.count) { _, _ in
+            if dialogue.dialogueTurns.last?.role == "YOU" {
+                draftText = ""
+            }
+        }
+        .onAppear {
+            if dialogue.isListening { draftText = dialogue.liveTranscript }
+            // A real insertion caret appears when the dashboard has keyboard
+            // focus. The amber cursor signals voice readiness while another
+            // monitor owns the keyboard.
+            DispatchQueue.main.async { draftFocused = true }
         }
         .padding(15)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -253,5 +259,102 @@ struct JarvisLiveDialoguePanel: View {
                     in: RoundedRectangle(cornerRadius: 15))
         .overlay(RoundedRectangle(cornerRadius: 15).stroke(amber.opacity(0.24)))
         .accessibilityIdentifier("jarvis-live-dialogue-panel")
+    }
+
+    private var voiceComposer: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Rectangle().fill(amber.opacity(0.23)).frame(height: 1)
+            HStack(spacing: 7) {
+                Circle()
+                    .fill(dialogue.isListening ? Color.green :
+                          dialogue.dashboardDictationEnabled ? amber : muted)
+                    .frame(width: 6, height: 6)
+                Text(dialogue.isListening ? "LIVE · 음성 받아쓰기" :
+                     dialogue.isSpeaking ? "JARVIS · 답변 중" :
+                     dialogue.isThinking ? "JARVIS · 처리 중" :
+                     dialogue.dashboardDictationEnabled ? dialogue.status : "마이크 꺼짐 · 직접 입력 가능")
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(dialogue.isListening ? .green : muted)
+                Spacer(minLength: 0)
+                Text("받아쓰기 중 · 멈추면 질문 자동 전송")
+                    .font(.system(size: 9))
+                    .foregroundStyle(muted)
+                    .lineLimit(1)
+            }
+            HStack(spacing: 7) {
+                Button {
+                    dialogue.setDashboardDictation(!dialogue.dashboardDictationEnabled)
+                } label: {
+                    Image(systemName: dialogue.dashboardDictationEnabled ? "mic.fill" : "mic.slash")
+                        .font(.system(size: 14))
+                        .frame(width: 23, height: 24)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(dialogue.dashboardDictationEnabled ? amber : muted)
+                .help(dialogue.dashboardDictationEnabled ? "연속 받아쓰기 일시정지" : "연속 받아쓰기 재개")
+                .accessibilityIdentifier("jarvis-dashboard-dictation-toggle")
+
+                HStack(spacing: 3) {
+                    TextField("말씀하거나 입력해 주세요…", text: $draftText)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white)
+                        .focused($draftFocused)
+                        .onChange(of: draftFocused) { _, focused in
+                            dialogue.textInputFocused = focused
+                        }
+                        .onSubmit {
+                            if dialogue.isListening {
+                                dialogue.completeUtterance()
+                            } else {
+                                sendDraft()
+                            }
+                        }
+                        .accessibilityIdentifier("jarvis-dashboard-live-composer")
+                    Rectangle()
+                        .fill(amber)
+                        .frame(width: 1.5, height: 17)
+                        // When another monitor owns keyboard focus, native
+                        // TextField does not blink. Show the visual voice caret
+                        // without taking keyboard focus away from GPT/Codex.
+                        .opacity(draftFocused && NSApp.isActive ? 0 :
+                                 (blinkingCaret ? 1 : 0))
+                        .onAppear {
+                            withAnimation(.easeInOut(duration: 0.55).repeatForever(autoreverses: true)) {
+                                blinkingCaret = true
+                            }
+                        }
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 9)
+                .background(Color.white.opacity(0.08),
+                            in: RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(amber.opacity(0.3)))
+
+                Button {
+                    if dialogue.isListening {
+                        dialogue.completeUtterance()
+                    } else {
+                        sendDraft()
+                    }
+                } label: {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundStyle(amber)
+                }
+                .buttonStyle(.plain)
+                .disabled(!dialogue.isListening && draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .help(dialogue.isListening ? "인식한 질문 확정" : "작성한 질문 전송")
+                .accessibilityIdentifier("jarvis-dashboard-composer-send")
+            }
+        }
+        .accessibilityIdentifier("jarvis-dashboard-voice-composer")
+    }
+
+    private func sendDraft() {
+        let text = draftText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        dialogue.submitTyped(text)
+        draftText = ""
     }
 }

@@ -39,7 +39,8 @@ class RemoteThrottleTests(unittest.TestCase):
         self.assertIn('systemRow("로컬 갱신 주기", "약 7초"', VIEW)
         self.assertIn('systemRow("GitHub 원격 조회", "10분 / 캐시 재사용"', VIEW)
         self.assertIn('systemRow("Vercel 원격 조회", "15분 / 캐시 재사용"', VIEW)
-        self.assertIn('GitHub는 10분, Vercel은 15분 간격', LIVE)
+        # Refresh policy belongs in the dashboard UI, not spoken greetings.
+        self.assertNotIn('GitHub는 10분, Vercel은 15분 간격', LIVE)
 
     def test_provider_scans_remain_read_only(self):
         self.assertIn('"api", "--method", "GET", "--paginate"', GITHUB)

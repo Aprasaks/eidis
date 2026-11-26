@@ -185,11 +185,14 @@ final class JarvisAppLifecycle: NSObject, NSApplicationDelegate {
     private let localModelWarmup = JarvisLocalModelWarmup()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        JarvisMacNearbyCalendar.shared.startRememberedConnection()
+        JarvisMacNearbyCalendar.shared.startRemoteProjects()
         fullscreen.onPresentationChanged = { [weak self] active in
             self?.studyRunner.setConversationActive(active)
             self?.verificationRunner.setConversationActive(active)
         }
         fullscreen.start()
+        JarvisAgentTerminalBay.shared.startNightScheduler()
         Task {
             await server.connectOnLaunch()
             if server.ready {
@@ -210,6 +213,8 @@ final class JarvisAppLifecycle: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        JarvisMacNearbyCalendar.shared.stopRemoteProjects()
+        JarvisAgentTerminalBay.shared.stopNightScheduler()
         localModelWarmup.stop()
         verificationRunner.stop()
         studyRunner.stop()

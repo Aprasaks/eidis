@@ -8,10 +8,10 @@ LIVE=(R/'macos/Sources/EidisMac/JarvisLiveDashboard.swift').read_text()
 INFO=(R/'macos/Resources/Info.plist').read_text()
 class CommandCenterContract(unittest.TestCase):
     def test_original_core_only_changes_position_not_video_asset(self):
-        for text in ('JarvisLoopingCore(videoURL: videoURL, compact: compactCore)',
+        for text in ('JarvisLoopingCore(videoURL: videoURL, compact: compactCore,',
                      'AVPlayerLooper(player: player', 'videoGravity = compact ? .resizeAspectFill : .resizeAspect',
                      '.animation(reduceMotion ? nil : .easeInOut(duration: 0.72)',
-                     'JarvisCommandCenterView(model: liveDashboard, dialogue: dialogue)',
+                     'JarvisCommandCenterView(model: liveDashboard, dialogue: dialogue, agentBay: dialogue.agentBay)',
                      'liveDashboard.mode == .overview', 'overviewFrame.midY',
                      'dialogue?.cancel()', 'hotkey?.uninstallEscape()'):
             self.assertIn(text,OVERLAY)
@@ -57,12 +57,12 @@ class CommandCenterContract(unittest.TestCase):
 
     def test_tv_readable_layout_and_provenance(self):
         for text in ('width < 1120', 'min(2.0, max(0.84', 'ScrollView(.vertical)',
-                     'PROJECT OPERATIONS','GITHUB + LOCAL GIT','META / DECHIVE.WIKI','YOUTUBE / DECHIVE',
+                     'PROJECT OPERATIONS','GITHUB + LOCAL GIT','SOCIAL / DECHIVE.WIKI','YOUTUBE / CHANNEL INTELLIGENCE',
                      'Google 계정 연결','LOCAL GIT', 'LIVE CHECKS',
                      'RECORDED EVENTS', 'model.sourceChecks',
                      'model.recordedActivity', 'model.gitSnapshot', 'model.githubSnapshot',
                      '실제 기록 시각', 'GitHub는 로그인 계정의 API 결과'):
             self.assertIn(text,COMMAND)
         self.assertNotIn('fake statistics', COMMAND.lower())
-        self.assertIn('<string>3.14.16</string>', INFO)
+        self.assertIn('<string>3.14.47</string>', INFO)
 if __name__=='__main__':unittest.main()

@@ -1,6 +1,8 @@
 import Foundation
 import MultipeerConnectivity
 import CryptoKit
+import Security
+import Network
 
 /// The JARVIS Mac can be paired only after the owner explicitly opens
 /// the pairing panel and enters its fresh twelve-digit code on the iPhone.
@@ -20,10 +22,193 @@ final class JarvisMacNearbyCalendar: NSObject, ObservableObject {
     private var session: MCSession!
     private var advertiser: MCNearbyServiceAdvertiser!
     private var expiresAt = Date.distantPast
+    @Published private(set) var remembered = false
+    private var savedSecret: String?
+    private var autoAdvertising = false
+    private var pendingResume: Set<MCPeerID> = []
+    private var pairingKeys: [MCPeerID: Curve25519.KeyAgreement.PrivateKey] = [:]
     private var badTries = 0
+    private var publishInFlight = false
     private var authorized: Set<MCPeerID> = []
     private var clientNonces: [MCPeerID: String] = [:]
     private var serverNonces: [MCPeerID: String] = [:]
+
+    private func makeProjectSnapshot(_ id: String) -> [String: Any] {
+        let root = JarvisKnowledgeCatalog.root
+        let catalog = try? JarvisKnowledgeCatalog.load()
+        let day = JarvisKnowledgeDailyBudget.dayKey(at: Date())
+        let night = root.appendingPathComponent("night-shifts").appendingPathComponent(day)
+        let summary = (try? Data(contentsOf: night.appendingPathComponent("summary.json")))
+            .flatMap { try? JSONDecoder().decode([String: String].self, from: $0) }
+        let latest = (try? Data(contentsOf: root.appendingPathComponent("latest-run.json")))
+            .flatMap { try? JSONDecoder().decode(JarvisKnowledgePilotRun.self, from: $0) }
+        var snapshot: [String: Any] = [
+            "kind": "projectSnapshot", "requestID": id,
+            "checkedAt": ISO8601DateFormatter().string(from: Date()),
+            "day": day, "starts": JarvisKnowledgeDailyBudget.used(),
+            "limit": JarvisKnowledgeDailyBudget.limit
+        ]
+        snapshot["dailyStagedCount"] = Set(JarvisKnowledgeDailyBudget.stagedToday()).count
+        if JarvisKnowledgeDailyBudget.usesSeparateRepairs() {
+            snapshot["repairStarts"] = JarvisKnowledgeDailyBudget.repairUsed()
+            snapshot["repairLimit"] = JarvisKnowledgeDailyBudget.repairLimit
+        }
+        if let catalog { snapshot["planned"] = catalog.topics.count }
+        if let summary {
+            snapshot["nightReason"] = summary["reason"]
+            snapshot["nightStaged"] = summary["staged"]
+        }
+        if let latest, let catalog,
+           let topic = catalog.topics.first(where: { latest.directory.lastPathComponent.hasPrefix($0.code + "-") }) {
+            snapshot["latestTitle"] = topic.title
+            snapshot["latestCode"] = topic.code
+            snapshot["latestState"] = latest.state.rawValue
+            if latest.sanityReceipt()?.slug == topic.resolvedSlug {
+                snapshot["reviewRecorded"] = true
+            }
+        }
+        let runs = root.appendingPathComponent("runs")
+        let folders = (try? FileManager.default.contentsOfDirectory(at: runs, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey])) ?? []
+        var reviews: [[String: Any]] = []
+        for folder in folders {
+            guard let values = try? folder.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey]),
+                  values.isDirectory == true, values.isSymbolicLink != true,
+                  let data = try? Data(contentsOf: folder.appendingPathComponent("sanity-stage.json")),
+                  let receipt = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+                  let slug = receipt["slug"] as? String, let rev = receipt["rev"] as? String,
+                  receipt["id"] as? String == "drafts.knowledge-" + slug,
+                  receipt["status"] as? String == "review", receipt["humanVerified"] as? Bool == false,
+                  let topic = catalog?.topics.first(where: { $0.resolvedSlug == slug }),
+                  let article = try? String(contentsOf: folder.appendingPathComponent("article.md"), encoding: .utf8),
+                  article.utf8.count < 45_000,
+                  let assets = receipt["assets"] as? [String: String] else { continue }
+            if let publishedData = try? Data(contentsOf: folder.appendingPathComponent("sanity-publish.json")),
+               let published = (try? JSONSerialization.jsonObject(with: publishedData)) as? [String: Any],
+               published["slug"] as? String == slug,
+               published["approvedRevision"] as? String == rev { continue }
+            reviews.append(["slug":slug, "rev":rev, "title":topic.title, "article":article,
+                            "topicNumber":topic.number, "topicCode":topic.code,
+                            "assets":assets, "checkedAt":receipt["checkedAt"] as? String ?? ""])
+        }
+        // Retain the newest receipt per topic, then send the earliest unpublished
+        // local candidates first. Public state is checked again by the phone/CMS.
+        var seen = Set<String>()
+        let ordered = reviews.sorted {
+            let a = $0["topicNumber"] as? Int ?? Int.max
+            let b = $1["topicNumber"] as? Int ?? Int.max
+            if a != b { return a < b }
+            return ($0["checkedAt"] as? String ?? "") > ($1["checkedAt"] as? String ?? "")
+        }.filter {
+            guard let slug = $0["slug"] as? String else { return false }
+            return seen.insert(slug).inserted
+        }
+        snapshot["reviews"] = Array(ordered.prefix(6))
+        return snapshot
+    }
+
+    private var remoteListener: NWListener?
+    private var remoteConnections: [UUID: NWConnection] = [:]
+    private var remoteAuthenticated: Set<UUID> = []
+    private var recentRemoteRequests: [String: Date] = [:]
+    private var remoteRetry: Task<Void, Never>?
+
+    func startRemoteProjects() {
+        guard remoteRetry == nil else { return }
+        remoteRetry = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                if self.remoteListener == nil, self.remembered { self.openRemoteProjects() }
+                try? await Task.sleep(for: .seconds(10))
+            }
+        }
+    }
+
+    func stopRemoteProjects() {
+        remoteRetry?.cancel()
+        remoteRetry = nil
+        remoteListener?.cancel()
+        remoteListener = nil
+        for c in remoteConnections.values { c.cancel() }
+        remoteConnections.removeAll()
+        remoteAuthenticated.removeAll()
+        recentRemoteRequests.removeAll()
+    }
+
+    private func openRemoteProjects() {
+        guard let mac = JARVISRemoteWire.mac, JARVISRemoteWire.phone != nil else { return }
+        let params = NWParameters.tcp
+        params.requiredLocalEndpoint = .hostPort(host: NWEndpoint.Host(mac), port: JARVISRemoteWire.port)
+        guard let listener = try? NWListener(using: params) else { return }
+        remoteListener = listener
+        listener.stateUpdateHandler = { [weak self, weak listener] state in
+            Task { @MainActor in
+                guard let self, let listener, self.remoteListener === listener else { return }
+                if case .failed = state { listener.cancel(); self.remoteListener = nil }
+            }
+        }
+        listener.newConnectionHandler = { [weak self] connection in
+            Task { @MainActor in
+                guard let self, self.remembered, self.remoteConnections.count < 8,
+                      case let .hostPort(host, _) = connection.endpoint,
+                      let phone = JARVISRemoteWire.phone, String(describing: host) == phone else { connection.cancel(); return }
+                self.handleRemoteConnection(connection)
+            }
+        }
+        listener.start(queue: .main)
+    }
+
+    private func handleRemoteConnection(_ connection: NWConnection) {
+        let token = UUID()
+        remoteConnections[token] = connection
+        connection.start(queue: .main)
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(8))
+            guard let self, !self.remoteAuthenticated.contains(token) else { return }
+            self.remoteConnections.removeValue(forKey: token)?.cancel()
+        }
+        JARVISRemoteWire.read(connection) { [weak self] data in
+            Task { @MainActor in
+                guard let self, self.remoteConnections[token] != nil,
+                      let data, let secret = JARVISRememberedPeer.load(),
+                      let clear = try? JARVISRemoteWire.decode(data, secret: secret, response: false),
+                      let request = (try? JSONSerialization.jsonObject(with: clear)) as? [String: Any],
+                      let kind = request["kind"] as? String,
+                      ["projectSnapshotRequest", "publishKnowledge"].contains(kind),
+                      let id = request["requestID"] as? String, UUID(uuidString: id) != nil,
+                      let sent = request["sentAt"] as? Double, abs(Date().timeIntervalSince1970 - sent) <= 60
+                else { self?.remoteConnections.removeValue(forKey: token)?.cancel(); return }
+                let now = Date()
+                self.recentRemoteRequests = self.recentRemoteRequests.filter { now.timeIntervalSince($0.value) < 125 }
+                guard self.recentRemoteRequests[id] == nil, self.recentRemoteRequests.count < 256 else {
+                    self.remoteConnections.removeValue(forKey: token)?.cancel(); return
+                }
+                self.recentRemoteRequests[id] = now
+                self.remoteAuthenticated.insert(token)
+                Task { [weak self] in
+                    try? await Task.sleep(for: .seconds(120))
+                    guard let self else { return }
+                    self.remoteAuthenticated.remove(token)
+                    self.remoteConnections.removeValue(forKey: token)?.cancel()
+                }
+                let response: [String: Any]
+                if kind == "publishKnowledge" {
+                    // Only authenticated owner requests reach the same revision-bound publisher.
+                    response = await self.publishApproved(request, id: id)
+                } else {
+                    response = self.makeProjectSnapshot(id)
+                }
+                self.remoteAuthenticated.remove(token)
+                guard self.remoteConnections[token] != nil,
+                      let current = JARVISRememberedPeer.load(), current == secret,
+                      let frame = try? JARVISRemoteWire.encode(response, secret: secret, response: true) else {
+                    self.remoteConnections.removeValue(forKey: token)?.cancel(); return
+                }
+                connection.send(content: frame, completion: .contentProcessed { _ in
+                    Task { @MainActor in self.remoteConnections.removeValue(forKey: token)?.cancel() }
+                })
+            }
+        }
+    }
 
     override init() {
         super.init()
@@ -34,7 +219,20 @@ final class JarvisMacNearbyCalendar: NSObject, ObservableObject {
         advertiser.delegate = self
     }
 
+    func startRememberedConnection() {
+        savedSecret = JARVISRememberedPeer.load()
+        remembered = savedSecret != nil
+        guard remembered, !connected, !isAdvertising, !autoAdvertising else { return }
+        autoAdvertising = true
+        status = "등록된 iPhone 연결 대기"
+        advertiser.startAdvertisingPeer()
+    }
+
     func startPairing() {
+        guard !remembered else { return }
+        autoAdvertising = false
+        pendingResume.removeAll()
+        pairingKeys.removeAll()
         advertiser.stopAdvertisingPeer()
         session.disconnect()
         authorized.removeAll()
@@ -57,6 +255,16 @@ final class JarvisMacNearbyCalendar: NSObject, ObservableObject {
     }
 
     func disconnect() {
+        guard JARVISRememberedPeer.forget() else {
+            status = "기기 등록 삭제 실패 · 키체인을 확인하세요."
+            return
+        }
+        stopRemoteProjects()
+        savedSecret = nil
+        remembered = false
+        autoAdvertising = false
+        pendingResume.removeAll()
+        pairingKeys.removeAll()
         session.disconnect()
         authorized.removeAll()
         clientNonces.removeAll()
@@ -68,7 +276,7 @@ final class JarvisMacNearbyCalendar: NSObject, ObservableObject {
 
     func changed() {
         guard connected else { return }
-        send(["kind": "changed"], to: session.connectedPeers)
+        send(["kind": "changed"], to: session.connectedPeers.filter { authorized.contains($0) })
     }
 
     private func send(_ object: [String: Any], to peers: [MCPeerID]) {
@@ -83,27 +291,92 @@ final class JarvisMacNearbyCalendar: NSObject, ObservableObject {
     }
 
     private func acceptProof(_ object: [String: Any], from remote: MCPeerID) {
-        guard isAdvertising, Date() < expiresAt,
-              session.connectedPeers.contains(remote),
+        let resuming = pendingResume.contains(remote)
+        guard session.connectedPeers.contains(remote),
               let client = clientNonces[remote], let server = serverNonces[remote],
-              let clientProof = object["proof"] as? String,
-              JARVISPairProof.verify(clientProof, code: code,
-                  role: "phone", client: client, server: server) else {
-            badTries += 1
-            status = "연결 코드가 일치하지 않습니다. 다시 연결해 주세요."
+              let clientProof = object["proof"] as? String else { session.disconnect(); return }
+        let secret: String
+        let boundClient: String
+        let boundServer: String
+        var nextSecret: String?
+        if resuming {
+            guard let savedSecret else { session.disconnect(); return }
+            secret = savedSecret
+            boundClient = client
+            boundServer = server
+        } else {
+            guard isAdvertising, Date() < expiresAt,
+                  let key = pairingKeys[remote],
+                  let phoneKey = object["phoneKey"] as? String,
+                  let derived = JARVISRememberedPeer.derive(privateKey: key, remote: phoneKey, client: client, server: server)
+            else { session.disconnect(); return }
+            secret = code
+            boundClient = client + "|" + phoneKey
+            boundServer = server + "|" + key.publicKey.rawRepresentation.base64EncodedString()
+            nextSecret = derived
+        }
+        guard JARVISPairProof.verify(clientProof, code: secret,
+                                    role: "phone", client: boundClient, server: boundServer) else {
+            if !resuming { badTries += 1 }
+            status = "기기 인증 실패"
             session.disconnect()
-            if badTries >= 5 { stopPairing() }
+            if !resuming && badTries >= 5 { stopPairing() }
             return
         }
-        let macProof = JARVISPairProof.hex(code: code,
-            role: "mac", client: client, server: server)
+        if let nextSecret {
+            guard JARVISRememberedPeer.save(nextSecret) else {
+                status = "기기 등록 저장 실패"
+                session.disconnect()
+                return
+            }
+            savedSecret = nextSecret
+            remembered = true
+            startRemoteProjects()
+        }
+        let macProof = JARVISPairProof.hex(code: secret,
+            role: "mac", client: boundClient, server: boundServer)
         authorized.insert(remote)
         connected = true
         send(["kind": "pairAccepted", "proof": macProof], to: [remote])
         clientNonces.removeValue(forKey: remote)
         serverNonces.removeValue(forKey: remote)
+        pairingKeys.removeValue(forKey: remote)
+        pendingResume.remove(remote)
         stopPairing()
+        autoAdvertising = false
         status = "iPhone 보안 연결 완료"
+    }
+
+    private func publishApproved(_ object: [String: Any], id: String) async -> [String: Any] {
+        func reply(_ state: String) -> [String: Any] {
+            ["kind":"publishResult","requestID":id,"status":state]
+        }
+        guard let slug = object["slug"] as? String,
+              let rev = object["rev"] as? String,
+              slug.count <= 96,
+              slug.range(of: "^[a-z0-9]+(-[a-z0-9]+)*$", options: .regularExpression) != nil,
+              rev.range(of: "^[A-Za-z0-9_-]{1,128}$", options: .regularExpression) != nil,
+              object["ownerApproved"] as? Bool == true else { return reply("invalidApproval") }
+        guard !publishInFlight else { return reply("busy") }
+        publishInFlight = true
+        defer { publishInFlight = false }
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let site = home.appendingPathComponent("Documents/ChatGPT/Dechive Site")
+        let process = Process()
+        process.executableURL = home.appendingPathComponent(".nvm/versions/node/v24.7.0/bin/node")
+        process.currentDirectoryURL = site
+        process.arguments = [site.appendingPathComponent("node_modules/.bin/sanity").path,
+                             "exec", site.appendingPathComponent("scripts/jarvis-knowledge-publish-approved.mjs").path,
+                             "--with-user-token", "--", "--mode", "publish", "--slug", slug, "--rev", rev]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        let result: Int32 = await withCheckedContinuation { continuation in
+            process.terminationHandler = { p in continuation.resume(returning: p.terminationStatus) }
+            do { try process.run() }
+            catch { process.terminationHandler = nil; continuation.resume(returning: -1) }
+        }
+        let state = result == 0 ? "siteConfirmed" : result == 3 ? "cmsConfirmed" : result == 4 ? "outOfOrder" : "unconfirmed"
+        return reply(state)
     }
 
     private func handle(_ bytes: Data, from remote: MCPeerID) async {
@@ -113,6 +386,19 @@ final class JarvisMacNearbyCalendar: NSObject, ObservableObject {
               let kind = object["kind"] as? String else { return }
         if kind == "pairProof" {
             acceptProof(object, from: remote)
+            return
+        }
+        // Project requests require the existing owner-proven encrypted session.
+        guard authorized.contains(remote) else { return }
+        if kind == "publishKnowledge" {
+            guard let id = object["requestID"] as? String, UUID(uuidString: id) != nil else { return }
+            let response = await publishApproved(object, id: id)
+            if authorized.contains(remote) { send(response, to: [remote]) }
+            return
+        }
+        if kind == "projectSnapshotRequest" {
+            guard let id = object["requestID"] as? String, UUID(uuidString: id) != nil else { return }
+            send(makeProjectSnapshot(id), to: [remote])
             return
         }
         guard authorized.contains(remote), kind == "sync",
@@ -161,15 +447,32 @@ extension JarvisMacNearbyCalendar: MCNearbyServiceAdvertiserDelegate {
         Task { @MainActor in
             // Invitation contains only a random nonce, NEVER the PIN.
             let nonce = context.flatMap { String(data: $0, encoding: .utf8) }
-            let allowed = isAdvertising && Date() < expiresAt && badTries < 5 &&
-                nonce.flatMap(UUID.init(uuidString:)) != nil &&
-                clientNonces.isEmpty && !connected
-            if allowed, let nonce {
-                clientNonces[peerID] = nonce
-                status = "보안 코드 검증 중"
-            } else {
-                badTries += 1
-                if badTries >= 5 { stopPairing() }
+            var acceptedNonce: String?
+            if autoAdvertising, let secret = savedSecret, let context, context.count < 1024,
+               let obj = (try? JSONSerialization.jsonObject(with: context)) as? [String: String],
+               let candidate = obj["nonce"], UUID(uuidString: candidate) != nil,
+               let proof = obj["proof"], JARVISPairProof.verify(proof, code: secret,
+                   role: "invite", client: candidate, server: "resume-v2"),
+               clientNonces.isEmpty, !connected {
+                acceptedNonce = candidate
+                pendingResume.insert(peerID)
+            } else if isAdvertising && Date() < expiresAt && badTries < 5 &&
+                      nonce.flatMap(UUID.init(uuidString:)) != nil && clientNonces.isEmpty && !connected {
+                acceptedNonce = nonce
+            }
+            let allowed = acceptedNonce != nil
+            if let acceptedNonce {
+                clientNonces[peerID] = acceptedNonce
+                status = "기기 보안 검증 중"
+                Task { [weak self] in
+                    try? await Task.sleep(for: .seconds(30))
+                    guard let self, self.clientNonces[peerID] == acceptedNonce else { return }
+                    self.clientNonces.removeValue(forKey: peerID)
+                    self.serverNonces.removeValue(forKey: peerID)
+                    self.pendingResume.remove(peerID)
+                    self.pairingKeys.removeValue(forKey: peerID)
+                    if !self.connected { self.session.disconnect() }
+                }
             }
             invitationHandler(allowed, allowed ? session : nil)
         }
@@ -179,6 +482,7 @@ extension JarvisMacNearbyCalendar: MCNearbyServiceAdvertiserDelegate {
                                  didNotStartAdvertisingPeer error: Error) {
         Task { @MainActor in
             isAdvertising = false
+            autoAdvertising = false
             status = "근처 기기 검색을 시작하지 못했어요."
         }
     }
@@ -190,21 +494,33 @@ extension JarvisMacNearbyCalendar: MCSessionDelegate {
         Task { @MainActor in
             switch state {
             case .connected:
-                guard let client = clientNonces[peerID], isAdvertising else {
+                guard let client = clientNonces[peerID], isAdvertising || pendingResume.contains(peerID) else {
                     if !authorized.contains(peerID) { session.disconnect() }
                     return
                 }
                 let server = UUID().uuidString
                 serverNonces[peerID] = server
-                send(["kind": "pairChallenge", "clientNonce": client,
-                      "serverNonce": server], to: [peerID])
+                var challenge = ["kind": "pairChallenge", "clientNonce": client, "serverNonce": server]
+                if pendingResume.contains(peerID) {
+                    challenge["mode"] = "resume"
+                } else {
+                    let key = Curve25519.KeyAgreement.PrivateKey()
+                    pairingKeys[peerID] = key
+                    challenge["mode"] = "register"
+                    challenge["macKey"] = key.publicKey.rawRepresentation.base64EncodedString()
+                }
+                send(challenge, to: [peerID])
                 status = "iPhone 보안 확인 중"
             case .notConnected:
                 connected = false
                 authorized.remove(peerID)
                 clientNonces.removeValue(forKey: peerID)
                 serverNonces.removeValue(forKey: peerID)
-                if isAdvertising { status = "아이폰에서 연결 코드를 입력해 주세요." }
+                pendingResume.remove(peerID)
+                pairingKeys.removeValue(forKey: peerID)
+                if remembered && !isAdvertising {
+                    startRememberedConnection()
+                } else if isAdvertising { status = "아이폰에서 연결 코드를 입력해 주세요." }
                 else { status = "iPhone 연결 해제됨" }
             case .connecting:
                 status = "iPhone 연결 중"
@@ -256,5 +572,92 @@ private enum JARVISPairProof {
         return HMAC<SHA256>.isValidAuthenticationCode(digest,
             authenticating: message(role, client, server),
             using: SymmetricKey(data: Data(code.utf8)))
+    }
+}
+
+/// One remembered peer per installation. Key material never goes into defaults,
+/// discovery info, logs or the invitation. A fresh proof is required each time.
+private enum JARVISRememberedPeer {
+    static let query: [String: Any] = [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: "dev.dechive.jarvis.nearby.v2",
+        kSecAttrAccount as String: "owner-pairing"
+    ]
+    static func load() -> String? {
+        var q = query
+        q[kSecReturnData as String] = true
+        q[kSecMatchLimit as String] = kSecMatchLimitOne
+        var value: CFTypeRef?
+        guard SecItemCopyMatching(q as CFDictionary, &value) == errSecSuccess,
+              let data = value as? Data, data.count == 32 else { return nil }
+        return data.base64EncodedString()
+    }
+    static func save(_ secret: String) -> Bool {
+        guard let data = Data(base64Encoded: secret), data.count == 32 else { return false }
+        var q = query
+        q[kSecValueData as String] = data
+        q[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        let status = SecItemAdd(q as CFDictionary, nil)
+        if status == errSecDuplicateItem {
+            return SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary) == errSecSuccess
+        }
+        return status == errSecSuccess
+    }
+    static func forget() -> Bool {
+        let result = SecItemDelete(query as CFDictionary)
+        return result == errSecSuccess || result == errSecItemNotFound
+    }
+    static func derive(privateKey: Curve25519.KeyAgreement.PrivateKey, remote: String,
+                       client: String, server: String) -> String? {
+        guard let bytes = Data(base64Encoded: remote),
+              let publicKey = try? Curve25519.KeyAgreement.PublicKey(rawRepresentation: bytes),
+              let shared = try? privateKey.sharedSecretFromKeyAgreement(with: publicKey) else { return nil }
+        let key = shared.hkdfDerivedSymmetricKey(using: SHA256.self,
+            salt: Data((client + "|" + server).utf8),
+            sharedInfo: Data("JARVIS remembered peer v2".utf8), outputByteCount: 32)
+        return key.withUnsafeBytes { Data($0).base64EncodedString() }
+    }
+}
+
+private enum JARVISRemoteWire {
+    static let mac = configuredAddress("JARVISRemoteMac")
+    static let phone = configuredAddress("JARVISRemotePhone")
+    private static func configuredAddress(_ key: String) -> String? {
+        guard let address = Bundle.main.object(forInfoDictionaryKey: key) as? String else { return nil }
+        let parts = address.split(separator: ".", omittingEmptySubsequences: false)
+        let numbers = parts.compactMap { UInt8($0) }
+        guard parts.count == 4, numbers.count == 4, numbers[0] == 100,
+              (64...127).contains(numbers[1]),
+              numbers.map({ String($0) }).joined(separator: ".") == address else { return nil }
+        return address
+    }
+    static let port = NWEndpoint.Port(rawValue: 48765)!
+    static let maxBytes = 500_000
+    static func key(_ secret: String, response: Bool) throws -> SymmetricKey {
+        guard let bytes = Data(base64Encoded: secret), bytes.count == 32 else { throw URLError(.userAuthenticationRequired) }
+        return HKDF<SHA256>.deriveKey(inputKeyMaterial: SymmetricKey(data: bytes),
+            salt: Data("JARVIS remote projects v1".utf8),
+            info: Data((response ? "mac-response" : "phone-request").utf8), outputByteCount: 32)
+    }
+    static func encode(_ object: [String: Any], secret: String, response: Bool) throws -> Data {
+        let data = try JSONSerialization.data(withJSONObject: object)
+        let box = try AES.GCM.seal(data, using: key(secret, response: response))
+        guard let sealed = box.combined, sealed.count <= maxBytes else { throw URLError(.dataLengthExceedsMaximum) }
+        var n = UInt32(sealed.count).bigEndian
+        return Data(bytes: &n, count: 4) + sealed
+    }
+    static func decode(_ data: Data, secret: String, response: Bool) throws -> Data {
+        try AES.GCM.open(AES.GCM.SealedBox(combined: data), using: key(secret, response: response))
+    }
+    static func read(_ c: NWConnection, completion: @escaping (Data?) -> Void) {
+        c.receive(minimumIncompleteLength: 4, maximumLength: 4) { header, _, _, error in
+            guard error == nil, let header, header.count == 4 else { completion(nil); return }
+            let count = header.reduce(0) { ($0 << 8) | Int($1) }
+            guard count >= 28, count <= maxBytes else { completion(nil); return }
+            c.receive(minimumIncompleteLength: count, maximumLength: count) { data, _, _, error in
+                guard error == nil, let data, data.count == count else { completion(nil); return }
+                completion(data)
+            }
+        }
     }
 }

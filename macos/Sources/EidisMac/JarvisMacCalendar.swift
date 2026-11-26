@@ -44,7 +44,7 @@ enum JarvisMacCalendarIntent: Equatable {
 
     static func parse(_ text: String) -> Self? {
         let compact = text.lowercased()
-            .replacingOccurrences(of: #"^(자비스|애기야|아기야|데카|jarvis)[,\s.!?]*"#,
+            .replacingOccurrences(of: #"^(자비스|데카|jarvis)[,\s.!?]*"#,
                                    with: "", options: .regularExpression)
             .filter { !$0.isWhitespace && !$0.isPunctuation }
         let context = ["캘린더", "달력", "내일정", "일정", "스케줄", "약속", "회의", "미팅", "촬영", "병원"]
@@ -136,7 +136,7 @@ enum JarvisMacCalendarDraft {
         remainder.removeSubrange(timeRange)
         if let found = remainder.range(of: dateEvidence) { remainder.removeSubrange(found) }
         remainder = remainder.replacingOccurrences(
-            of: #"(자비스|애기야|아기야|내|일정|캘린더|스케줄|잡아\s*줘|등록해\s*줘|추가해\s*줘|만들어\s*줘|넣어\s*줘|잡아줘|등록해|추가해|만들어|넣어)"#,
+            of: #"(자비스|내|일정|캘린더|스케줄|잡아\s*줘|등록해\s*줘|추가해\s*줘|만들어\s*줘|넣어\s*줘|잡아줘|등록해|추가해|만들어|넣어)"#,
             with: " ", options: .regularExpression)
         remainder = remainder.replacingOccurrences(of: #"(?<=\s)(에|을|를|좀)(?=\s|$)"#,
                                                    with: " ", options: .regularExpression)

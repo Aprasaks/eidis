@@ -7,22 +7,52 @@ CHAT = (ROOT / "macos/Sources/EidisMac/JarvisOverlayConversation.swift").read_te
 SCREEN = (ROOT / "macos/Sources/EidisMac/JarvisFullscreenOverlay.swift").read_text()
 LEARN = (ROOT / "macos/Sources/EidisMac/JarvisLearningMemory.swift").read_text()
 STREAM = (ROOT / "macos/Sources/EidisMac/JarvisOllamaTextStream.swift").read_text()
+DETACHED = (ROOT / "macos/Sources/EidisMac/JarvisDetachedCasualChatView.swift").read_text()
 
 
 class CasualConversationContract(unittest.TestCase):
     def test_chat_has_visible_entry_and_close_controls(self):
         for marker in (
-            'Label("일상 채팅", systemImage: "bubble.left.and.bubble.right.fill")',
-            'accessibilityIdentifier("jarvis-casual-chat-open")',
-            'accessibilityIdentifier("jarvis-casual-chat-close")',
-            'accessibilityIdentifier("jarvis-casual-chat-learning")',
-            "else if dialogue.casualChatMode {",
+            'accessibilityIdentifier("jarvis-mini-open-chat")',
+            'private func openMiniCasualChat()',
+            'JarvisDetachedCasualChatView(dialogue: miniDialogue)',
+            'chat.level = NSWindow.Level(rawValue: NSWindow.Level.floating.rawValue + 1)',
             "workspaceConversationPanel",
-            'TextField(dialogue.casualChatMode ? "편하게 이야기해 주세요…" ',
         ):
             self.assertIn(marker, SCREEN)
-        self.assertIn('!typedText.isEmpty ? 1 : 0.93', SCREEN)
-        self.assertIn('let workspaceActive = !commandCenter && (dialogue.casualChatMode', SCREEN)
+        for marker in (
+            'accessibilityIdentifier("jarvis-casual-chat-close")',
+            'accessibilityIdentifier("jarvis-casual-chat-learning")',
+            'TextField("편하게 이야기해 주세요…", text: $typedText)',
+        ):
+            self.assertIn(marker, DETACHED)
+        self.assertNotIn('accessibilityIdentifier("jarvis-casual-chat-open")', SCREEN)
+        self.assertIn('let workspaceActive = !commandCenter && (dialogue.socialDashboardChannel', SCREEN)
+        self.assertNotIn('dialogue.casualChatMode || dialogue.socialDashboardChannel', SCREEN)
+
+    def test_native_chat_is_detached_and_keeps_the_core_continuous(self):
+        for marker in (
+            'private var detachedChatPanel: JarvisOverlayPanel?',
+            'private func showDetachedChat()',
+            'private func closeDetachedChat()',
+            'chat.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]',
+            'chat.minSize = NSSize(width: 360, height: 390)',
+            'onCasualChatModeChanged = { [weak self] enabled in',
+            'closeDetachedChat()',
+            'persistentPlayback: corePlayback',
+        ):
+            self.assertIn(marker, SCREEN)
+        for marker in (
+            'struct JarvisDetachedCasualChatView: View',
+            'JarvisLearningReviewView(learning: dialogue.learning)',
+            'dialogue.dialogueTurns',
+            'dialogue.streamingAnswer',
+            'dialogue.submitTyped(text)',
+            'dialogue.setCasualChatMode(false)',
+        ):
+            self.assertIn(marker, DETACHED)
+        self.assertIn('onCasualChatModeChanged?(enabled)', CHAT)
+        self.assertNotIn('else if dialogue.casualChatMode {', SCREEN)
 
     def test_text_chat_is_nonexecuting_and_uses_genuine_ollama(self):
         for marker in (
@@ -36,7 +66,7 @@ class CasualConversationContract(unittest.TestCase):
             'let profile = await personalProfile.contextForQwen()',
             'let related = await thinkingCore.context(for: prompt, mode: .contextual)',
             'conversation.suffix(8)',
-            '"model": "qwen3.5:9b-q4_K_M"',
+            '"model": JarvisLocalModelConfiguration.selectedModel',
             'maxReplyChars: 1000',
             'if typed && casualChatMode {',
             'isSpeaking = false',

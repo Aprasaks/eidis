@@ -26,6 +26,20 @@ class FullscreenOverlayContract(unittest.TestCase):
         self.assertGreater(ASSET.stat().st_size, 3_500_000)
         self.assertIn('rm -f "$RESOURCES/JARVIS_Activation_Alpha_HEVC.mov"', PACKAGING)
 
+    def test_fullscreen_video_player_outlives_chat_view_updates(self):
+        # The 10-second source film must not restart when chat opens or
+        # streamed replies trigger SwiftUI body updates.
+        for marker in (
+            'final class JarvisVideoPlayback',
+            'let corePlayback: JarvisVideoPlayback',
+            'persistentPlayback: corePlayback',
+            'let corePlayback = JarvisVideoPlayback(url: url)',
+            'if !coordinator.persistent { coordinator.playback.player.pause() }',
+        ):
+            self.assertIn(marker, OVERLAY)
+        # Keep the existing fullscreen movie unchanged.
+        self.assertIn('AVPlayerLooper(player: player, templateItem: AVPlayerItem(url: url))', OVERLAY)
+
     def test_esc_is_immediate_and_screen_switching_has_input_guards(self):
         self.assertIn('else { self.dismiss() }\n                    return nil', OVERLAY)
         self.assertIn('hotkey?.uninstallEscape()', OVERLAY)

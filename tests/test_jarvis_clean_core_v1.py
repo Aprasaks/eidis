@@ -6,23 +6,25 @@ UI=(ROOT/"macos/Sources/EidisMac/JarvisFullscreenOverlay.swift").read_text()
 CHAT=(ROOT/"macos/Sources/EidisMac/JarvisOverlayConversation.swift").read_text()
 PANEL=(ROOT/"macos/Sources/EidisMac/JarvisLiveDialoguePanel.swift").read_text()
 class CleanCoreTests(unittest.TestCase):
-    def test_right_dialogue_retained_without_routine_status(self):
-        self.assertIn("JarvisLiveDialoguePanel(dialogue: dialogue, quiet: true)",UI)
-        self.assertIn("if !quiet {",PANEL)
-        self.assertIn("if !quiet && dialogue.dialogueTurns.isEmpty",PANEL)
-        self.assertIn("if !dialogue.liveTranscript.isEmpty || (!quiet && dialogue.isListening)",PANEL)
-        self.assertIn("Text(turn.content)",PANEL)
-        self.assertNotIn("restingCaption(size:",UI)
-    def test_no_duplicate_transcript_on_workspace(self):
-        self.assertIn("if !commandCenter && !workspaceActive {",UI)
-        self.assertIn("workspaceConversationPanel",UI)
-    def test_controls_and_diagnostics_remain_accessible(self):
-        self.assertIn("controlsHovered || isInputFocused || showDiagnostics || !typedText.isEmpty",UI)
-        self.assertIn("private var diagnosticsPanel",UI)
-        self.assertIn("Text(dialogue.status)",UI)
-        self.assertIn("voicePauseMenu",UI)
-        self.assertIn("dialogue.showSummonCaption()",UI)
-        self.assertIn("func showSummonCaption()",CHAT)
+    def test_home_has_no_right_hand_dialogue(self):
+        self.assertNotIn("JarvisLiveDialoguePanel(dialogue: dialogue, quiet: true)", UI)
+        self.assertIn("if workspaceActive {", UI)
+        self.assertNotIn("restingCaption(size:", UI)
+        self.assertIn('JarvisLoopingCore(videoURL: videoURL, compact: compactCore,', UI)
+
+    def test_workspace_still_has_conversation_and_data_panels(self):
+        self.assertIn("workspaceConversationPanel", UI)
+        self.assertIn("if workspaceActive {", UI)
+        self.assertIn("JarvisLiveDialoguePanel", PANEL)
+        self.assertIn("Text(turn.content)", PANEL)
+
+    def test_diagnostics_still_available_in_workspace_logic(self):
+        self.assertIn("private var diagnosticsPanel", UI)
+        self.assertIn("Text(dialogue.status)", UI)
+        self.assertIn("voicePauseMenu", UI)
+        self.assertIn("dialogue.prepareHomeStandby()", UI)
+        self.assertIn("func showSummonCaption()", CHAT)
+
     def test_sources_remain_available(self):
         self.assertIn("if let source = dialogue.sourceURL",PANEL)
         self.assertIn("destination: source",PANEL)

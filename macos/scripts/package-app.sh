@@ -17,6 +17,14 @@ test -x "$BIN" || { echo "빌드한 실행 파일을 찾지 못했습니다: $BI
 mkdir -p "$APP/Contents/MacOS"
 cp "$BIN" "$APP/Contents/MacOS/EidisMac"
 cp "$INFO" "$APP/Contents/Info.plist"
+# Private Tailnet routing configuration, never sourced as executable shell.
+LOCAL_REMOTE="$ROOT/ios/JARVISRemote.local.xcconfig"
+if [[ -f "$LOCAL_REMOTE" ]]; then
+  REMOTE_MAC="$(awk -F ' = ' '$1=="JARVIS_REMOTE_MAC" {print $2}' "$LOCAL_REMOTE")"
+  REMOTE_PHONE="$(awk -F ' = ' '$1=="JARVIS_REMOTE_PHONE" {print $2}' "$LOCAL_REMOTE")"
+  /usr/bin/plutil -insert JARVISRemoteMac -string "$REMOTE_MAC" "$APP/Contents/Info.plist"
+  /usr/bin/plutil -insert JARVISRemotePhone -string "$REMOTE_PHONE" "$APP/Contents/Info.plist"
+fi
 
 # Package only the audited server and web entry points. Do not bundle the
 # developer's SQLite DB, Python caches, credentials, .env, Git or other files.
@@ -27,6 +35,10 @@ test -s "$RESOURCES/JARVIS.icns"
 # Use the user's original 1920x1080 clip verbatim. The old 720p alpha
 # conversion introduced visible edge noise on external ultrawide displays.
 cp "$PACKAGE/Resources/Art/DECHIVE_FullHD_Loop.mp4" "$RESOURCES/DECHIVE_FullHD_Loop.mp4"
+# Reactive clips caused unwanted flicker and unnecessary decoders.
+# Leave the source files available in Resources/Art for possible rollback,
+# but package only the single stable core video.
+rm -f "$RESOURCES/JARVIS_Core_Idle.mp4" "$RESOURCES/JARVIS_Core_Input_Rings.mp4" "$RESOURCES/JARVIS_Core_Output_Brush.mp4"
 rm -f "$RESOURCES/JARVIS_FullHD_Loop.mp4"
 # Remove only the obsolete generated alpha movie from the owned dist bundle.
 # Keep the original alpha source in macos/Resources/Art for rollback.

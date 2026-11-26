@@ -102,6 +102,7 @@ struct JARVISHomeView: View {
             voice.stopSpeaking()
         }
         .task {
+            nearby.setForeground(scenePhase == .active)
             await calendar.rescheduleUpcomingReminders()
             alarms.refresh()
         }
@@ -109,6 +110,7 @@ struct JARVISHomeView: View {
             nearby.sync()
         }
         .onChange(of: scenePhase) { _, phase in
+            nearby.setForeground(phase == .active)
             if phase == .active {
                 nearby.sync()
                 alarms.refresh()

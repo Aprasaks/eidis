@@ -64,6 +64,8 @@ final class LocalSpeechListener: ObservableObject {
     private var audioRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
     private let audioRelay = JarvisSpeechAudioRelay()
+    private let inputMeter = JarvisAudioLevelMeter()
+    var inputLevel: Double { isListening ? inputMeter.level : 0 }
     private var assembled = JarvisSpeechTranscriptAssembler()
     private var recognitionEpoch: UInt = 0
     private var tapInstalled = false
@@ -143,6 +145,8 @@ final class LocalSpeechListener: ObservableObject {
                 return
             }
             let relay = audioRelay
+            let meter = inputMeter
+            meter.reset()
             let capture = requiresOwnerVoice ? JarvisVoiceIDCapture(source:format) : nil
             guard !requiresOwnerVoice || capture != nil else {
                 status = "화자 확인용 입력 형식을 사용할 수 없습니다."
@@ -152,6 +156,7 @@ final class LocalSpeechListener: ObservableObject {
             input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
                 relay.append(buffer)
                 capture?.append(buffer)
+                meter.ingest(buffer)
             }
             tapInstalled = true
             engine.prepare()
@@ -229,6 +234,7 @@ final class LocalSpeechListener: ObservableObject {
 
     private func stopAudio() {
         if engine.isRunning { engine.stop() }
+        inputMeter.reset()
         if tapInstalled {
             engine.inputNode.removeTap(onBus: 0)
             tapInstalled = false
@@ -414,6 +420,11 @@ struct NativeSpeechPanel: View {
             Text("사용자가 누르는 동안만 마이크를 엽니다. 지원되는 Mac에서는 한국어 온디바이스 음성 인식만 사용합니다. 항상 듣기·화면 분석·외부 AI 연결은 아직 없습니다.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
+            GroupBox("Ollama · 자비스 로컬 AI") {
+                Text("Qwen 3.5 9B · Mac 24GB 기본 모델. Qwen 3.8 27B는 메모리 압박으로 제거했습니다.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .padding(.vertical, 4)
+            }
             GroupBox("Mac 기본 목소리 · ElevenLabs와 별개") {
                 VStack(alignment: .leading, spacing: 9) {
                     HStack(spacing: 12) {

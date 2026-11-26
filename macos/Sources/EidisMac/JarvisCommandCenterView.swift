@@ -6,7 +6,13 @@ import SwiftUI
 struct JarvisCommandCenterView: View {
     @ObservedObject var model: JarvisLiveDashboard
     @ObservedObject var dialogue: JarvisOverlayConversation
+    @ObservedObject var agentBay: JarvisAgentTerminalBay
     let close: () -> Void
+    @State private var selectedAgent: JarvisAgentID = .codex
+    @State private var agentPrompt = ""
+    @State private var workroomTypedCommand = ""
+    @FocusState private var workroomInputFocused: Bool
+    @State private var workspaceRevealed = false
     @State private var showInstagramTokenSheet = false
     @State private var instagramTokenInput = ""
     @State private var instagramLoginMode = JarvisMetaInstagramService.savedMode()
@@ -22,6 +28,7 @@ struct JarvisCommandCenterView: View {
     @StateObject private var telemetry = JarvisMacSampler()
     @StateObject private var socialStudio = JarvisWikiSocialStudio()
     @State private var showSocialStudio = false
+    @State private var showChannelOverview = false
 
     private let amber = Color(red: 0.94, green: 0.67, blue: 0.30)
     private let muted = Color(red: 0.64, green: 0.66, blue: 0.68)
@@ -31,33 +38,47 @@ struct JarvisCommandCenterView: View {
         GeometryReader { geometry in
             let width = geometry.size.width
             let height = geometry.size.height
-            // The entire command center fits the current display without an
-            // outer scrolling surface. The existing voice input stays below.
+            // The workroom opens directly into actual operations. No
+            // branded page header, generic KPI strip, or static project cards.
             let outer = min(32, max(12, width * 0.015))
-            let inputReserve: CGFloat = 116
-            let topInset: CGFloat = 12
-            let usableHeight = max(0, height - inputReserve - topInset)
+            let topInset: CGFloat = 10
+            let bottomInset: CGFloat = 14
+            let closeReserve: CGFloat = 28
+            let usableHeight = max(0, height - topInset - bottomInset)
             let scale = min(2.0, max(0.84, min(width / 1430, height / 880)))
             let narrow = width < 1120
             let gap: CGFloat = narrow ? 10 : 16
             let innerWidth = max(0, width - 2 * outer)
-            let headerHeight: CGFloat = 52
-            let metricsHeight: CGFloat = 66
-            let columnHeight = max(0, usableHeight - headerHeight - metricsHeight - 2 * gap)
+            let columnHeight = max(0, usableHeight - closeReserve)
             let centerWidth = JarvisOverviewGeometry.centerWidth(innerWidth: innerWidth, height: height)
             let leftWidth = max(0, (innerWidth - centerWidth - 2 * gap) * 0.5)
             let rightWidth = max(0, innerWidth - centerWidth - 2 * gap - leftWidth)
 
-            VStack(spacing: gap) {
-                header(scale: scale).frame(height: headerHeight)
-                keyMetrics(scale: scale).frame(height: metricsHeight)
+            VStack(spacing: 0) {
+                HStack {
+                    Spacer(minLength: 0)
+                    Button(action: close) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .medium))
+                            .frame(width: 26, height: 26)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.white.opacity(0.7))
+                    .accessibilityLabel("작업실 닫기")
+                    .accessibilityIdentifier("jarvis-command-center-close")
+                }
+                .frame(height: closeReserve)
                 HStack(alignment: .top, spacing: gap) {
                     leftColumn(height: columnHeight, scale: scale, compact: narrow)
                         .frame(width: leftWidth, height: columnHeight)
+                        .offset(x: workspaceRevealed ? 0 : -26)
+                        .opacity(workspaceRevealed ? 1 : 0)
                     centerColumn(height: columnHeight, scale: scale)
                         .frame(width: centerWidth, height: columnHeight)
                     rightColumn(height: columnHeight, scale: scale)
                         .frame(width: rightWidth, height: columnHeight)
+                        .offset(x: workspaceRevealed ? 0 : 26)
+                        .opacity(workspaceRevealed ? 1 : 0)
                 }
                 .frame(height: columnHeight)
             }
@@ -67,6 +88,30 @@ struct JarvisCommandCenterView: View {
             .frame(width: width, height: height, alignment: .top)
             .clipped()
             .accessibilityIdentifier("jarvis-command-center")
+            .allowsHitTesting(model.workroomProject == nil)
+            .overlay {
+                if let project = model.workroomProject {
+                    JarvisProjectWorkspace(project: project, agentBay: agentBay) {
+                        withAnimation(.easeInOut(duration: 0.28)) { model.workroomProject = nil }
+                    }
+                    .padding(outer)
+                    .frame(width: width, height: height)
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                    .zIndex(20)
+                }
+            }
+        }
+        .onAppear {
+            // Opening this explicit conversation surface starts live dictation.
+            // The normal local Jarvis wake listener yields its mic while
+            // Apple's speech recognizer owns the input.
+            dialogue.setDashboardDictation(true)
+            agentBay.probeAll()
+            withAnimation(.easeOut(duration: 0.72)) { workspaceRevealed = true }
+        }
+        .onDisappear {
+            dialogue.setDashboardDictation(false)
+            workspaceRevealed = false
         }
         .task {
             telemetry.reset()
@@ -77,6 +122,42 @@ struct JarvisCommandCenterView: View {
         }
         .task {
             await refreshMetaAccounts()
+        }
+        .task {
+            // Use wall-clock KST. Work itself lives in the agent bay rather
+            // than this view, so closing the detail panel does not cancel it.
+            while !Task.isCancelled {
+                if !showChannelOverview && !showSocialStudio &&
+                    !showInstagramTokenSheet && !showFacebookConnectionSheet && !showThreadsConnectionSheet {
+                    withAnimation(.easeInOut(duration: 0.28)) {
+                        _ = model.openKnowledgeAtMidnightIfDue()
+                    }
+                    // Only navigation here; the app-lifetime scheduler owns execution.
+                }
+                do { try await Task.sleep(for: .seconds(1)) } catch { return }
+            }
+        }
+        .onChange(of: agentBay.nightShiftFinishedDay) { _, day in
+            if day != nil && model.workroomProject == .dev {
+                withAnimation(.easeInOut(duration: 0.28)) { model.workroomProject = nil }
+            }
+        }
+        .sheet(isPresented: $showChannelOverview) {
+            VStack(spacing: 12) {
+                HStack {
+                    Text("CHANNEL MONITOR").font(.system(.headline, design: .monospaced)).foregroundStyle(amber)
+                    Spacer()
+                    Button("닫기") { showChannelOverview = false }
+                }
+                HStack(alignment: .top, spacing: 12) {
+                    metaCard(scale: 1.1)
+                    youtubeCard(scale: 1.1)
+                }
+                .frame(maxHeight: .infinity)
+            }
+            .padding(18)
+            .frame(minWidth: 960, minHeight: 640)
+            .preferredColorScheme(.dark)
         }
         .sheet(isPresented: $showSocialStudio) {
             JarvisWikiSocialStudioView(studio: socialStudio)
@@ -175,43 +256,377 @@ struct JarvisCommandCenterView: View {
     }
 
     private func leftColumn(height: CGFloat, scale: CGFloat, compact: Bool) -> some View {
-        let spacing: CGFloat = compact ? 8 : 11
-        let remaining = max(0, height - 2 * spacing)
-        let projectHeight = remaining * 0.27
-        let metaHeight = remaining * 0.46
-        let youtubeHeight = remaining - projectHeight - metaHeight
+        let spacing: CGFloat = 11
+        let cardHeight = max(55, (height - 42 - spacing * 4) / 4)
         return VStack(spacing: spacing) {
-            projectsCard(scale: scale).frame(height: projectHeight)
-            metaCard(scale: scale).frame(height: metaHeight)
-            youtubeCard(scale: scale).frame(height: youtubeHeight)
+            ForEach(JarvisWorkroomProject.allCases) { project in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.28)) { model.workroomProject = project }
+                } label: {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 12) {
+                            Image(systemName: project.symbol)
+                                .font(.system(size: 21 * scale, weight: .light))
+                                .foregroundStyle(project.accent)
+                                .frame(width: 42 * scale, height: 42 * scale)
+                                .background(project.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 7))
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(project.title)
+                                    .font(.system(size: 15 * scale, weight: .semibold, design: .monospaced))
+                                    .foregroundStyle(project.accent)
+                                Text(project.domain)
+                                    .font(.system(size: 10 * scale, design: .monospaced))
+                                    .foregroundStyle(muted)
+                                    .lineLimit(1)
+                            }
+                            Spacer(minLength: 0)
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(project.accent.opacity(0.85))
+                        }
+                        Rectangle().fill(project.accent.opacity(0.20)).frame(height: 1)
+                        if project == .dev {
+                            HStack {
+                                Text("KNOWLEDGE")
+                                    .font(.system(size: 11 * scale, weight: .medium, design: .monospaced))
+                                Spacer()
+                                Text(agentBay.knowledgePilot == nil ? "시범 실행 준비" : agentBay.knowledgePilotLabel)
+                                    .font(.system(size: 10 * scale))
+                            }
+                            .foregroundStyle(project.accent)
+                            Text("00:00–01:00 KST  /  검토 등록 목표 3편")
+                                .font(.system(size: 10 * scale, design: .monospaced))
+                                .foregroundStyle(muted)
+                            Text("오늘 검토 등록 \(agentBay.knowledgeDailyStaged)편 · " +
+                                 (JarvisKnowledgeDailyBudget.usesSeparateRepairs()
+                                  ? "신규 \(agentBay.knowledgeDailyStarts)/3 · 복구 \(agentBay.knowledgeDailyRepairs)/3"
+                                  : "기존 실행 \(agentBay.knowledgeDailyStarts)/3"))
+                                .font(.system(size: 11 * scale, weight: .medium))
+                                .foregroundStyle(project.accent)
+                        } else {
+                            Text("운영 업무 미등록")
+                                .font(.system(size: 10 * scale))
+                                .foregroundStyle(muted)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .background(LinearGradient(colors: [project.accent.opacity(0.09), .black.opacity(0.85)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 8))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(project.accent.opacity(0.48), lineWidth: 1))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .frame(height: cardHeight)
+                .accessibilityIdentifier("jarvis-project-" + project.rawValue)
+            }
+            Button {
+                showChannelOverview = true
+            } label: {
+                HStack {
+                    Image(systemName: "waveform.path")
+                    Text("SNS / YOUTUBE")
+                    Spacer()
+                    Image(systemName: "arrow.up.right")
+                }
+                .font(.system(size: 11 * scale, design: .monospaced))
+                .foregroundStyle(amber)
+                .padding(.horizontal, 12)
+                .frame(height: 42)
+                .background(amber.opacity(0.05), in: RoundedRectangle(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(amber.opacity(0.25)))
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("jarvis-channel-overview")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .clipped()
     }
 
     private func centerColumn(height: CGFloat, scale: CGFloat) -> some View {
-        // The rotating core is rendered once by JarvisFullscreenOverlay
-        // above the black background. Keep this entire center lane transparent:
-        // no box, title, toggle, terminal, or duplicate conversation text.
-        Color.clear
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .frame(height: height)
-            .accessibilityIdentifier("jarvis-overview-core-clear-lane")
+        // The continuous gold AVPlayer stays behind this transparent lane.
+        // Real recognized speech and the Qwen response become the holographic
+        // communication overlay; no simulated agent text or second core.
+        VStack(spacing: 0) {
+            Spacer(minLength: 0)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: "waveform")
+                        .foregroundStyle(dialogue.isListening ? mint : amber)
+                        .symbolEffect(.variableColor.iterative, options: .repeating,
+                                      isActive: dialogue.isListening)
+                    Text("JARVIS / VOICE LINK")
+                        .font(.system(size: 10 * scale, weight: .medium, design: .monospaced))
+                        .tracking(1.2)
+                        .foregroundStyle(amber)
+                    Spacer(minLength: 0)
+                    Text(dialogue.isListening ? "LISTENING" :
+                         dialogue.isThinking ? "PROCESSING" :
+                         dialogue.isSpeaking ? "SPEAKING" : "READY")
+                        .font(.system(size: 9 * scale, design: .monospaced))
+                        .foregroundStyle(dialogue.isListening ? mint : muted)
+                }
+                Rectangle().fill(amber.opacity(0.27)).frame(height: 1)
+                if !dialogue.liveTranscript.isEmpty {
+                    Text(dialogue.liveTranscript)
+                        .font(.system(size: 14 * scale, weight: .medium))
+                        .foregroundStyle(.white)
+                        .accessibilityIdentifier("jarvis-workroom-live-transcript")
+                } else if let turn = dialogue.dialogueTurns.last(where: { $0.role == "YOU" }) {
+                    Text(turn.content)
+                        .font(.system(size: 12 * scale))
+                        .foregroundStyle(.white.opacity(0.77))
+                        .accessibilityIdentifier("jarvis-workroom-last-command")
+                } else {
+                    Text(dialogue.isListening ? "듣고 있습니다…" : "코어를 누르면 기본 화면으로 돌아갑니다")
+                        .font(.system(size: 10 * scale))
+                        .foregroundStyle(muted)
+                }
+                if dialogue.isThinking && !dialogue.streamingAnswer.isEmpty {
+                    Text(dialogue.streamingAnswer)
+                        .foregroundStyle(mint)
+                        .accessibilityIdentifier("jarvis-workroom-streaming-answer")
+                } else if let answer = dialogue.dialogueTurns.last(where: { $0.role == "DECHIVE" }) {
+                    Text(answer.content)
+                        .foregroundStyle(.white.opacity(0.86))
+                } else if !dialogue.status.isEmpty {
+                    Text(dialogue.status)
+                        .foregroundStyle(muted)
+                }
+            }
+            .font(.system(size: 12 * scale))
+            .lineLimit(3)
+            .padding(13)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                LinearGradient(colors: [Color.black.opacity(0.29), Color.black.opacity(0.76)],
+                               startPoint: .top, endPoint: .bottom),
+                in: RoundedRectangle(cornerRadius: 8)
+            )
+            .overlay(alignment: .leading) {
+                Rectangle().fill(amber.opacity(0.54)).frame(width: 2)
+                    .padding(.vertical, 14)
+            }
+            .accessibilityIdentifier("jarvis-workroom-center-conversation")
+            HStack(spacing: 7) {
+                Button {
+                    dialogue.setDashboardDictation(!dialogue.dashboardDictationEnabled)
+                } label: {
+                    Image(systemName: dialogue.dashboardDictationEnabled ? "mic.fill" : "mic.slash")
+                        .foregroundStyle(dialogue.isListening ? mint : amber)
+                }
+                .buttonStyle(.plain)
+                .help("마이크 켜기 / 일시정지")
+                .accessibilityIdentifier("jarvis-workroom-microphone")
+                TextField("명령 또는 대화", text: $workroomTypedCommand)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($workroomInputFocused)
+                    .onChange(of: workroomInputFocused) { _, active in
+                        dialogue.textInputFocused = active
+                    }
+                    .onSubmit { submitWorkroomCommand() }
+                    .disabled(dialogue.isListening)
+                    .accessibilityIdentifier("jarvis-workroom-command-input")
+                Button("전송") { submitWorkroomCommand() }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(amber)
+                    .disabled(workroomTypedCommand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                              dialogue.isListening)
+                    .accessibilityIdentifier("jarvis-workroom-command-send")
+            }
+            .font(.system(size: 10 * scale))
+            .padding(9)
+            .background(Color.black.opacity(0.70), in: RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(amber.opacity(0.24)))
+        }
+        .frame(height: height)
+        .accessibilityIdentifier("jarvis-workroom-center-lane")
+    }
+
+    private func submitWorkroomCommand() {
+        let message = workroomTypedCommand.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !message.isEmpty, !dialogue.isListening else { return }
+        workroomTypedCommand = ""
+        dialogue.submitTyped(message)
     }
 
     private func rightColumn(height: CGFloat, scale: CGFloat) -> some View {
-        let spacing: CGFloat = 10
-        let remaining = max(0, height - 2 * spacing)
+        // The three real worker terminals get equal, usable display areas.
+        // Health polling is kept in a small summary, not a fabricated stream.
+        let spacing: CGFloat = 9
+        let controlHeight: CGFloat = min(116, height * 0.15)
+        let eventHeight: CGFloat = min(124, height * 0.16)
+        let laneHeight = max(25, (height - controlHeight - eventHeight - spacing * 4) / 3)
+        let laneHeights = Array(repeating: laneHeight, count: JarvisAgentID.allCases.count)
         return VStack(spacing: spacing) {
-            JarvisLiveDialoguePanel(dialogue: dialogue)
-                .frame(height: remaining * 0.34)
-            macTelemetryCard(scale: scale)
-                .frame(height: remaining * 0.39)
-            systemCard(scale: scale)
-                .frame(height: remaining * 0.27)
+            ForEach(Array(JarvisAgentID.allCases.enumerated()), id: \.element.id) { index, id in
+                agentTerminalCard(id, scale: scale)
+                    .frame(height: laneHeights[index])
+            }
+            agentEventStream(scale: scale).frame(height: eventHeight)
+            agentLaunchControl(scale: scale).frame(height: controlHeight)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .clipped()
+        .accessibilityIdentifier("jarvis-agent-terminal-bay")
+    }
+
+    private func agentTerminalCard(_ id: JarvisAgentID, scale: CGFloat) -> some View {
+        let lane = agentBay.lane(id)
+        let accent = id.workroomAccent
+        return VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 9) {
+                Circle()
+                    .fill(lane.state == .running ? mint :
+                          lane.state == .missing || lane.state == .failed ? Color.orange : accent)
+                    .frame(width: 6, height: 6)
+                    .shadow(color: lane.state == .running ? mint.opacity(0.5) : accent.opacity(0.42), radius: 5)
+                Text(id.title.uppercased())
+                    .font(.system(size: 14 * scale, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(accent)
+                Spacer(minLength: 0)
+                Text(lane.stateLabel)
+                    .font(.system(size: 10 * scale, design: .monospaced))
+                    .foregroundStyle(lane.state == .running ? mint : muted)
+                if lane.state == .running {
+                    Button("중단") { agentBay.cancel(id) }
+                        .font(.system(size: 9 * scale))
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.orange)
+                }
+            }
+            Rectangle().fill(accent.opacity(0.26)).frame(height: 1)
+            if lane.logs.isEmpty {
+                Text(lane.state == .ready ? "실행 중인 작업 없음" :
+                     lane.state == .missing ? "CLI 실행 파일 없음" :
+                     lane.state == .checking ? "로컬 실행 파일 확인 중" :
+                     "아직 실행 출력 없음")
+                    .font(.system(size: 10 * scale, design: .monospaced))
+                    .foregroundStyle(muted.opacity(0.82))
+                Spacer(minLength: 0)
+            } else {
+                ScrollViewReader { proxy in
+                    ScrollView(.vertical) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(Array(lane.logs.enumerated()), id: \.offset) { i, line in
+                                Text(line)
+                                    .font(.system(size: 10 * scale, design: .monospaced))
+                                    .foregroundStyle(.white.opacity(0.85))
+                                    .textSelection(.enabled)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .id(i)
+                            }
+                        }
+                    }
+                    .onChange(of: lane.logs.count) { _, _ in
+                        if let last = lane.logs.indices.last {
+                            proxy.scrollTo(last, anchor: .bottom)
+                        }
+                    }
+                }
+                .frame(maxHeight: .infinity)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(
+            LinearGradient(
+                colors: [accent.opacity(0.10),
+                         Color.black.opacity(0.60)],
+                startPoint: .topLeading, endPoint: .bottomTrailing),
+            in: RoundedRectangle(cornerRadius: 9)
+        )
+        .overlay(RoundedRectangle(cornerRadius: 9).stroke(accent.opacity(0.68), lineWidth: 1.1))
+        .accessibilityIdentifier("jarvis-agent-terminal-\(id.rawValue)")
+    }
+
+    private func agentLaunchControl(scale: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 5) {
+                Text("AGENT CONTROL / 읽기 전용")
+                    .foregroundStyle(amber)
+                Spacer(minLength: 0)
+                Button("연결 확인") { agentBay.probeAll(force: true) }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(mint)
+                    .accessibilityIdentifier("jarvis-agent-probe")
+            }
+            .font(.system(size: 10 * scale, weight: .semibold, design: .monospaced))
+            HStack(spacing: 6) {
+                Picker("작업자", selection: $selectedAgent) {
+                    ForEach(JarvisAgentID.allCases) { id in
+                        Text(id.title).tag(id)
+                    }
+                }
+                .labelsHidden()
+                .controlSize(.small)
+                .frame(maxWidth: 130)
+                Button("분석 시작") {
+                    agentBay.runReadOnly(selectedAgent, prompt: agentPrompt)
+                }
+                .disabled(agentPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                          agentBay.isAnyRunning ||
+                          [.missing, .checking].contains(agentBay.lane(selectedAgent).state))
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .accessibilityIdentifier("jarvis-agent-start-readonly")
+            }
+            TextField("읽기 전용 분석 요청을 입력하세요", text: $agentPrompt)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(size: 10 * scale))
+                .accessibilityIdentifier("jarvis-agent-task-prompt")
+            Text("사용자 요청 시 실행 · 읽기 전용 · 수정/발행 차단")
+                .font(.system(size: 9 * scale))
+                .foregroundStyle(muted)
+                .lineLimit(1)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color(red: 0.035, green: 0.042, blue: 0.048),
+                    in: RoundedRectangle(cornerRadius: 11))
+        .overlay(RoundedRectangle(cornerRadius: 11).stroke(amber.opacity(0.22)))
+    }
+
+    private func agentEventStream(scale: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack {
+                Image(systemName: "waveform.path").foregroundStyle(amber)
+                Text("LIVE / OPERATIONS").foregroundStyle(amber)
+                Spacer()
+                if let sample = telemetry.current, let cpu = sample.cpuPercent {
+                    Text(String(format: "CPU %.0f%%", cpu)).foregroundStyle(muted)
+                }
+            }
+            .font(.system(size: 10 * scale, weight: .medium, design: .monospaced))
+            Rectangle().fill(amber.opacity(0.24)).frame(height: 1)
+            if let entry = agentBay.events.last {
+                Text(entry).font(.system(size: 10 * scale, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.86)).lineLimit(2)
+            } else {
+                Text("현재 AI 작업 실행 없음").font(.system(size: 10 * scale)).foregroundStyle(muted)
+            }
+            let checks = model.sourceChecks
+            let failures = checks.filter { !$0.success }
+            HStack(spacing: 8) {
+                Text("HEALTH").foregroundStyle(muted)
+                Text(checks.isEmpty ? "확인 중" : "\(checks.count - failures.count)/\(checks.count) OK")
+                    .foregroundStyle(failures.isEmpty ? mint : .orange)
+                if let check = checks.first {
+                    Text(check.at.formatted(date: .omitted, time: .shortened)).foregroundStyle(muted)
+                    Spacer(minLength: 0)
+                    Text(failures.isEmpty ? check.source : failures.map(\.source).joined(separator: " · "))
+                        .foregroundStyle(failures.isEmpty ? muted : .orange)
+                        .lineLimit(1)
+                        .help(failures.map { $0.source + ": " + $0.detail }.joined(separator: "\n"))
+                }
+            }
+            .font(.system(size: 9 * scale, design: .monospaced))
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color.black.opacity(0.62), in: RoundedRectangle(cornerRadius: 9))
+        .overlay(RoundedRectangle(cornerRadius: 9).stroke(amber.opacity(0.28), lineWidth: 0.8))
     }
 
     private func macTelemetryCard(scale: CGFloat) -> some View {
@@ -257,73 +672,6 @@ struct JarvisCommandCenterView: View {
         }
     }
 
-    private func header(scale: CGFloat) -> some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 5) {
-                Text("DECHIVE / COMMAND CENTER")
-                    .font(.system(size: 21 * scale, weight: .semibold, design: .monospaced))
-                    .tracking(1.3)
-                    .foregroundStyle(amber)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                Text("DECHIVE · 실시간 로컬 관제 · 확인된 자료만 표시")
-                    .font(.system(size: 10 * scale))
-                    .foregroundStyle(muted)
-            }
-            Spacer(minLength: 2)
-            VStack(alignment: .trailing, spacing: 5) {
-                HStack(spacing: 5) {
-                    Circle().fill(model.errorText == nil ? mint : amber)
-                        .frame(width: 6, height: 6)
-                    Text(model.errorText == nil ? "LOCAL CHECKS ONLINE" : "PARTIAL CONNECTION")
-                }
-                .foregroundStyle(model.errorText == nil ? mint : amber)
-                .font(.system(size: 10 * scale, weight: .medium, design: .monospaced))
-                Text(model.refreshedAt.map { "확인: " + $0.formatted(date: .omitted, time: .standard) } ?? "조회 중")
-                    .font(.system(size: 10 * scale, design: .monospaced))
-                    .foregroundStyle(muted)
-            }
-            Button(action: close) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .medium))
-                    .frame(width: 26, height: 26)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.white.opacity(0.72))
-            .accessibilityIdentifier("jarvis-command-center-close")
-        }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 7)
-    }
-
-    private func keyMetrics(scale: CGFloat) -> some View {
-        HStack(spacing: 10) {
-            metric("PROJECTS", value: model.projectsReady ? String(model.projects.count) : "—", scale: scale)
-            metric("TASK RECORDS", value: model.projectsReady ? String(model.taskTotal) : "—", scale: scale)
-            metric("LOCAL GIT", value: model.gitSnapshot.map { String($0.repositories.count) } ?? "—", scale: scale)
-            metric("GITHUB", value: model.githubSnapshot.flatMap { $0.error == nil ? String($0.repositories.count) : nil } ?? "—", scale: scale)
-            metric("SAVED DATA", value: model.vaultTotal.map(String.init) ?? "—", scale: scale)
-        }
-    }
-
-    private func metric(_ name: String, value: String, scale: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(name)
-                .font(.system(size: 9 * scale, weight: .medium, design: .monospaced))
-                .foregroundStyle(muted)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-            Text(value)
-                .font(.system(size: 23 * scale, weight: .light, design: .rounded))
-                .foregroundStyle(.white.opacity(0.94))
-                .monospacedDigit()
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(11)
-        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 11))
-        .overlay(RoundedRectangle(cornerRadius: 11).stroke(amber.opacity(0.13)))
-    }
-
     private func panel<Content: View>(_ title: String, symbol: String, scale: CGFloat,
                                       @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -342,9 +690,16 @@ struct JarvisCommandCenterView: View {
         }
         .padding(13)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color(red: 0.038, green: 0.044, blue: 0.051).opacity(0.95),
-                    in: RoundedRectangle(cornerRadius: 13))
-        .overlay(RoundedRectangle(cornerRadius: 13).stroke(amber.opacity(0.20), lineWidth: 1))
+        .background(
+            LinearGradient(
+                colors: [Color(red: 0.085, green: 0.068, blue: 0.042).opacity(0.71),
+                         Color.black.opacity(0.60)],
+                startPoint: .topLeading, endPoint: .bottomTrailing),
+            in: RoundedRectangle(cornerRadius: 10)
+        )
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(
+            LinearGradient(colors: [amber.opacity(0.44), amber.opacity(0.12), amber.opacity(0.25)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 0.9))
         .clipped()
     }
 
@@ -540,6 +895,18 @@ struct JarvisCommandCenterView: View {
         .accessibilityLabel("\(channel.title) 실제 프로필 사진 또는 기본 아이콘")
     }
 
+    private func readableTime(_ raw: String?) -> String {
+        guard let raw else { return "시각 미확인" }
+        let parser = ISO8601DateFormatter()
+        parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let instant = parser.date(from: raw) ?? {
+            parser.formatOptions = [.withInternetDateTime]
+            return parser.date(from: raw)
+        }()
+        guard let instant else { return "시각 미확인" }
+        return instant.formatted(date: .abbreviated, time: .shortened)
+    }
+
     private func conciseNumber(_ value: Int?) -> String {
         guard let value, value >= 0 else { return "—" }
         return value.formatted(.number.grouping(.automatic))
@@ -609,10 +976,10 @@ struct JarvisCommandCenterView: View {
     }
 
     private func metaCard(scale: CGFloat) -> some View {
-        panel("META / DECHIVE.WIKI", symbol: "person.crop.circle", scale: scale) {
+        panel("SOCIAL / DECHIVE.WIKI", symbol: "circle.hexagongrid", scale: scale) {
             VStack(alignment: .leading, spacing: 7 * scale) {
                 HStack {
-                    Text("실제 계정 프로필 · 클릭하면 자비스에서 열기")
+                    Text("채널을 누르면 실제 프로필 열기")
                         .font(.system(size: 9 * scale))
                         .foregroundStyle(muted)
                     Spacer(minLength: 0)
@@ -623,6 +990,9 @@ struct JarvisCommandCenterView: View {
                             .accessibilityIdentifier("jarvis-meta-facebook-connect")
                         Button("Threads 연결 / 교체") { showThreadsConnectionSheet = true }
                             .accessibilityIdentifier("jarvis-meta-threads-connect")
+                        Divider()
+                        Button("Chrome 세션 확인") { Task { await dialogue.verifyChromeSession() } }
+                            .accessibilityIdentifier("jarvis-meta-chrome-check")
                     } label: { Image(systemName: "gearshape").foregroundStyle(amber) }
                         .menuStyle(.borderlessButton)
                         .frame(width: 24 * scale)
@@ -641,35 +1011,26 @@ struct JarvisCommandCenterView: View {
                                  followers: threadsSnapshot?.followersCount,
                                  posts: threadsSnapshot?.postsCount,
                                  connected: threadsSnapshot?.connected == true, scale: scale)
-                Text(dialogue.chrome.connectionStatus)
-                    .font(.system(size: 8 * scale))
-                    .foregroundStyle(muted)
-                    .lineLimit(2)
-                HStack {
-                    Text("— = API 미제공 · 숫자 임의 생성 없음")
-                        .font(.system(size: 8 * scale)).foregroundStyle(muted)
-                    Spacer(minLength: 0)
-                    Button {
-                        Task { await dialogue.verifyChromeSession() }
-                    } label: {
-                        Text(dialogue.chrome.isChecking ? "연결 확인 중" : "Chrome 세션 확인")
-                    }
-                    .buttonStyle(.borderless)
-                    .disabled(dialogue.chrome.isChecking)
-                    .font(.system(size: 9 * scale)).foregroundStyle(amber)
-                    .accessibilityIdentifier("jarvis-meta-chrome-check")
-                    Button("AI 콘텐츠 초안") { showSocialStudio = true }
-                        .buttonStyle(.borderless)
-                        .font(.system(size: 9 * scale)).foregroundStyle(amber)
+                HStack(spacing: 8) {
+                    Image(systemName: "megaphone")
+                        .foregroundStyle(amber.opacity(0.7))
+                    Text("광고 집행 · 미연결 (Meta Ads API)")
+                        .foregroundStyle(muted)
+                        .lineLimit(1)
+                    Spacer(minLength: 2)
+                    Button("초안 작업") { showSocialStudio = true }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(amber)
                         .accessibilityIdentifier("jarvis-meta-content-studio")
                 }
+                .font(.system(size: 10 * scale))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
     private func youtubeCard(scale: CGFloat) -> some View {
-        panel("YOUTUBE / DECHIVE", symbol: "play.rectangle", scale: scale) {
+        panel("YOUTUBE / CHANNEL INTELLIGENCE", symbol: "play.rectangle", scale: scale) {
             VStack(alignment: .leading, spacing: 7 * scale) {
                 if let reply = model.youtubeSummary, reply.connected, let item = reply.data {
                     Button {
@@ -682,7 +1043,7 @@ struct JarvisCommandCenterView: View {
                                 Text(item.channelTitle)
                                     .font(.system(size: 12 * scale, weight: .semibold))
                                     .foregroundStyle(.white)
-                                Text("실제 YouTube 채널")
+                                Text("연결된 채널")
                                     .font(.system(size: 9 * scale)).foregroundStyle(muted)
                             }
                             Spacer(minLength: 0)
@@ -709,8 +1070,55 @@ struct JarvisCommandCenterView: View {
                         Spacer(minLength: 0)
                     }
                     .font(.system(size: 10 * scale, design: .monospaced))
-                    Text("Google YouTube API · 연결 채널 데이터")
+                    Text("YouTube API · 최근 확인 " + readableTime(item.checkedAt))
                         .font(.system(size: 9 * scale)).foregroundStyle(mint)
+                        .lineLimit(1)
+                    Rectangle().fill(amber.opacity(0.17)).frame(height: 1)
+                    ScrollView(.vertical) {
+                        VStack(alignment: .leading, spacing: 8 * scale) {
+                            if let analytics = item.analytics {
+                                Text("ANALYTICS / " + item.periodStart + " ~ " + item.periodEnd)
+                                    .font(.system(size: 9 * scale, design: .monospaced))
+                                    .foregroundStyle(amber)
+                                HStack(spacing: 12 * scale) {
+                                    labelValue("기간 조회수", analytics.views.formatted(), scale: scale)
+                                    labelValue("구독자 증가", analytics.subscribersGained.formatted(), scale: scale)
+                                    labelValue("시청시간", String(format: "%.1f시간",
+                                        analytics.estimatedMinutesWatched / 60), scale: scale)
+                                }
+                            } else {
+                                Text("YouTube Analytics: " + (item.analyticsError ?? "분석 정보 확인 불가"))
+                                    .font(.system(size: 9 * scale))
+                                    .foregroundStyle(muted)
+                                    .lineLimit(2)
+                            }
+                            Rectangle().fill(amber.opacity(0.17)).frame(height: 1)
+                            Text("최근 업로드")
+                                .font(.system(size: 10 * scale, weight: .medium))
+                                .foregroundStyle(amber)
+                            if let videos = item.recentVideos, !videos.isEmpty {
+                                ForEach(videos.prefix(5)) { video in
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(video.title)
+                                            .font(.system(size: 10 * scale))
+                                            .foregroundStyle(.white.opacity(0.9))
+                                            .lineLimit(2)
+                                        Text(readableTime(video.publishedAt))
+                                            .font(.system(size: 9 * scale, design: .monospaced))
+                                            .foregroundStyle(muted)
+                                    }
+                                }
+                            } else {
+                                Text(item.recentVideosError ?? "최근 영상 자료 확인 불가")
+                                    .font(.system(size: 9 * scale)).foregroundStyle(muted)
+                                    .lineLimit(2)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(maxHeight: .infinity)
+                    .scrollIndicators(.visible)
+                    .accessibilityIdentifier("jarvis-workroom-youtube-recent-and-analytics")
                 } else {
                     Text(model.youtubeSummary?.error ?? "YouTube 채널 연결 필요")
                         .font(.system(size: 10 * scale)).foregroundStyle(muted)

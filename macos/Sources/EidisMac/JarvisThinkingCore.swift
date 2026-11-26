@@ -47,7 +47,7 @@ enum JarvisThoughtIntent: Equatable {
 
     static func parse(_ utterance: String) -> Self? {
         let withoutWake = utterance.replacingOccurrences(
-            of: #"^(애기야|아기야|자비스|jarvis)[,，?？.!！\s]*"#,
+            of: #"^(자비스|jarvis)[,，?？.!！\s]*"#,
             with: "", options: [.regularExpression, .caseInsensitive])
         let text = withoutWake.lowercased().replacingOccurrences(of: " ", with: "")
         // Acknowledge only an explicitly identified notification, not a task.
@@ -280,7 +280,7 @@ enum JarvisStudyIntent: Equatable {
 
     static func parse(_ utterance: String) -> Self? {
         let trimmed = utterance.trimmingCharacters(in: .whitespacesAndNewlines)
-        let spoken = trimmed.replacingOccurrences(of: #"^(애기야|아기야|자비스|jarvis)[,，?？.!！\s]*"#,
+        let spoken = trimmed.replacingOccurrences(of: #"^(자비스|jarvis)[,，?？.!！\s]*"#,
             with: "", options: [.regularExpression, .caseInsensitive])
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let s = spoken.replacingOccurrences(of: " ", with: "")
@@ -544,7 +544,7 @@ final class JarvisStudyRunner {
         call.httpMethod = "POST"
         call.setValue("application/json",forHTTPHeaderField:"Content-Type")
         call.httpBody = try JSONSerialization.data(withJSONObject:[
-            "model":"qwen3.5:9b-q4_K_M","messages":[["role":"system","content":system],["role":"user","content":prompt]],
+            "model":JarvisLocalModelConfiguration.selectedModel,"messages":[["role":"system","content":system],["role":"user","content":prompt]],
             "think":false,"stream":false,"keep_alive":"10m",
             "options":["num_ctx":6144,"num_predict":360,"temperature":0.2]])
         let (data,response) = try await ollama.data(for:call)

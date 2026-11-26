@@ -14,7 +14,7 @@ enum JarvisLearningIntent: Equatable {
 
     static func parse(_ raw: String) -> Self? {
         let phrase = raw.replacingOccurrences(
-            of: #"^(애기야|아기야|자비스|jarvis)[,，?？.!！\s]*"#,
+            of: #"^(자비스|jarvis)[,，?？.!！\s]*"#,
             with: "", options: [.regularExpression, .caseInsensitive])
         let compact = phrase.lowercased().replacingOccurrences(of: " ", with: "")
         if ["대화학습켜", "기억학습켜", "기억학습시작", "학습켜", "학습시작", "자동학습켜"]
@@ -280,7 +280,7 @@ final class JarvisLearningMemory: ObservableObject {
                 "additionalProperties":false
             ]
             let body: [String: Any] = [
-                "model":"qwen3.5:9b-q4_K_M",
+                "model":JarvisLocalModelConfiguration.selectedModel,
                 "messages":[
                     ["role":"system","content":policy],
                     ["role":"user","content":String(utterance.prefix(500))]

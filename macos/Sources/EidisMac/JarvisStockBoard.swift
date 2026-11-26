@@ -29,7 +29,7 @@ enum StockBoardIntent: Equatable {
     static let aliases = ["삼성전자":"005930","SK하이닉스":"000660","하이닉스":"000660","현대차":"005380","네이버":"035420","카카오":"035720","엔비디아":"NVDA","애플":"AAPL","마이크로소프트":"MSFT","테슬라":"TSLA","아마존":"AMZN"]
     static func parse(_ raw: String) -> Self? {
         let s = raw.uppercased()
-            .replacingOccurrences(of: #"^(애기야|아기야|자비스|데카|JARVIS)[,\s.!！?？]*"#, with:"",options:.regularExpression)
+            .replacingOccurrences(of: #"^(자비스|데카|JARVIS)[,\s.!！?？]*"#, with:"",options:.regularExpression)
             .filter { !$0.isWhitespace }
             .trimmingCharacters(in:CharacterSet(charactersIn:".!！?？"))
         guard !["하지마","말고","않아","안해","안띄워","매수","매도","주문","팔아","사줘","사라","구매","취소","보유","계좌","예상","추천"].contains(where:{s.contains($0)}) else {return nil}

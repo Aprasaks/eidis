@@ -292,7 +292,7 @@ final class JarvisVerificationRunner {
         req.httpMethod="POST"
         req.setValue("application/json",forHTTPHeaderField:"Content-Type")
         req.httpBody=try JSONSerialization.data(withJSONObject:[
-            "model":"qwen3.5:9b-q4_K_M",
+            "model":JarvisLocalModelConfiguration.selectedModel,
             "messages":[["role":"system","content":system],["role":"user","content":prompt]],
             "think":false,"format":"json","stream":false,"keep_alive":"10m",
             "options":["num_ctx":6144,"num_predict":1050,"temperature":0.1]

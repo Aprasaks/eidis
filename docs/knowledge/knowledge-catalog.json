@@ -1,0 +1,3457 @@
+{
+  "schemaVersion": 1,
+  "sourceSha256": "bf03dbe3b83c085e2d2880eee618b4a4af44f6abc68c6a1b856c50b7463257af",
+  "continuationCode": "K03-06",
+  "topics": [
+    {
+      "number": 1,
+      "code": "K01-01",
+      "title": "AI란 정확히 무엇일까 — 인공지능의 의미와 어디까지 AI라고 부르는가",
+      "category": "01 AI의 큰 그림",
+      "slug": "what-is-artificial-intelligence"
+    },
+    {
+      "number": 2,
+      "code": "K01-02",
+      "title": "머신러닝이란 무엇인가 — AI가 데이터에서 규칙을 배우는 방법",
+      "category": "01 AI의 큰 그림",
+      "slug": "what-is-machine-learning"
+    },
+    {
+      "number": 3,
+      "code": "K01-03",
+      "title": "딥러닝이란 무엇인가 — 머신러닝과 무엇이 다르고 왜 강력한가",
+      "category": "01 AI의 큰 그림",
+      "slug": "what-is-deep-learning"
+    },
+    {
+      "number": 4,
+      "code": "K01-04",
+      "title": "판별형 AI와 생성형 AI는 무엇이 다른가",
+      "category": "01 AI의 큰 그림",
+      "slug": "discriminative-vs-generative-ai"
+    },
+    {
+      "number": 5,
+      "code": "K01-05",
+      "title": "데이터·알고리즘·모델은 무엇이 다를까 — AI가 배우고 답을 만드는 세 가지 요소",
+      "category": "01 AI의 큰 그림",
+      "slug": "data-algorithm-model"
+    },
+    {
+      "number": 6,
+      "code": "K01-06",
+      "title": "AI는 언제 배우고 언제 답할까 — 학습(Training)과 추론(Inference)의 차이",
+      "category": "01 AI의 큰 그림",
+      "slug": "ai-training-vs-inference"
+    },
+    {
+      "number": 7,
+      "code": "K01-07",
+      "title": "왜 AI는 같은 질문에도 결과가 달라질까 — 확률적 출력과 결정론적 실행의 차이",
+      "category": "01 AI의 큰 그림",
+      "slug": "ai-probabilistic-output-vs-deterministic-execution"
+    },
+    {
+      "number": 8,
+      "code": "K01-08",
+      "title": "Foundation Model이란 무엇인가",
+      "category": "01 AI의 큰 그림"
+    },
+    {
+      "number": 9,
+      "code": "K01-09",
+      "title": "대규모 언어 모델이란 무엇인가",
+      "category": "01 AI의 큰 그림"
+    },
+    {
+      "number": 10,
+      "code": "K01-10",
+      "title": "멀티모달 AI란 무엇인가",
+      "category": "01 AI의 큰 그림"
+    },
+    {
+      "number": 11,
+      "code": "K01-11",
+      "title": "AI 모델과 AI 시스템은 무엇이 다를까 — ChatGPT를 모델 하나로 보면 안 되는 이유",
+      "category": "01 AI의 큰 그림",
+      "slug": "ai-model-vs-ai-system"
+    },
+    {
+      "number": 12,
+      "code": "K01-12",
+      "title": "인공지능은 어떻게 발전해왔을까 — 규칙 기반 AI에서 생성형 AI까지",
+      "category": "01 AI의 큰 그림",
+      "slug": "history-of-artificial-intelligence"
+    },
+    {
+      "number": 13,
+      "code": "K01-13",
+      "title": "AI가 잘하는 일과 못하는 일은 어떻게 구분할까 — 능력과 한계 판단 기준",
+      "category": "01 AI의 큰 그림"
+    },
+    {
+      "number": 14,
+      "code": "K01-14",
+      "title": "AI 모델·서비스·구독·API는 무엇이 다를까 — 헷갈리는 구조 한 번에 이해하기",
+      "category": "01 AI의 큰 그림",
+      "slug": "ai-model-service-subscription-api"
+    },
+    {
+      "number": 15,
+      "code": "K01-15",
+      "title": "AI는 최신 정보를 알고 있을까 — 지식 기준일과 실시간 검색의 차이",
+      "category": "01 AI의 큰 그림",
+      "slug": "ai-knowledge-cutoff-vs-web-search"
+    },
+    {
+      "number": 16,
+      "code": "K01-16",
+      "title": "AI의 ‘추론’은 두 가지다 — Inference와 Reasoning의 차이",
+      "category": "01 AI의 큰 그림",
+      "slug": "ai-inference-vs-reasoning"
+    },
+    {
+      "number": 17,
+      "code": "K01-17",
+      "title": "AI 데모가 좋아 보여도 바로 믿으면 안 되는 이유 — 연구 결과와 실제 서비스의 차이",
+      "category": "01 AI의 큰 그림",
+      "slug": "why-ai-demos-differ-from-real-world-services"
+    },
+    {
+      "number": 18,
+      "code": "K02-01",
+      "title": "AI를 이해하는 데 함수와 그래프가 왜 필요할까",
+      "category": "02 AI를 읽는 수학·통계",
+      "slug": "functions-and-graphs-in-ai"
+    },
+    {
+      "number": 19,
+      "code": "K02-02",
+      "title": "스칼라·벡터·행렬·텐서는 무엇인가",
+      "category": "02 AI를 읽는 수학·통계",
+      "slug": "scalar-vector-matrix-tensor"
+    },
+    {
+      "number": 20,
+      "code": "K02-03",
+      "title": "거리·유사도·내적은 무엇이 다른가",
+      "category": "02 AI를 읽는 수학·통계",
+      "slug": "distance-similarity-dot-product"
+    },
+    {
+      "number": 21,
+      "code": "K02-04",
+      "title": "Cosine Similarity란 무엇인가",
+      "category": "02 AI를 읽는 수학·통계",
+      "slug": "what-is-cosine-similarity"
+    },
+    {
+      "number": 22,
+      "code": "K02-05",
+      "title": "확률·조건부 확률·독립성은 무엇인가",
+      "category": "02 AI를 읽는 수학·통계",
+      "slug": "probability-conditional-probability-independence"
+    },
+    {
+      "number": 23,
+      "code": "K02-06",
+      "title": "베이즈 정리와 사전·사후 확률이란 무엇인가",
+      "category": "02 AI를 읽는 수학·통계",
+      "slug": "bayes-theorem-prior-posterior-probability"
+    },
+    {
+      "number": 24,
+      "code": "K02-07",
+      "title": "확률분포와 기댓값이란 무엇인가",
+      "category": "02 AI를 읽는 수학·통계",
+      "slug": "probability-distribution-and-expected-value"
+    },
+    {
+      "number": 25,
+      "code": "K02-08",
+      "title": "평균·중앙값·분산·표준편차는 무엇인가",
+      "category": "02 AI를 읽는 수학·통계"
+    },
+    {
+      "number": 26,
+      "code": "K02-09",
+      "title": "표본·모집단·선택 편향은 무엇인가",
+      "category": "02 AI를 읽는 수학·통계",
+      "slug": "population-sample-selection-bias"
+    },
+    {
+      "number": 27,
+      "code": "K02-10",
+      "title": "상관관계가 있다고 원인이라고 볼 수 있을까 — 상관과 인과의 차이",
+      "category": "02 AI를 읽는 수학·통계",
+      "slug": "correlation-vs-causation"
+    },
+    {
+      "number": 28,
+      "code": "K02-11",
+      "title": "엔트로피와 교차 엔트로피는 왜 AI 학습에 등장할까 — 로그부터 연결해서 이해하기",
+      "category": "02 AI를 읽는 수학·통계",
+      "slug": "entropy-vs-cross-entropy"
+    },
+    {
+      "number": 29,
+      "code": "K02-12",
+      "title": "미분·편미분·기울기는 무엇인가",
+      "category": "02 AI를 읽는 수학·통계",
+      "slug": "derivative-partial-derivative-gradient"
+    },
+    {
+      "number": 30,
+      "code": "K02-13",
+      "title": "신뢰구간과 통계적 유의성은 무엇인가",
+      "category": "02 AI를 읽는 수학·통계",
+      "slug": "confidence-interval-p-value-statistical-significance"
+    },
+    {
+      "number": 31,
+      "code": "K02-14",
+      "title": "절대 변화·상대 변화·퍼센트포인트는 무엇이 다른가",
+      "category": "02 AI를 읽는 수학·통계",
+      "slug": "percent-vs-percentage-point"
+    },
+    {
+      "number": 32,
+      "code": "K03-01",
+      "title": "Dataset이란 무엇인가",
+      "category": "03 데이터와 머신러닝",
+      "slug": "what-is-a-dataset"
+    },
+    {
+      "number": 33,
+      "code": "K03-02",
+      "title": "Feature와 Label은 무엇인가",
+      "category": "03 데이터와 머신러닝",
+      "slug": "features-vs-labels"
+    },
+    {
+      "number": 34,
+      "code": "K03-03",
+      "title": "데이터 수집과 라벨링이란 무엇인가",
+      "category": "03 데이터와 머신러닝",
+      "slug": "data-collection-and-labeling"
+    },
+    {
+      "number": 35,
+      "code": "K03-04",
+      "title": "데이터 전처리와 정제란 무엇인가",
+      "category": "03 데이터와 머신러닝",
+      "slug": "data-cleaning-and-preprocessing"
+    },
+    {
+      "number": 36,
+      "code": "K03-05",
+      "title": "Feature Engineering이란 무엇인가",
+      "category": "03 데이터와 머신러닝",
+      "slug": "what-is-feature-engineering"
+    },
+    {
+      "number": 37,
+      "code": "K03-06",
+      "title": "데이터 증강이란 무엇인가",
+      "category": "03 데이터와 머신러닝",
+      "slug": "what-is-data-augmentation"
+    },
+    {
+      "number": 38,
+      "code": "K03-07",
+      "title": "클래스 불균형이란 무엇인가",
+      "category": "03 데이터와 머신러닝",
+      "slug": "what-is-class-imbalance"
+    },
+    {
+      "number": 39,
+      "code": "K03-08",
+      "title": "데이터가 나쁘면 모델도 나빠지는 이유 — AI 성능을 좌우하는 데이터 품질",
+      "category": "03 데이터와 머신러닝",
+      "slug": "why-data-quality-matters-for-ai"
+    },
+    {
+      "number": 40,
+      "code": "K03-09",
+      "title": "머신러닝 워크플로우란 무엇인가",
+      "category": "03 데이터와 머신러닝",
+      "slug": "what-is-machine-learning-workflow"
+    },
+    {
+      "number": 41,
+      "code": "K03-10",
+      "title": "지도학습이란 무엇인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 42,
+      "code": "K03-11",
+      "title": "비지도학습이란 무엇인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 43,
+      "code": "K03-12",
+      "title": "자기지도학습이란 무엇인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 44,
+      "code": "K03-13",
+      "title": "준지도학습이란 무엇인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 45,
+      "code": "K03-14",
+      "title": "강화학습이란 무엇인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 46,
+      "code": "K03-15",
+      "title": "분류·회귀·군집화는 무엇이 다른가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 47,
+      "code": "K03-16",
+      "title": "선형 회귀와 로지스틱 회귀란 무엇인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 48,
+      "code": "K03-17",
+      "title": "결정 트리란 무엇인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 49,
+      "code": "K03-18",
+      "title": "앙상블·랜덤 포레스트·Gradient Boosting이란 무엇인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 50,
+      "code": "K03-19",
+      "title": "Support Vector Machine이란 무엇인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 51,
+      "code": "K03-20",
+      "title": "k-최근접 이웃(kNN)이란 무엇인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 52,
+      "code": "K03-21",
+      "title": "k-평균 군집화란 무엇인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 53,
+      "code": "K03-22",
+      "title": "차원 축소와 PCA란 무엇인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 54,
+      "code": "K03-23",
+      "title": "차원이 많아지면 왜 학습이 어려워질까 — 차원의 저주란 무엇인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 55,
+      "code": "K03-24",
+      "title": "손실 함수란 무엇인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 56,
+      "code": "K03-25",
+      "title": "최적화란 무엇인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 57,
+      "code": "K03-26",
+      "title": "경사하강법이란 무엇인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 58,
+      "code": "K03-27",
+      "title": "Parameter와 Hyperparameter는 무엇이 다른가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 59,
+      "code": "K03-28",
+      "title": "Hyperparameter Tuning이란 무엇인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 60,
+      "code": "K03-29",
+      "title": "AI 학습 데이터는 왜 셋으로 나눌까 — Train·Validation·Test의 차이",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 61,
+      "code": "K03-30",
+      "title": "머신러닝의 교차 검증(Cross-validation)이란 무엇인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 62,
+      "code": "K03-31",
+      "title": "일반화란 무엇인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 63,
+      "code": "K03-32",
+      "title": "모델이 너무 외우거나 너무 못 배우는 이유 — 과적합과 과소적합",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 64,
+      "code": "K03-33",
+      "title": "정규화(Regularization)와 L1·L2란 무엇인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 65,
+      "code": "K03-34",
+      "title": "학습 오차의 Bias와 Variance는 어떤 관계인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 66,
+      "code": "K03-35",
+      "title": "학습 전에 답을 봐버리면 무슨 일이 생길까 — Data Leakage란 무엇인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 67,
+      "code": "K03-36",
+      "title": "머신러닝 모델은 어떻게 평가하는가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 68,
+      "code": "K03-37",
+      "title": "혼동행렬과 정밀도·재현율·F1이란 무엇인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 69,
+      "code": "K03-38",
+      "title": "Batch Learning과 Online Learning은 무엇이 다른가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 70,
+      "code": "K03-39",
+      "title": "Active Learning이란 무엇인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 71,
+      "code": "K03-40",
+      "title": "Transfer Learning이란 무엇인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 72,
+      "code": "K03-41",
+      "title": "결측값과 이상값은 무엇이 다른가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 73,
+      "code": "K03-42",
+      "title": "데이터 중복 제거와 표본 독립성은 왜 중요한가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 74,
+      "code": "K03-43",
+      "title": "학습 때와 실제 데이터가 달라지면 어떻게 될까 — Distribution Shift와 OOD",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 75,
+      "code": "K03-44",
+      "title": "새로운 걸 배우면 예전 걸 잊는 이유 — 지속 학습과 파국적 망각",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 76,
+      "code": "K03-45",
+      "title": "AI가 만든 데이터로 다시 AI를 학습하면 어떻게 될까 — Model Collapse란 무엇인가",
+      "category": "03 데이터와 머신러닝"
+    },
+    {
+      "number": 77,
+      "code": "K04-01",
+      "title": "인공신경망이란 무엇인가",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 78,
+      "code": "K04-02",
+      "title": "신경망의 뉴런·가중치·편향 항(Bias)이란 무엇인가",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 79,
+      "code": "K04-03",
+      "title": "신경망의 Layer란 무엇인가",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 80,
+      "code": "K04-04",
+      "title": "활성화 함수란 무엇인가",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 81,
+      "code": "K04-05",
+      "title": "가중치 초기화란 무엇인가",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 82,
+      "code": "K04-06",
+      "title": "Forward Pass란 무엇인가",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 83,
+      "code": "K04-07",
+      "title": "Backpropagation이란 무엇인가",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 84,
+      "code": "K04-08",
+      "title": "딥러닝 학습이 갑자기 멈추거나 폭주하는 이유 — Gradient Vanishing과 Exploding",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 85,
+      "code": "K04-09",
+      "title": "Optimizer란 무엇인가",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 86,
+      "code": "K04-10",
+      "title": "Batch·Epoch·Learning Rate란 무엇인가",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 87,
+      "code": "K04-11",
+      "title": "Batch Normalization과 Layer Normalization이란 무엇인가",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 88,
+      "code": "K04-12",
+      "title": "Dropout과 딥러닝의 정규화란 무엇인가",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 89,
+      "code": "K04-13",
+      "title": "깊은 신경망은 어떻게 정보를 잃지 않을까 — Residual Connection이 필요한 이유",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 90,
+      "code": "K04-14",
+      "title": "Representation Learning이란 무엇인가",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 91,
+      "code": "K04-15",
+      "title": "Encoder와 Decoder란 무엇인가",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 92,
+      "code": "K04-16",
+      "title": "CNN이란 무엇인가",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 93,
+      "code": "K04-17",
+      "title": "RNN·LSTM·GRU란 무엇인가",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 94,
+      "code": "K04-18",
+      "title": "Transformer란 무엇인가 — 오늘날 LLM의 기본 구조가 된 이유",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 95,
+      "code": "K04-19",
+      "title": "Attention이란 무엇인가 — AI는 입력에서 무엇을 중요하게 볼까",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 96,
+      "code": "K04-20",
+      "title": "Self-Attention과 Cross-Attention은 무엇이 다른가",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 97,
+      "code": "K04-21",
+      "title": "Multi-Head Attention이란 무엇인가",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 98,
+      "code": "K04-22",
+      "title": "Positional Encoding이란 무엇인가",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 99,
+      "code": "K04-23",
+      "title": "Attention은 왜 계산 비용이 클까 — 효율화가 필요한 이유",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 100,
+      "code": "K04-24",
+      "title": "State Space Model이란 무엇인가",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 101,
+      "code": "K04-25",
+      "title": "분산 학습이란 무엇인가",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 102,
+      "code": "K04-26",
+      "title": "모델을 키우면 왜 성능이 좋아질까 — Scaling Law란 무엇인가",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 103,
+      "code": "K04-27",
+      "title": "AI 모델 파일에는 무엇이 들어 있을까 — 체크포인트와 가중치 파일의 차이",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 104,
+      "code": "K04-28",
+      "title": "AI는 미분을 어떻게 자동으로 계산할까 — 계산 그래프와 자동 미분",
+      "category": "04 신경망과 딥러닝"
+    },
+    {
+      "number": 105,
+      "code": "K05-01",
+      "title": "생성 모델이란 무엇인가",
+      "category": "05 생성 모델의 원리"
+    },
+    {
+      "number": 106,
+      "code": "K05-02",
+      "title": "Autoregressive Model이란 무엇인가",
+      "category": "05 생성 모델의 원리"
+    },
+    {
+      "number": 107,
+      "code": "K05-03",
+      "title": "AI의 잠재 공간(Latent Space)이란 무엇인가 — 비슷한 개념이 가까워지는 이유",
+      "category": "05 생성 모델의 원리"
+    },
+    {
+      "number": 108,
+      "code": "K05-04",
+      "title": "Autoencoder와 VAE란 무엇인가",
+      "category": "05 생성 모델의 원리"
+    },
+    {
+      "number": 109,
+      "code": "K05-05",
+      "title": "GAN이란 무엇인가",
+      "category": "05 생성 모델의 원리"
+    },
+    {
+      "number": 110,
+      "code": "K05-06",
+      "title": "Diffusion Model이란 무엇인가 — 노이즈에서 이미지를 만드는 원리",
+      "category": "05 생성 모델의 원리"
+    },
+    {
+      "number": 111,
+      "code": "K05-07",
+      "title": "Flow Matching이란 무엇인가",
+      "category": "05 생성 모델의 원리"
+    },
+    {
+      "number": 112,
+      "code": "K05-08",
+      "title": "Consistency Model이란 무엇인가",
+      "category": "05 생성 모델의 원리"
+    },
+    {
+      "number": 113,
+      "code": "K05-09",
+      "title": "Diffusion Transformer란 무엇인가",
+      "category": "05 생성 모델의 원리"
+    },
+    {
+      "number": 114,
+      "code": "K05-10",
+      "title": "Conditioning이란 무엇인가",
+      "category": "05 생성 모델의 원리"
+    },
+    {
+      "number": 115,
+      "code": "K05-11",
+      "title": "Classifier-free Guidance란 무엇인가",
+      "category": "05 생성 모델의 원리"
+    },
+    {
+      "number": 116,
+      "code": "K05-12",
+      "title": "생성 모델의 샘플링(Sampling)이란 무엇인가",
+      "category": "05 생성 모델의 원리"
+    },
+    {
+      "number": 117,
+      "code": "K05-13",
+      "title": "같은 프롬프트로 같은 이미지를 만들 수 있을까 — Seed란 무엇인가",
+      "category": "05 생성 모델의 원리"
+    },
+    {
+      "number": 118,
+      "code": "K05-14",
+      "title": "Synthetic Data란 무엇인가",
+      "category": "05 생성 모델의 원리"
+    },
+    {
+      "number": 119,
+      "code": "K05-15",
+      "title": "이미지 생성에서 품질과 다양성을 동시에 잡기 어려운 이유",
+      "category": "05 생성 모델의 원리"
+    },
+    {
+      "number": 120,
+      "code": "K05-16",
+      "title": "언어 모델도 한 번에 문장을 만들 수 있을까 — 확산 언어 모델이란 무엇인가",
+      "category": "05 생성 모델의 원리"
+    },
+    {
+      "number": 121,
+      "code": "K06-01",
+      "title": "언어 모델이란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 122,
+      "code": "K06-02",
+      "title": "Corpus란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 123,
+      "code": "K06-03",
+      "title": "AI의 토큰이란 무엇인가 — 글자 수와 비용이 다르게 계산되는 이유",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 124,
+      "code": "K06-04",
+      "title": "Tokenization이란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 125,
+      "code": "K06-05",
+      "title": "Vocabulary란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 126,
+      "code": "K06-06",
+      "title": "Embedding이란 무엇인가 — AI가 단어와 문장을 숫자로 표현하는 방법",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 127,
+      "code": "K06-07",
+      "title": "LLM은 어떻게 다음 말을 이어갈까 — 다음 토큰 예측의 원리",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 128,
+      "code": "K06-08",
+      "title": "Perplexity란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 129,
+      "code": "K06-09",
+      "title": "Pre-training이란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 130,
+      "code": "K06-10",
+      "title": "Post-training이란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 131,
+      "code": "K06-11",
+      "title": "Fine-tuning이란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 132,
+      "code": "K06-12",
+      "title": "Supervised Fine-tuning이란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 133,
+      "code": "K06-13",
+      "title": "Instruction Tuning이란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 134,
+      "code": "K06-14",
+      "title": "AI Alignment란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 135,
+      "code": "K06-15",
+      "title": "Reward Model이란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 136,
+      "code": "K06-16",
+      "title": "RLHF란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 137,
+      "code": "K06-17",
+      "title": "DPO와 Preference Optimization이란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 138,
+      "code": "K06-18",
+      "title": "RLAIF와 Constitutional AI란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 139,
+      "code": "K06-19",
+      "title": "검증 가능한 보상 기반 강화학습이란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 140,
+      "code": "K06-20",
+      "title": "Process Reward Model과 Outcome Reward Model은 무엇이 다른가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 141,
+      "code": "K06-21",
+      "title": "PEFT와 LoRA란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 142,
+      "code": "K06-22",
+      "title": "Knowledge Distillation이란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 143,
+      "code": "K06-23",
+      "title": "Model Merging이란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 144,
+      "code": "K06-24",
+      "title": "Mixture of Experts란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 145,
+      "code": "K06-25",
+      "title": "AI는 대화를 어디까지 기억할까 — Context Window란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 146,
+      "code": "K06-26",
+      "title": "KV Cache란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 147,
+      "code": "K06-27",
+      "title": "Long-context Model이란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 148,
+      "code": "K06-28",
+      "title": "Reasoning Model이란 무엇인가 — 일반 LLM과 무엇이 다를까",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 149,
+      "code": "K06-29",
+      "title": "AI에게 더 오래 생각하게 하면 왜 답이 달라질까 — Test-time Compute란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 150,
+      "code": "K06-30",
+      "title": "AI의 Chain-of-Thought를 그대로 믿어도 될까 — 개념과 한계",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 151,
+      "code": "K06-31",
+      "title": "Self-Consistency란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 152,
+      "code": "K06-32",
+      "title": "AI에게 ‘더 생각할 시간’을 준다는 건 무슨 뜻일까 — 추론 예산과 Extended Thinking",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 153,
+      "code": "K06-33",
+      "title": "Decoding이란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 154,
+      "code": "K06-34",
+      "title": "AI 답변의 다양성은 어떻게 조절할까 — Temperature·Top-k·Top-p",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 155,
+      "code": "K06-35",
+      "title": "Speculative Decoding이란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 156,
+      "code": "K06-36",
+      "title": "왜 AI는 같은 질문에도 매번 다른 답을 할까",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 157,
+      "code": "K06-37",
+      "title": "AI는 왜 없는 사실도 그럴듯하게 말할까 — LLM 환각이 생기는 이유",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 158,
+      "code": "K06-38",
+      "title": "오픈소스 AI라고 다 같은 공개 모델은 아니다 — Open-source·Open-weight·비공개 모델의 차이",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 159,
+      "code": "K06-39",
+      "title": "In-context Learning과 가중치 학습은 무엇이 다른가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 160,
+      "code": "K06-40",
+      "title": "AI가 목표는 달성했는데 엉뚱하게 행동하는 이유 — Reward Hacking과 Specification Gaming",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 161,
+      "code": "K06-41",
+      "title": "AI는 왜 사용자의 말에 맞장구치려 할까 — Sycophancy란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 162,
+      "code": "K06-42",
+      "title": "지식 편집(Model Editing)이란 무엇인가",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 163,
+      "code": "K06-43",
+      "title": "AI에게 오래 생각시키면 항상 좋아질까 — 추론 모델이 실패하는 경우",
+      "category": "06 언어 모델과 추론"
+    },
+    {
+      "number": 164,
+      "code": "K07-01",
+      "title": "프롬프트란 무엇인가 — AI에게 질문하는 문장보다 더 큰 개념",
+      "category": "07 프롬프트와 컨텍스트"
+    },
+    {
+      "number": 165,
+      "code": "K07-02",
+      "title": "System·Developer·User·Assistant 메시지는 무엇이 다른가",
+      "category": "07 프롬프트와 컨텍스트"
+    },
+    {
+      "number": 166,
+      "code": "K07-03",
+      "title": "지시·맥락·입력·출력 형식은 어떻게 다른가",
+      "category": "07 프롬프트와 컨텍스트"
+    },
+    {
+      "number": 167,
+      "code": "K07-04",
+      "title": "Zero-shot Prompting이란 무엇인가",
+      "category": "07 프롬프트와 컨텍스트"
+    },
+    {
+      "number": 168,
+      "code": "K07-05",
+      "title": "Few-shot Prompting이란 무엇인가",
+      "category": "07 프롬프트와 컨텍스트"
+    },
+    {
+      "number": 169,
+      "code": "K07-06",
+      "title": "Prompt Template이란 무엇인가",
+      "category": "07 프롬프트와 컨텍스트"
+    },
+    {
+      "number": 170,
+      "code": "K07-07",
+      "title": "AI의 출력 형식을 지정한다는 것은 무엇인가",
+      "category": "07 프롬프트와 컨텍스트"
+    },
+    {
+      "number": 171,
+      "code": "K07-08",
+      "title": "AI에서 Context란 무엇인가 — 프롬프트보다 중요한 정보의 범위",
+      "category": "07 프롬프트와 컨텍스트"
+    },
+    {
+      "number": 172,
+      "code": "K07-09",
+      "title": "Context Engineering이란 무엇인가 — 좋은 답을 위해 무엇을 넣고 뺄까",
+      "category": "07 프롬프트와 컨텍스트"
+    },
+    {
+      "number": 173,
+      "code": "K07-10",
+      "title": "Context는 길수록 좋을까 — 긴 입력이 오히려 답을 망칠 수 있는 이유",
+      "category": "07 프롬프트와 컨텍스트"
+    },
+    {
+      "number": 174,
+      "code": "K07-11",
+      "title": "Context Compaction이란 무엇인가",
+      "category": "07 프롬프트와 컨텍스트"
+    },
+    {
+      "number": 175,
+      "code": "K07-12",
+      "title": "Context Offloading이란 무엇인가",
+      "category": "07 프롬프트와 컨텍스트"
+    },
+    {
+      "number": 176,
+      "code": "K07-13",
+      "title": "Prompt Chaining이란 무엇인가",
+      "category": "07 프롬프트와 컨텍스트"
+    },
+    {
+      "number": 177,
+      "code": "K07-14",
+      "title": "Meta Prompting과 프롬프트 자동 최적화란 무엇인가",
+      "category": "07 프롬프트와 컨텍스트"
+    },
+    {
+      "number": 178,
+      "code": "K07-15",
+      "title": "Prompt Sensitivity란 무엇인가",
+      "category": "07 프롬프트와 컨텍스트"
+    },
+    {
+      "number": 179,
+      "code": "K07-16",
+      "title": "Instruction Hierarchy란 무엇인가",
+      "category": "07 프롬프트와 컨텍스트"
+    },
+    {
+      "number": 180,
+      "code": "K07-17",
+      "title": "Multimodal Prompt란 무엇인가",
+      "category": "07 프롬프트와 컨텍스트"
+    },
+    {
+      "number": 181,
+      "code": "K07-18",
+      "title": "파일을 첨부하면 AI가 전부 읽는 걸까 — 첨부와 Context 입력의 차이",
+      "category": "07 프롬프트와 컨텍스트"
+    },
+    {
+      "number": 182,
+      "code": "K07-19",
+      "title": "긴 대화에서 AI가 앞 내용을 놓치는 이유 — Context 잘림·요약·정보 손실",
+      "category": "07 프롬프트와 컨텍스트"
+    },
+    {
+      "number": 183,
+      "code": "K07-20",
+      "title": "AI에게 일을 맡길 때 무엇을 먼저 정해야 할까 — 조건·성공 기준·제약",
+      "category": "07 프롬프트와 컨텍스트"
+    },
+    {
+      "number": 184,
+      "code": "K07-21",
+      "title": "AI는 언제 되물어야 할까 — 모호한 요청에서 확인 질문이 필요한 이유",
+      "category": "07 프롬프트와 컨텍스트"
+    },
+    {
+      "number": 185,
+      "code": "K08-01",
+      "title": "AI가 문서를 ‘읽었다’는 건 무슨 뜻일까 — 문서 이해와 텍스트 추출의 차이",
+      "category": "08 문서·이미지·음성·영상"
+    },
+    {
+      "number": 186,
+      "code": "K08-02",
+      "title": "PDF라고 다 같은 PDF가 아니다 — 텍스트·스캔 이미지·레이아웃의 차이",
+      "category": "08 문서·이미지·음성·영상"
+    },
+    {
+      "number": 187,
+      "code": "K08-03",
+      "title": "AI는 표·도표·수식을 얼마나 제대로 읽을까",
+      "category": "08 문서·이미지·음성·영상"
+    },
+    {
+      "number": 188,
+      "code": "K08-04",
+      "title": "AI 이미지 기능은 왜 생성·편집·검색으로 나눠 봐야 할까",
+      "category": "08 문서·이미지·음성·영상"
+    },
+    {
+      "number": 189,
+      "code": "K08-05",
+      "title": "Text-to-image Generation이란 무엇인가",
+      "category": "08 문서·이미지·음성·영상"
+    },
+    {
+      "number": 190,
+      "code": "K08-06",
+      "title": "이미지 편집의 마스크·Inpainting·Outpainting이란 무엇인가",
+      "category": "08 문서·이미지·음성·영상"
+    },
+    {
+      "number": 191,
+      "code": "K08-07",
+      "title": "Text-to-video Generation이란 무엇인가",
+      "category": "08 문서·이미지·음성·영상"
+    },
+    {
+      "number": 192,
+      "code": "K08-08",
+      "title": "Video Understanding이란 무엇인가",
+      "category": "08 문서·이미지·음성·영상"
+    },
+    {
+      "number": 193,
+      "code": "K08-09",
+      "title": "Speech Recognition이란 무엇인가",
+      "category": "08 문서·이미지·음성·영상"
+    },
+    {
+      "number": 194,
+      "code": "K08-10",
+      "title": "Speech Synthesis란 무엇인가",
+      "category": "08 문서·이미지·음성·영상"
+    },
+    {
+      "number": 195,
+      "code": "K08-11",
+      "title": "Speech-to-speech Model이란 무엇인가",
+      "category": "08 문서·이미지·음성·영상"
+    },
+    {
+      "number": 196,
+      "code": "K08-12",
+      "title": "Voice Cloning이란 무엇인가",
+      "category": "08 문서·이미지·음성·영상"
+    },
+    {
+      "number": 197,
+      "code": "K08-13",
+      "title": "Audio Generation이란 무엇인가",
+      "category": "08 문서·이미지·음성·영상"
+    },
+    {
+      "number": 198,
+      "code": "K08-14",
+      "title": "같은 캐릭터와 스타일을 유지하려면 무엇이 필요할까 — 참조 이미지와 조건 제어",
+      "category": "08 문서·이미지·음성·영상"
+    },
+    {
+      "number": 199,
+      "code": "K08-15",
+      "title": "이미지 품질을 높이면 해상도도 무조건 좋아질까 — 해상도·화면비·업스케일의 차이",
+      "category": "08 문서·이미지·음성·영상"
+    },
+    {
+      "number": 200,
+      "code": "K08-16",
+      "title": "AI는 영상을 프레임마다 다 보는 걸까 — 프레임 샘플링과 시간 이해",
+      "category": "08 문서·이미지·음성·영상"
+    },
+    {
+      "number": 201,
+      "code": "K08-17",
+      "title": "첫 장과 마지막 장만 주면 영상은 어떻게 만들어질까 — Image-to-video와 프레임 제어",
+      "category": "08 문서·이미지·음성·영상"
+    },
+    {
+      "number": 202,
+      "code": "K08-18",
+      "title": "AI 영상에서 인물과 물체가 계속 바뀌는 이유 — 시간적·대상 일관성",
+      "category": "08 문서·이미지·음성·영상"
+    },
+    {
+      "number": 203,
+      "code": "K08-19",
+      "title": "전사·번역·요약은 무엇이 다른가",
+      "category": "08 문서·이미지·음성·영상"
+    },
+    {
+      "number": 204,
+      "code": "K08-20",
+      "title": "화자 분리와 타임스탬프란 무엇인가",
+      "category": "08 문서·이미지·음성·영상"
+    },
+    {
+      "number": 205,
+      "code": "K08-21",
+      "title": "AI 음성 대화는 언제 듣기를 멈추고 말할까 — 턴 감지와 끼어들기",
+      "category": "08 문서·이미지·음성·영상"
+    },
+    {
+      "number": 206,
+      "code": "K08-22",
+      "title": "이미지·음성·영상 형식을 바꾸면 무엇이 사라질까 — 매체 변환의 정보 손실",
+      "category": "08 문서·이미지·음성·영상"
+    },
+    {
+      "number": 207,
+      "code": "K08-23",
+      "title": "음성 비서의 호출어 인식은 어떻게 검증할까 — 오탐과 누락의 차이 (신규 추가)",
+      "category": "08 문서·이미지·음성·영상"
+    },
+    {
+      "number": 208,
+      "code": "K09-01",
+      "title": "AI 답변을 검증하려면 먼저 무엇을 나눠 봐야 할까 — 주장·근거·추론의 차이",
+      "category": "09 AI 답변과 근거 검증"
+    },
+    {
+      "number": 209,
+      "code": "K09-02",
+      "title": "사실·의견·예측은 무엇이 다른가",
+      "category": "09 AI 답변과 근거 검증"
+    },
+    {
+      "number": 210,
+      "code": "K09-03",
+      "title": "검색 결과가 많아도 1차 출처를 먼저 봐야 하는 이유",
+      "category": "09 AI 답변과 근거 검증"
+    },
+    {
+      "number": 211,
+      "code": "K09-04",
+      "title": "AI가 출처를 달아주면 믿어도 될까 — 출처와 검증의 차이",
+      "category": "09 AI 답변과 근거 검증",
+      "slug": "ai-citations-vs-verification"
+    },
+    {
+      "number": 212,
+      "code": "K09-05",
+      "title": "Source Grounding이란 무엇인가",
+      "category": "09 AI 답변과 근거 검증"
+    },
+    {
+      "number": 213,
+      "code": "K09-06",
+      "title": "Citation Grounding이란 무엇인가",
+      "category": "09 AI 답변과 근거 검증"
+    },
+    {
+      "number": 214,
+      "code": "K09-07",
+      "title": "출처 여러 개면 충분할까 — 서로 독립적인 자료를 대조해야 하는 이유",
+      "category": "09 AI 답변과 근거 검증"
+    },
+    {
+      "number": 215,
+      "code": "K09-08",
+      "title": "여러 AI가 같은 답을 하면 사실일까",
+      "category": "09 AI 답변과 근거 검증"
+    },
+    {
+      "number": 216,
+      "code": "K09-09",
+      "title": "정보의 최신성이란 무엇인가",
+      "category": "09 AI 답변과 근거 검증"
+    },
+    {
+      "number": 217,
+      "code": "K09-10",
+      "title": "재현 가능성이란 무엇인가",
+      "category": "09 AI 답변과 근거 검증"
+    },
+    {
+      "number": 218,
+      "code": "K09-11",
+      "title": "검증 가능성이란 무엇인가",
+      "category": "09 AI 답변과 근거 검증"
+    },
+    {
+      "number": 219,
+      "code": "K09-12",
+      "title": "AI가 자신 있게 말하면 맞을 확률도 높을까 — 자신감·확률·불확실성의 차이",
+      "category": "09 AI 답변과 근거 검증"
+    },
+    {
+      "number": 220,
+      "code": "K09-13",
+      "title": "Calibration이란 무엇인가",
+      "category": "09 AI 답변과 근거 검증"
+    },
+    {
+      "number": 221,
+      "code": "K09-14",
+      "title": "AI가 말하면 더 쉽게 믿게 되는 이유 — Automation Bias란 무엇인가",
+      "category": "09 AI 답변과 근거 검증"
+    },
+    {
+      "number": 222,
+      "code": "K09-15",
+      "title": "내가 듣고 싶은 답만 AI에게서 찾게 되는 이유 — Confirmation Bias",
+      "category": "09 AI 답변과 근거 검증"
+    },
+    {
+      "number": 223,
+      "code": "K09-16",
+      "title": "반증 가능성이란 무엇인가",
+      "category": "09 AI 답변과 근거 검증"
+    },
+    {
+      "number": 224,
+      "code": "K09-17",
+      "title": "AI 답변은 어디까지 검증해야 할까 — 위험도에 따라 확인 범위가 달라지는 이유",
+      "category": "09 AI 답변과 근거 검증"
+    },
+    {
+      "number": 225,
+      "code": "K09-18",
+      "title": "AI가 보여주는 ‘생각 과정’을 그대로 믿어도 될까",
+      "category": "09 AI 답변과 근거 검증"
+    },
+    {
+      "number": 226,
+      "code": "K09-19",
+      "title": "출처가 여러 개처럼 보여도 사실 하나일 수 있다 — 재인용과 순환 인용",
+      "category": "09 AI 답변과 근거 검증"
+    },
+    {
+      "number": 227,
+      "code": "K09-20",
+      "title": "AI가 ‘실행했다’고 말하면 실제로 실행된 걸까 — 답변과 도구 기록의 차이",
+      "category": "09 AI 답변과 근거 검증"
+    },
+    {
+      "number": 228,
+      "code": "K09-21",
+      "title": "AI 답변에서 숫자부터 다시 확인해야 하는 이유 — 계산·날짜·단위·표 검산",
+      "category": "09 AI 답변과 근거 검증"
+    },
+    {
+      "number": 229,
+      "code": "K09-22",
+      "title": "AI는 언제 ‘모르겠다’고 말해야 할까 — Abstention의 의미",
+      "category": "09 AI 답변과 근거 검증"
+    },
+    {
+      "number": 230,
+      "code": "K09-23",
+      "title": "한 번 성공한 AI 데모를 성능이라고 볼 수 있을까",
+      "category": "09 AI 답변과 근거 검증"
+    },
+    {
+      "number": 231,
+      "code": "K09-24",
+      "title": "AI의 주장과 근거를 어떻게 연결할까 — Claim-Evidence Mapping의 구조 (신규 추가)",
+      "category": "09 AI 답변과 근거 검증"
+    },
+    {
+      "number": 232,
+      "code": "K09-25",
+      "title": "출처가 서로 다를 때 AI는 어떻게 답해야 할까 — 충돌과 판단 보류 (신규 추가)",
+      "category": "09 AI 답변과 근거 검증"
+    },
+    {
+      "number": 233,
+      "code": "K10-01",
+      "title": "파일·폴더·경로·확장자는 무엇인가",
+      "category": "10 AI와 프로그램을 만들기 위한 기초"
+    },
+    {
+      "number": 234,
+      "code": "K10-02",
+      "title": "코드·프로그램·프로세스는 무엇이 다른가",
+      "category": "10 AI와 프로그램을 만들기 위한 기초"
+    },
+    {
+      "number": 235,
+      "code": "K10-03",
+      "title": "변수·자료형·조건·반복·함수는 무엇인가",
+      "category": "10 AI와 프로그램을 만들기 위한 기초"
+    },
+    {
+      "number": 236,
+      "code": "K10-04",
+      "title": "터미널·셸·명령어는 무엇인가",
+      "category": "10 AI와 프로그램을 만들기 위한 기초"
+    },
+    {
+      "number": 237,
+      "code": "K10-05",
+      "title": "라이브러리·패키지·의존성은 무엇인가",
+      "category": "10 AI와 프로그램을 만들기 위한 기초"
+    },
+    {
+      "number": 238,
+      "code": "K10-06",
+      "title": "런타임과 가상 환경이란 무엇인가",
+      "category": "10 AI와 프로그램을 만들기 위한 기초"
+    },
+    {
+      "number": 239,
+      "code": "K10-07",
+      "title": "환경 변수와 설정 파일은 무엇인가",
+      "category": "10 AI와 프로그램을 만들기 위한 기초"
+    },
+    {
+      "number": 240,
+      "code": "K10-08",
+      "title": "프런트엔드·백엔드·데이터베이스는 무엇인가",
+      "category": "10 AI와 프로그램을 만들기 위한 기초"
+    },
+    {
+      "number": 241,
+      "code": "K10-09",
+      "title": "클라이언트·서버·로컬호스트는 무엇인가",
+      "category": "10 AI와 프로그램을 만들기 위한 기초"
+    },
+    {
+      "number": 242,
+      "code": "K10-10",
+      "title": "HTTP 요청·응답·상태 코드는 무엇인가",
+      "category": "10 AI와 프로그램을 만들기 위한 기초"
+    },
+    {
+      "number": 243,
+      "code": "K10-11",
+      "title": "JSON·CSV·Markdown은 무엇이 다른가",
+      "category": "10 AI와 프로그램을 만들기 위한 기초"
+    },
+    {
+      "number": 244,
+      "code": "K10-12",
+      "title": "데이터 스키마와 자료형 검증이란 무엇인가",
+      "category": "10 AI와 프로그램을 만들기 위한 기초"
+    },
+    {
+      "number": 245,
+      "code": "K10-13",
+      "title": "로그인했다고 모든 권한이 생기는 건 아니다 — 인증과 인가의 차이",
+      "category": "10 AI와 프로그램을 만들기 위한 기초"
+    },
+    {
+      "number": 246,
+      "code": "K10-14",
+      "title": "API Key·Access Token·OAuth는 무엇이 다르고 언제 쓸까",
+      "category": "10 AI와 프로그램을 만들기 위한 기초"
+    },
+    {
+      "number": 247,
+      "code": "K10-15",
+      "title": "AI 코딩을 하려면 Git을 왜 알아야 할까 — 저장소·커밋·브랜치",
+      "category": "10 AI와 프로그램을 만들기 위한 기초"
+    },
+    {
+      "number": 248,
+      "code": "K10-16",
+      "title": "코드는 됐는데 왜 사이트에서는 안 될까 — 개발·빌드·배포·호스팅의 차이",
+      "category": "10 AI와 프로그램을 만들기 위한 기초"
+    },
+    {
+      "number": 249,
+      "code": "K10-17",
+      "title": "도메인·DNS·HTTPS는 무엇인가",
+      "category": "10 AI와 프로그램을 만들기 위한 기초"
+    },
+    {
+      "number": 250,
+      "code": "K10-18",
+      "title": "에러가 나면 어디부터 봐야 할까 — 오류 메시지·스택 트레이스·디버깅",
+      "category": "10 AI와 프로그램을 만들기 위한 기초"
+    },
+    {
+      "number": 251,
+      "code": "K10-19",
+      "title": "영속 저장소·백업·복구는 무엇인가",
+      "category": "10 AI와 프로그램을 만들기 위한 기초"
+    },
+    {
+      "number": 252,
+      "code": "K11-01",
+      "title": "API란 무엇인가 — 서비스끼리 기능을 주고받는 방법",
+      "category": "11 API와 도구 호출"
+    },
+    {
+      "number": 253,
+      "code": "K11-02",
+      "title": "LLM API란 무엇인가 — ChatGPT 같은 모델을 프로그램에서 쓰는 방법",
+      "category": "11 API와 도구 호출"
+    },
+    {
+      "number": 254,
+      "code": "K11-03",
+      "title": "API 요청과 모델 응답은 어떻게 구성되는가",
+      "category": "11 API와 도구 호출"
+    },
+    {
+      "number": 255,
+      "code": "K11-04",
+      "title": "Message와 Conversation State란 무엇인가",
+      "category": "11 API와 도구 호출"
+    },
+    {
+      "number": 256,
+      "code": "K11-05",
+      "title": "AI API는 왜 생각보다 돈이 많이 들까 — Token Usage와 비용의 관계",
+      "category": "11 API와 도구 호출"
+    },
+    {
+      "number": 257,
+      "code": "K11-06",
+      "title": "API를 너무 많이 호출하면 왜 막힐까 — Rate Limit이란 무엇인가",
+      "category": "11 API와 도구 호출"
+    },
+    {
+      "number": 258,
+      "code": "K11-07",
+      "title": "Streaming Response란 무엇인가",
+      "category": "11 API와 도구 호출"
+    },
+    {
+      "number": 259,
+      "code": "K11-08",
+      "title": "Webhook과 비동기 처리란 무엇인가",
+      "category": "11 API와 도구 호출"
+    },
+    {
+      "number": 260,
+      "code": "K11-09",
+      "title": "같은 프롬프트를 반복할 때 비용을 줄이는 방법 — Prompt Caching",
+      "category": "11 API와 도구 호출"
+    },
+    {
+      "number": 261,
+      "code": "K11-10",
+      "title": "Batch Inference란 무엇인가",
+      "category": "11 API와 도구 호출"
+    },
+    {
+      "number": 262,
+      "code": "K11-11",
+      "title": "AI 답변을 원하는 JSON 구조로 받으려면 — Structured Output이란 무엇인가",
+      "category": "11 API와 도구 호출"
+    },
+    {
+      "number": 263,
+      "code": "K11-12",
+      "title": "JSON Schema는 AI 출력에서 어떤 역할을 하는가",
+      "category": "11 API와 도구 호출"
+    },
+    {
+      "number": 264,
+      "code": "K11-13",
+      "title": "Constrained Decoding이란 무엇인가",
+      "category": "11 API와 도구 호출"
+    },
+    {
+      "number": 265,
+      "code": "K11-14",
+      "title": "Function Calling과 Tool Calling은 무엇이 다를까 — AI가 외부 기능을 쓰는 방식",
+      "category": "11 API와 도구 호출"
+    },
+    {
+      "number": 266,
+      "code": "K11-15",
+      "title": "Tool Schema란 무엇인가",
+      "category": "11 API와 도구 호출"
+    },
+    {
+      "number": 267,
+      "code": "K11-16",
+      "title": "Tool Result는 어떻게 다시 Context가 되는가",
+      "category": "11 API와 도구 호출"
+    },
+    {
+      "number": 268,
+      "code": "K11-17",
+      "title": "API Error와 Model Error는 무엇이 다른가",
+      "category": "11 API와 도구 호출"
+    },
+    {
+      "number": 269,
+      "code": "K11-18",
+      "title": "Model Routing이란 무엇인가",
+      "category": "11 API와 도구 호출"
+    },
+    {
+      "number": 270,
+      "code": "K11-19",
+      "title": "Model Fallback이란 무엇인가",
+      "category": "11 API와 도구 호출"
+    },
+    {
+      "number": 271,
+      "code": "K11-20",
+      "title": "AI가 도구를 ‘호출했다’고 해서 실행된 것은 아니다 — 요청과 실제 실행의 차이",
+      "category": "11 API와 도구 호출"
+    },
+    {
+      "number": 272,
+      "code": "K11-21",
+      "title": "AI에게 읽기 권한과 쓰기 권한을 똑같이 주면 안 되는 이유",
+      "category": "11 API와 도구 호출"
+    },
+    {
+      "number": 273,
+      "code": "K11-22",
+      "title": "비동기 작업의 시작·대기·완료·취소는 무엇인가",
+      "category": "11 API와 도구 호출"
+    },
+    {
+      "number": 274,
+      "code": "K11-23",
+      "title": "JSON 형식이 맞다고 내용도 맞는 것은 아니다 — 구조 준수와 정확성의 차이",
+      "category": "11 API와 도구 호출"
+    },
+    {
+      "number": 275,
+      "code": "K12-01",
+      "title": "모델 내부 지식과 외부 지식은 무엇이 다른가",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 276,
+      "code": "K12-02",
+      "title": "Information Retrieval이란 무엇인가",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 277,
+      "code": "K12-03",
+      "title": "RAG란 무엇인가 — AI가 내 자료를 찾아 답하게 만드는 구조",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 278,
+      "code": "K12-04",
+      "title": "RAG와 Fine-tuning 중 무엇을 써야 할까 — 차이와 선택 기준",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 279,
+      "code": "K12-05",
+      "title": "RAG와 Memory는 무엇이 다를까 — 검색과 기억을 구분해야 하는 이유",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 280,
+      "code": "K12-06",
+      "title": "Document Ingestion이란 무엇인가",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 281,
+      "code": "K12-07",
+      "title": "Parsing이란 무엇인가",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 282,
+      "code": "K12-08",
+      "title": "OCR이란 무엇인가",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 283,
+      "code": "K12-09",
+      "title": "문서를 얼마나 잘게 나눠야 할까 — RAG의 Chunking이 중요한 이유",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 284,
+      "code": "K12-10",
+      "title": "Indexing이란 무엇인가",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 285,
+      "code": "K12-11",
+      "title": "Vector Search란 무엇인가 — 의미가 비슷한 문서를 찾는 방법",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 286,
+      "code": "K12-12",
+      "title": "Vector Database가 꼭 필요할까 — RAG에서 하는 역할",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 287,
+      "code": "K12-13",
+      "title": "Sparse Retrieval이란 무엇인가",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 288,
+      "code": "K12-14",
+      "title": "Dense Retrieval이란 무엇인가",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 289,
+      "code": "K12-15",
+      "title": "키워드 검색과 의미 검색을 같이 쓰면 왜 좋아질까 — Hybrid Search",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 290,
+      "code": "K12-16",
+      "title": "Metadata Filtering이란 무엇인가",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 291,
+      "code": "K12-17",
+      "title": "Query Transformation이란 무엇인가",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 292,
+      "code": "K12-18",
+      "title": "Multi-query Retrieval이란 무엇인가",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 293,
+      "code": "K12-19",
+      "title": "검색 결과를 다시 순위 매기는 이유 — Reranking이란 무엇인가",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 294,
+      "code": "K12-20",
+      "title": "Contextual Retrieval이란 무엇인가",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 295,
+      "code": "K12-21",
+      "title": "검색 결과를 Context로 구성한다는 것은 무엇인가",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 296,
+      "code": "K12-22",
+      "title": "Grounded Generation이란 무엇인가",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 297,
+      "code": "K12-23",
+      "title": "Graph RAG란 무엇인가",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 298,
+      "code": "K12-24",
+      "title": "Multimodal RAG란 무엇인가",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 299,
+      "code": "K12-25",
+      "title": "Agentic RAG란 무엇인가",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 300,
+      "code": "K12-26",
+      "title": "RAG를 붙였는데도 답이 틀리는 이유",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 301,
+      "code": "K12-27",
+      "title": "RAG를 쓰면 AI 환각이 사라질까",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 302,
+      "code": "K12-28",
+      "title": "검색의 Precision·Recall과 답변 정확도는 무엇이 다른가",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 303,
+      "code": "K12-29",
+      "title": "내 문서를 RAG에 넣으면 누가 어디까지 볼 수 있을까 — 검색 권한과 접근 제어",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 304,
+      "code": "K12-30",
+      "title": "문서 삭제·갱신과 검색 인덱스의 최신성은 어떤 관계인가",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 305,
+      "code": "K12-31",
+      "title": "RAG·긴 Context·실시간 검색 중 무엇을 써야 할까",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 306,
+      "code": "K12-32",
+      "title": "BM25란 무엇인가",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 307,
+      "code": "K12-33",
+      "title": "Knowledge Graph란 무엇인가",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 308,
+      "code": "K12-34",
+      "title": "AI는 언제 내부 지식으로 답하고 언제 외부 조사를 해야 할까 (신규 추가)",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 309,
+      "code": "K12-35",
+      "title": "AI가 조사한 내용을 언제 지식으로 저장해야 할까 — Knowledge Admission 기준 (신규 추가)",
+      "category": "12 검색과 RAG"
+    },
+    {
+      "number": 310,
+      "code": "K13-01",
+      "title": "AI Workflow란 무엇인가",
+      "category": "13 워크플로와 자동화"
+    },
+    {
+      "number": 311,
+      "code": "K13-02",
+      "title": "규칙만으로 충분한 자동화와 AI가 필요한 자동화는 무엇이 다를까",
+      "category": "13 워크플로와 자동화"
+    },
+    {
+      "number": 312,
+      "code": "K13-03",
+      "title": "Workflow와 Agent 중 무엇을 써야 할까 — 정해진 흐름과 자율 실행의 차이",
+      "category": "13 워크플로와 자동화"
+    },
+    {
+      "number": 313,
+      "code": "K13-04",
+      "title": "AI 워크플로는 왜 같은 입력에도 결과가 달라질까 — 결정론적·확률적 흐름의 차이",
+      "category": "13 워크플로와 자동화"
+    },
+    {
+      "number": 314,
+      "code": "K13-05",
+      "title": "Trigger와 Event란 무엇인가",
+      "category": "13 워크플로와 자동화"
+    },
+    {
+      "number": 315,
+      "code": "K13-06",
+      "title": "순차 실행과 병렬 실행은 무엇이 다른가",
+      "category": "13 워크플로와 자동화"
+    },
+    {
+      "number": 316,
+      "code": "K13-07",
+      "title": "Branching과 Routing이란 무엇인가",
+      "category": "13 워크플로와 자동화"
+    },
+    {
+      "number": 317,
+      "code": "K13-08",
+      "title": "State란 무엇인가",
+      "category": "13 워크플로와 자동화"
+    },
+    {
+      "number": 318,
+      "code": "K13-09",
+      "title": "State Machine이란 무엇인가",
+      "category": "13 워크플로와 자동화"
+    },
+    {
+      "number": 319,
+      "code": "K13-10",
+      "title": "Idempotency란 무엇인가",
+      "category": "13 워크플로와 자동화"
+    },
+    {
+      "number": 320,
+      "code": "K13-11",
+      "title": "Human-in-the-loop란 무엇인가",
+      "category": "13 워크플로와 자동화"
+    },
+    {
+      "number": 321,
+      "code": "K13-12",
+      "title": "Orchestration이란 무엇인가",
+      "category": "13 워크플로와 자동화"
+    },
+    {
+      "number": 322,
+      "code": "K13-13",
+      "title": "AI Workflow가 중간에 자꾸 실패하는 이유",
+      "category": "13 워크플로와 자동화"
+    },
+    {
+      "number": 323,
+      "code": "K13-14",
+      "title": "작업 큐와 백그라운드 작업이란 무엇인가",
+      "category": "13 워크플로와 자동화"
+    },
+    {
+      "number": 324,
+      "code": "K13-15",
+      "title": "자동화가 절반만 성공했을 때 어떻게 복구할까 — 중복 실행·부분 성공·보상 작업",
+      "category": "13 워크플로와 자동화"
+    },
+    {
+      "number": 325,
+      "code": "K14-01",
+      "title": "AI Agent란 무엇인가 — 챗봇과 달리 직접 행동하는 시스템",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 326,
+      "code": "K14-02",
+      "title": "Agentic System이란 무엇인가",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 327,
+      "code": "K14-03",
+      "title": "Chatbot·Assistant·Agent는 무엇이 다를까 — 어디까지 스스로 행동하는가",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 328,
+      "code": "K14-04",
+      "title": "AI Agent는 어떻게 반복해서 일을 끝낼까 — Agent Loop란 무엇인가",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 329,
+      "code": "K14-05",
+      "title": "Goal과 Task는 무엇이 다른가",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 330,
+      "code": "K14-06",
+      "title": "Agent의 Planning이란 무엇인가",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 331,
+      "code": "K14-07",
+      "title": "Plan-and-Execute 패턴이란 무엇인가",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 332,
+      "code": "K14-08",
+      "title": "ReAct 패턴이란 무엇인가",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 333,
+      "code": "K14-09",
+      "title": "Reflection이란 무엇인가",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 334,
+      "code": "K14-10",
+      "title": "Agent의 Tool과 Action이란 무엇인가",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 335,
+      "code": "K14-11",
+      "title": "Agent의 Observation이란 무엇인가",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 336,
+      "code": "K14-12",
+      "title": "Agent State란 무엇인가",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 337,
+      "code": "K14-13",
+      "title": "에이전트는 언제 멈춰야 할까 — Stop Condition이 필요한 이유",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 338,
+      "code": "K14-14",
+      "title": "Agent의 자율성 수준이란 무엇인가",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 339,
+      "code": "K14-15",
+      "title": "Single-agent와 Multi-agent는 무엇이 다른가",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 340,
+      "code": "K14-16",
+      "title": "Subagent란 무엇인가",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 341,
+      "code": "K14-17",
+      "title": "Delegation과 Handoff란 무엇인가",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 342,
+      "code": "K14-18",
+      "title": "Agent Communication이란 무엇인가",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 343,
+      "code": "K14-19",
+      "title": "Agent Environment란 무엇인가",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 344,
+      "code": "K14-20",
+      "title": "Agent Harness란 무엇인가 — 에이전트가 실제로 일하게 만드는 실행 환경",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 345,
+      "code": "K14-21",
+      "title": "AI Agent에게 몇 시간짜리 일을 맡기려면 무엇이 필요할까 — Long-running Agent",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 346,
+      "code": "K14-22",
+      "title": "Computer-use Agent란 무엇인가",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 347,
+      "code": "K14-23",
+      "title": "Browser Agent란 무엇인가",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 348,
+      "code": "K14-24",
+      "title": "Coding Agent란 무엇인가",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 349,
+      "code": "K14-25",
+      "title": "AI 에이전트가 ‘완료했다’고 해도 확인해야 하는 이유",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 350,
+      "code": "K14-26",
+      "title": "AI Agent에서 도구·지침·권한·실행 환경은 어떻게 연결될까",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 351,
+      "code": "K14-27",
+      "title": "위임 비용과 에이전트 간 조정 실패란 무엇인가",
+      "category": "14 에이전트와 하네스"
+    },
+    {
+      "number": 352,
+      "code": "K15-01",
+      "title": "AI의 대화 기록·Context·Memory는 무엇이 다를까",
+      "category": "15 메모리와 지속성"
+    },
+    {
+      "number": 353,
+      "code": "K15-02",
+      "title": "Agent Memory란 무엇인가",
+      "category": "15 메모리와 지속성"
+    },
+    {
+      "number": 354,
+      "code": "K15-03",
+      "title": "Short-term Memory와 Long-term Memory는 무엇이 다른가",
+      "category": "15 메모리와 지속성"
+    },
+    {
+      "number": 355,
+      "code": "K15-04",
+      "title": "AI가 나를 기억하면 모델이 다시 학습한 걸까 — Memory·개인화·재학습의 차이",
+      "category": "15 메모리와 지속성"
+    },
+    {
+      "number": 356,
+      "code": "K15-05",
+      "title": "에피소드·사실·절차를 기억한다는 것은 무엇인가",
+      "category": "15 메모리와 지속성"
+    },
+    {
+      "number": 357,
+      "code": "K15-06",
+      "title": "메모리의 기록·검색·갱신·삭제 주기란 무엇인가",
+      "category": "15 메모리와 지속성"
+    },
+    {
+      "number": 358,
+      "code": "K15-07",
+      "title": "AI 기억에도 출처와 유효기간이 필요한 이유",
+      "category": "15 메모리와 지속성"
+    },
+    {
+      "number": 359,
+      "code": "K15-08",
+      "title": "AI가 잘못 기억하거나 서로 다른 기억을 만들 수 있는 이유",
+      "category": "15 메모리와 지속성"
+    },
+    {
+      "number": 360,
+      "code": "K15-09",
+      "title": "사용자·프로젝트·조직의 메모리 범위는 무엇이 다른가",
+      "category": "15 메모리와 지속성"
+    },
+    {
+      "number": 361,
+      "code": "K15-10",
+      "title": "세션 종료 뒤에도 상태를 보존한다는 것은 무엇인가",
+      "category": "15 메모리와 지속성"
+    },
+    {
+      "number": 362,
+      "code": "K15-11",
+      "title": "AI의 현재 관찰과 과거 기억은 어떻게 구분해야 할까 (신규 추가)",
+      "category": "15 메모리와 지속성"
+    },
+    {
+      "number": 363,
+      "code": "K15-12",
+      "title": "증거가 변조되지 않았다는 것과 내용이 사실이라는 것은 다르다 (신규 추가)",
+      "category": "15 메모리와 지속성"
+    },
+    {
+      "number": 364,
+      "code": "K16-01",
+      "title": "AI 상호운용성이란 무엇인가",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 365,
+      "code": "K16-02",
+      "title": "Skill·Tool·MCP·Subagent는 무엇이 다를까 — AI에게 일을 맡기는 네 가지 방식",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 366,
+      "code": "K16-03",
+      "title": "MCP란 무엇인가 — AI와 외부 도구를 연결하는 표준이 필요한 이유",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 367,
+      "code": "K16-04",
+      "title": "Agent Skill이란 무엇인가 — AI에게 작업 방법을 묶어서 제공하는 방식",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 368,
+      "code": "K16-05",
+      "title": "MCP Host·Client·Server는 무엇이 다른가",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 369,
+      "code": "K16-06",
+      "title": "MCP Tool이란 무엇인가",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 370,
+      "code": "K16-07",
+      "title": "MCP Resource란 무엇인가",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 371,
+      "code": "K16-08",
+      "title": "MCP Prompt란 무엇인가",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 372,
+      "code": "K16-09",
+      "title": "MCP Sampling이란 무엇인가",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 373,
+      "code": "K16-10",
+      "title": "MCP Elicitation이란 무엇인가",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 374,
+      "code": "K16-11",
+      "title": "MCP Transport란 무엇인가",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 375,
+      "code": "K16-12",
+      "title": "MCP Capability Negotiation이란 무엇인가",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 376,
+      "code": "K16-13",
+      "title": "MCP Tool Discovery란 무엇인가",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 377,
+      "code": "K16-14",
+      "title": "MCP Authorization이란 무엇인가",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 378,
+      "code": "K16-15",
+      "title": "MCP와 일반 API는 무엇이 다를까 — 연결 방식의 차이",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 379,
+      "code": "K16-16",
+      "title": "MCP와 Function Calling은 같은 것일까 — 역할 차이",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 380,
+      "code": "K16-17",
+      "title": "MCP를 연결하면 어떤 보안 문제가 생길 수 있을까",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 381,
+      "code": "K16-18",
+      "title": "A2A란 무엇인가",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 382,
+      "code": "K16-19",
+      "title": "MCP와 A2A는 무엇이 다를까 — 도구 연결과 에이전트 협업의 차이",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 383,
+      "code": "K16-20",
+      "title": "Agent Card와 Capability Discovery란 무엇인가",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 384,
+      "code": "K16-21",
+      "title": "Agent Protocol의 Versioning과 Governance란 무엇인가",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 385,
+      "code": "K16-22",
+      "title": "필요할 때 지침을 읽는 Progressive Disclosure란 무엇인가",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 386,
+      "code": "K16-23",
+      "title": "MCP의 핵심 기능·확장·실험 기능은 무엇이 다른가",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 387,
+      "code": "K16-24",
+      "title": "MCP Apps란 무엇인가",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 388,
+      "code": "K16-25",
+      "title": "프로토콜의 Task·Message·Artifact는 무엇인가",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 389,
+      "code": "K16-26",
+      "title": "Deprecated는 삭제됐다는 뜻일까 — 지원 중단 예고와 기능 제거의 차이",
+      "category": "16 MCP·Skills·A2A와 상호운용성"
+    },
+    {
+      "number": 390,
+      "code": "K17-01",
+      "title": "프롬프트만 잘 쓰면 충분할까 — Context·Harness·Loop 설계까지 필요한 이유",
+      "category": "17 반복 실행과 그래프 구조"
+    },
+    {
+      "number": 391,
+      "code": "K17-02",
+      "title": "AI 반복 실행은 무엇으로 시작하고 언제 끝나야 할까 — Trigger·Verifier·Stop Rule",
+      "category": "17 반복 실행과 그래프 구조"
+    },
+    {
+      "number": 392,
+      "code": "K17-03",
+      "title": "주기·예약·이벤트 기반 에이전트 실행은 무엇이 다른가",
+      "category": "17 반복 실행과 그래프 구조"
+    },
+    {
+      "number": 393,
+      "code": "K17-04",
+      "title": "목표 달성형 반복 실행이란 무엇인가",
+      "category": "17 반복 실행과 그래프 구조"
+    },
+    {
+      "number": 394,
+      "code": "K17-05",
+      "title": "Self-prompting이란 무엇인가",
+      "category": "17 반복 실행과 그래프 구조"
+    },
+    {
+      "number": 395,
+      "code": "K17-06",
+      "title": "모델·시스템·사용자의 피드백 루프는 무엇이 다른가",
+      "category": "17 반복 실행과 그래프 구조"
+    },
+    {
+      "number": 396,
+      "code": "K17-07",
+      "title": "루프의 Verifier란 무엇인가",
+      "category": "17 반복 실행과 그래프 구조"
+    },
+    {
+      "number": 397,
+      "code": "K17-08",
+      "title": "AI Agent가 멈추지 않고 계속 돈다면 — 루프 폭주와 토큰 예산 제어",
+      "category": "17 반복 실행과 그래프 구조"
+    },
+    {
+      "number": 398,
+      "code": "K17-09",
+      "title": "AI Agent 작업에 사람은 언제 개입해야 할까",
+      "category": "17 반복 실행과 그래프 구조"
+    },
+    {
+      "number": 399,
+      "code": "K17-10",
+      "title": "Loop Observability란 무엇인가",
+      "category": "17 반복 실행과 그래프 구조"
+    },
+    {
+      "number": 400,
+      "code": "K17-11",
+      "title": "에이전트 그래프의 노드·엣지·상태란 무엇인가",
+      "category": "17 반복 실행과 그래프 구조"
+    },
+    {
+      "number": 401,
+      "code": "K17-12",
+      "title": "정적 그래프와 동적 그래프는 무엇이 다른가",
+      "category": "17 반복 실행과 그래프 구조"
+    },
+    {
+      "number": 402,
+      "code": "K17-13",
+      "title": "멀티 에이전트의 역할 배분·의존성·조정이란 무엇인가",
+      "category": "17 반복 실행과 그래프 구조"
+    },
+    {
+      "number": 403,
+      "code": "K17-14",
+      "title": "Loop·Graph 설계가 복잡해질수록 실패하는 이유",
+      "category": "17 반복 실행과 그래프 구조"
+    },
+    {
+      "number": 404,
+      "code": "K17-15",
+      "title": "AI 작업이 중간에 끊겨도 이어서 실행하려면 — Durable Execution",
+      "category": "17 반복 실행과 그래프 구조"
+    },
+    {
+      "number": 405,
+      "code": "K17-16",
+      "title": "공유 상태의 충돌과 동시성 제어는 무엇인가",
+      "category": "17 반복 실행과 그래프 구조"
+    },
+    {
+      "number": 406,
+      "code": "K17-17",
+      "title": "그래프의 순환·교착·도달 불가능 상태는 무엇인가",
+      "category": "17 반복 실행과 그래프 구조"
+    },
+    {
+      "number": 407,
+      "code": "K18-01",
+      "title": "AI Safety와 AI Security는 무엇이 다른가",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 408,
+      "code": "K18-02",
+      "title": "Prompt Injection이란 무엇인가 — AI가 외부 지시에 속을 수 있는 이유",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 409,
+      "code": "K18-03",
+      "title": "직접 공격과 문서 속 공격은 어떻게 다를까 — Direct·Indirect Prompt Injection",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 410,
+      "code": "K18-04",
+      "title": "Jailbreak란 무엇인가",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 411,
+      "code": "K18-05",
+      "title": "Adversarial Example이란 무엇인가",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 412,
+      "code": "K18-06",
+      "title": "Data Poisoning이란 무엇인가",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 413,
+      "code": "K18-07",
+      "title": "Backdoor와 Sleeper Agent란 무엇인가",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 414,
+      "code": "K18-08",
+      "title": "Context Poisoning이란 무엇인가",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 415,
+      "code": "K18-09",
+      "title": "Memory Poisoning이란 무엇인가",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 416,
+      "code": "K18-10",
+      "title": "Tool Poisoning이란 무엇인가",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 417,
+      "code": "K18-11",
+      "title": "AI에 넣은 비밀정보가 밖으로 나갈 수 있는 이유 — Sensitive Information Disclosure",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 418,
+      "code": "K18-12",
+      "title": "Insecure Output Handling이란 무엇인가",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 419,
+      "code": "K18-13",
+      "title": "AI Agent에게 권한을 너무 많이 주면 생기는 문제 — Excessive Agency",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 420,
+      "code": "K18-14",
+      "title": "Guardrail이란 무엇인가",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 421,
+      "code": "K18-15",
+      "title": "Input Validation과 Output Validation이란 무엇인가",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 422,
+      "code": "K18-16",
+      "title": "Output Filtering이란 무엇인가",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 423,
+      "code": "K18-17",
+      "title": "Sandboxing이란 무엇인가",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 424,
+      "code": "K18-18",
+      "title": "AI Agent에 최소 권한 원칙이 필요한 이유",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 425,
+      "code": "K18-19",
+      "title": "Human Approval Gate란 무엇인가",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 426,
+      "code": "K18-20",
+      "title": "AI Threat Modeling이란 무엇인가",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 427,
+      "code": "K18-21",
+      "title": "AI Red Teaming이란 무엇인가",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 428,
+      "code": "K18-22",
+      "title": "Alignment Faking이란 무엇인가",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 429,
+      "code": "K18-23",
+      "title": "AI Supply-chain Risk란 무엇인가",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 430,
+      "code": "K18-24",
+      "title": "AI가 읽는 모든 입력을 믿으면 안 되는 이유 — 신뢰 경계와 비신뢰 입력",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 431,
+      "code": "K18-25",
+      "title": "API 키와 비밀번호는 어떻게 실수로 노출될까 — 비밀정보·자격 증명 보호",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 432,
+      "code": "K18-26",
+      "title": "에이전트의 신원과 위임된 권한은 무엇인가",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 433,
+      "code": "K18-27",
+      "title": "AI Agent의 읽기·쓰기·삭제·전송 권한을 나눠야 하는 이유",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 434,
+      "code": "K18-28",
+      "title": "AI Agent의 실행 결과가 데이터 유출로 이어지는 경우",
+      "category": "18 AI 안전과 보안"
+    },
+    {
+      "number": 435,
+      "code": "K19-01",
+      "title": "AI Evaluation이란 무엇인가",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 436,
+      "code": "K19-02",
+      "title": "Metric과 Evaluation Criteria는 무엇이 다른가",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 437,
+      "code": "K19-03",
+      "title": "Rubric이란 무엇인가",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 438,
+      "code": "K19-04",
+      "title": "Test Case란 무엇인가",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 439,
+      "code": "K19-05",
+      "title": "Golden Dataset이란 무엇인가",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 440,
+      "code": "K19-06",
+      "title": "Benchmark란 무엇인가",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 441,
+      "code": "K19-07",
+      "title": "AI 벤치마크 1등이면 실제로도 가장 좋을까 — 점수 읽는 법",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 442,
+      "code": "K19-08",
+      "title": "벤치마크 점수와 내가 써본 느낌이 다른 이유",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 443,
+      "code": "K19-09",
+      "title": "Benchmark Contamination이란 무엇인가",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 444,
+      "code": "K19-10",
+      "title": "Benchmark Saturation이란 무엇인가",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 445,
+      "code": "K19-11",
+      "title": "Programmatic Evaluation이란 무엇인가",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 446,
+      "code": "K19-12",
+      "title": "Human Evaluation이란 무엇인가",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 447,
+      "code": "K19-13",
+      "title": "AI가 AI를 평가해도 될까 — LLM-as-a-Judge란 무엇인가",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 448,
+      "code": "K19-14",
+      "title": "Pairwise Evaluation이란 무엇인가",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 449,
+      "code": "K19-15",
+      "title": "Reference-based와 Reference-free Evaluation은 무엇이 다른가",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 450,
+      "code": "K19-16",
+      "title": "Offline과 Online Evaluation은 무엇이 다른가",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 451,
+      "code": "K19-17",
+      "title": "RAG Evaluation이란 무엇인가",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 452,
+      "code": "K19-18",
+      "title": "AI Agent를 평가할 때 답변만 보면 안 되는 이유",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 453,
+      "code": "K19-19",
+      "title": "Tool-use Evaluation이란 무엇인가",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 454,
+      "code": "K19-20",
+      "title": "Safety Evaluation이란 무엇인가",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 455,
+      "code": "K19-21",
+      "title": "Regression Evaluation이란 무엇인가",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 456,
+      "code": "K19-22",
+      "title": "Continuous Evaluation이란 무엇인가",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 457,
+      "code": "K19-23",
+      "title": "평가의 통계적 불확실성이란 무엇인가",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 458,
+      "code": "K19-24",
+      "title": "평가 데이터의 대표성과 편향이란 무엇인가",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 459,
+      "code": "K19-25",
+      "title": "에이전트 평가에서 Task·Trial·Trace·Outcome을 왜 나눌까",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 460,
+      "code": "K19-26",
+      "title": "AI가 여러 번 시도했을 때 성공률은 어떻게 봐야 할까 — Pass@k와 Pass\\^k",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 461,
+      "code": "K19-27",
+      "title": "평가자 간 일치도와 LLM 평가자의 편향이란 무엇인가",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 462,
+      "code": "K19-28",
+      "title": "같은 AI도 평가 조건이 바뀌면 점수가 달라지는 이유",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 463,
+      "code": "K19-29",
+      "title": "평가 인지(Evaluation Awareness)란 무엇인가",
+      "category": "19 평가와 벤치마크"
+    },
+    {
+      "number": 464,
+      "code": "K20-01",
+      "title": "로컬 AI라고 모두 내 PC에서 계산하는 건 아니다 — 로컬·클라우드·하이브리드 추론",
+      "category": "20 로컬 AI와 실행 자원"
+    },
+    {
+      "number": 465,
+      "code": "K20-02",
+      "title": "On-device AI란 무엇인가",
+      "category": "20 로컬 AI와 실행 자원"
+    },
+    {
+      "number": 466,
+      "code": "K20-03",
+      "title": "Small Language Model이란 무엇인가",
+      "category": "20 로컬 AI와 실행 자원"
+    },
+    {
+      "number": 467,
+      "code": "K20-04",
+      "title": "GPU와 AI 가속기는 왜 필요한가",
+      "category": "20 로컬 AI와 실행 자원"
+    },
+    {
+      "number": 468,
+      "code": "K20-05",
+      "title": "내 컴퓨터에서 어떤 AI 모델까지 돌릴 수 있을까 — RAM·VRAM·모델 크기·Context",
+      "category": "20 로컬 AI와 실행 자원"
+    },
+    {
+      "number": 469,
+      "code": "K20-06",
+      "title": "모델 파일·토크나이저·추론 엔진은 무엇이 다른가",
+      "category": "20 로컬 AI와 실행 자원"
+    },
+    {
+      "number": 470,
+      "code": "K20-07",
+      "title": "AI 모델을 더 작게 줄이는 방법 — Quantization과 품질·속도의 trade-off",
+      "category": "20 로컬 AI와 실행 자원"
+    },
+    {
+      "number": 471,
+      "code": "K20-08",
+      "title": "CPU·GPU Offloading과 메모리 부족은 무엇인가",
+      "category": "20 로컬 AI와 실행 자원"
+    },
+    {
+      "number": 472,
+      "code": "K20-09",
+      "title": "Prefill과 Decode는 무엇이 다른가",
+      "category": "20 로컬 AI와 실행 자원"
+    },
+    {
+      "number": 473,
+      "code": "K20-10",
+      "title": "로컬 AI를 쓰면 데이터가 절대 밖으로 안 나갈까 — 외부 연결·텔레메트리·업데이트",
+      "category": "20 로컬 AI와 실행 자원"
+    },
+    {
+      "number": 474,
+      "code": "K21-01",
+      "title": "MLOps와 LLMOps는 무엇이 다른가",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 475,
+      "code": "K21-02",
+      "title": "AI Observability란 무엇인가",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 476,
+      "code": "K21-03",
+      "title": "AI 시스템 문제는 어디서 찾을까 — Logging·Metrics·Tracing의 차이",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 477,
+      "code": "K21-04",
+      "title": "Agent Trace란 무엇인가",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 478,
+      "code": "K21-05",
+      "title": "Model Serving이란 무엇인가",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 479,
+      "code": "K21-06",
+      "title": "추론 최적화와 배칭이란 무엇인가",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 480,
+      "code": "K21-07",
+      "title": "AI가 느리다고 할 때 무엇이 느린 걸까 — Latency란 무엇인가",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 481,
+      "code": "K21-08",
+      "title": "Throughput과 Concurrency는 무엇이 다른가",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 482,
+      "code": "K21-09",
+      "title": "Reliability와 Availability는 무엇이 다른가",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 483,
+      "code": "K21-10",
+      "title": "Retry·Backoff·Timeout이란 무엇인가",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 484,
+      "code": "K21-11",
+      "title": "Circuit Breaker란 무엇인가",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 485,
+      "code": "K21-12",
+      "title": "실행 체크포인트란 무엇인가",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 486,
+      "code": "K21-13",
+      "title": "Failure Recovery란 무엇인가",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 487,
+      "code": "K21-14",
+      "title": "더 싸고 빠르고 좋은 AI를 동시에 만들 수 있을까 — 비용·속도·품질의 trade-off",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 488,
+      "code": "K21-15",
+      "title": "Model Versioning이란 무엇인가",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 489,
+      "code": "K21-16",
+      "title": "Prompt Versioning이란 무엇인가",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 490,
+      "code": "K21-17",
+      "title": "Model Drift와 Data Drift란 무엇인가",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 491,
+      "code": "K21-18",
+      "title": "Canary와 A/B Test란 무엇인가",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 492,
+      "code": "K21-19",
+      "title": "AI Incident란 무엇인가",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 493,
+      "code": "K21-20",
+      "title": "Rollback과 Kill Switch란 무엇인가",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 494,
+      "code": "K21-21",
+      "title": "AI가 빨리 말하기 시작해도 전체 응답은 느릴 수 있다 — 첫 토큰 지연과 전체 시간",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 495,
+      "code": "K21-22",
+      "title": "AI 비용은 요청당이 아니라 성공한 작업당 봐야 하는 이유",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 496,
+      "code": "K21-23",
+      "title": "요금 한도·사용량 한도·실행 예산은 무엇이 다른가",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 497,
+      "code": "K21-24",
+      "title": "의존성·도구·모델 업데이트와 호환성은 어떤 관계인가",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 498,
+      "code": "K21-25",
+      "title": "자동 발행은 왜 성공 표시만으로 끝나지 않는가 — 공개 상태 대조 (신규 추가)",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 499,
+      "code": "K21-26",
+      "title": "AI 자동화의 감사 기록이란 무엇인가 — 실행과 결과를 검증하는 방법 (신규 추가)",
+      "category": "21 AI 시스템 운영"
+    },
+    {
+      "number": 500,
+      "code": "K22-01",
+      "title": "AI를 개발 과정에 통합한다는 것은 무엇인가",
+      "category": "22 AI와 소프트웨어 개발"
+    },
+    {
+      "number": 501,
+      "code": "K22-02",
+      "title": "AI Coding Assistant란 무엇인가",
+      "category": "22 AI와 소프트웨어 개발"
+    },
+    {
+      "number": 502,
+      "code": "K22-03",
+      "title": "AI Coding Assistant와 Coding Agent는 무엇이 다른가",
+      "category": "22 AI와 소프트웨어 개발"
+    },
+    {
+      "number": 503,
+      "code": "K22-04",
+      "title": "Vibe Coding이란 무엇인가 — AI에게 말로 코딩을 맡기는 방식과 한계",
+      "category": "22 AI와 소프트웨어 개발"
+    },
+    {
+      "number": 504,
+      "code": "K22-05",
+      "title": "대화형 개발이란 무엇인가",
+      "category": "22 AI와 소프트웨어 개발"
+    },
+    {
+      "number": 505,
+      "code": "K22-06",
+      "title": "명세 중심 개발(Specification-driven Development)이란 무엇인가",
+      "category": "22 AI와 소프트웨어 개발"
+    },
+    {
+      "number": 506,
+      "code": "K22-07",
+      "title": "Repository Context란 무엇인가",
+      "category": "22 AI와 소프트웨어 개발"
+    },
+    {
+      "number": 507,
+      "code": "K22-08",
+      "title": "Repository Instruction File이란 무엇인가",
+      "category": "22 AI와 소프트웨어 개발"
+    },
+    {
+      "number": 508,
+      "code": "K22-09",
+      "title": "AI를 이용한 코드 생성이란 무엇인가",
+      "category": "22 AI와 소프트웨어 개발"
+    },
+    {
+      "number": 509,
+      "code": "K22-10",
+      "title": "AI를 이용한 코드 리뷰란 무엇인가",
+      "category": "22 AI와 소프트웨어 개발"
+    },
+    {
+      "number": 510,
+      "code": "K22-11",
+      "title": "AI를 이용한 테스트 생성이란 무엇인가",
+      "category": "22 AI와 소프트웨어 개발"
+    },
+    {
+      "number": 511,
+      "code": "K22-12",
+      "title": "AI가 만든 코드가 실행돼도 그대로 믿으면 안 되는 이유",
+      "category": "22 AI와 소프트웨어 개발"
+    },
+    {
+      "number": 512,
+      "code": "K22-13",
+      "title": "AI가 만든 코드에는 어떤 보안 문제가 숨어 있을까",
+      "category": "22 AI와 소프트웨어 개발"
+    },
+    {
+      "number": 513,
+      "code": "K22-14",
+      "title": "AI와 기술 부채는 어떤 관계인가",
+      "category": "22 AI와 소프트웨어 개발"
+    },
+    {
+      "number": 514,
+      "code": "K22-15",
+      "title": "AI가 코드를 짰다면 버그의 책임은 누구에게 있을까",
+      "category": "22 AI와 소프트웨어 개발"
+    },
+    {
+      "number": 515,
+      "code": "K22-16",
+      "title": "Agentic Software Engineering이란 무엇인가",
+      "category": "22 AI와 소프트웨어 개발"
+    },
+    {
+      "number": 516,
+      "code": "K22-17",
+      "title": "소프트웨어 개발용 하네스는 무엇을 제공하는가",
+      "category": "22 AI와 소프트웨어 개발"
+    },
+    {
+      "number": 517,
+      "code": "K22-18",
+      "title": "요구사항·명세·인수 조건은 무엇이 다른가",
+      "category": "22 AI와 소프트웨어 개발"
+    },
+    {
+      "number": 518,
+      "code": "K22-19",
+      "title": "AI가 바꾼 코드를 검토하려면 Diff부터 봐야 하는 이유",
+      "category": "22 AI와 소프트웨어 개발"
+    },
+    {
+      "number": 519,
+      "code": "K22-20",
+      "title": "단위·통합·종단간 테스트는 무엇이 다른가",
+      "category": "22 AI와 소프트웨어 개발"
+    },
+    {
+      "number": 520,
+      "code": "K22-21",
+      "title": "AI가 만든 테스트가 자기 코드를 놓칠 수 있는 이유",
+      "category": "22 AI와 소프트웨어 개발"
+    },
+    {
+      "number": 521,
+      "code": "K22-22",
+      "title": "프로토타입이 돌아간다고 제품이 된 것은 아니다 — MVP·운영 제품의 차이",
+      "category": "22 AI와 소프트웨어 개발"
+    },
+    {
+      "number": 522,
+      "code": "K22-23",
+      "title": "재현 환경과 의존성 고정은 왜 필요한가",
+      "category": "22 AI와 소프트웨어 개발"
+    },
+    {
+      "number": 523,
+      "code": "K23-01",
+      "title": "AI는 LLM만 있는 게 아니다 — 주요 AI 분야 한눈에 보기",
+      "category": "23 확장 분야와 물리 세계"
+    },
+    {
+      "number": 524,
+      "code": "K23-02",
+      "title": "Natural Language Processing이란 무엇인가",
+      "category": "23 확장 분야와 물리 세계"
+    },
+    {
+      "number": 525,
+      "code": "K23-03",
+      "title": "Computer Vision이란 무엇인가",
+      "category": "23 확장 분야와 물리 세계"
+    },
+    {
+      "number": 526,
+      "code": "K23-04",
+      "title": "Image Classification이란 무엇인가",
+      "category": "23 확장 분야와 물리 세계"
+    },
+    {
+      "number": 527,
+      "code": "K23-05",
+      "title": "Object Detection이란 무엇인가",
+      "category": "23 확장 분야와 물리 세계"
+    },
+    {
+      "number": 528,
+      "code": "K23-06",
+      "title": "Image Segmentation이란 무엇인가",
+      "category": "23 확장 분야와 물리 세계"
+    },
+    {
+      "number": 529,
+      "code": "K23-07",
+      "title": "Vision-language Model이란 무엇인가",
+      "category": "23 확장 분야와 물리 세계"
+    },
+    {
+      "number": 530,
+      "code": "K23-08",
+      "title": "추천 시스템은 어떻게 ‘내가 좋아할 것’을 고를까",
+      "category": "23 확장 분야와 물리 세계"
+    },
+    {
+      "number": 531,
+      "code": "K23-09",
+      "title": "시계열 예측이란 무엇인가",
+      "category": "23 확장 분야와 물리 세계"
+    },
+    {
+      "number": 532,
+      "code": "K23-10",
+      "title": "AI는 이상한 데이터를 어떻게 찾아낼까 — 이상 탐지란 무엇인가",
+      "category": "23 확장 분야와 물리 세계"
+    },
+    {
+      "number": 533,
+      "code": "K23-11",
+      "title": "Graph Neural Network란 무엇인가",
+      "category": "23 확장 분야와 물리 세계"
+    },
+    {
+      "number": 534,
+      "code": "K23-12",
+      "title": "Spatial Intelligence란 무엇인가",
+      "category": "23 확장 분야와 물리 세계"
+    },
+    {
+      "number": 535,
+      "code": "K23-13",
+      "title": "Embodied AI란 무엇인가",
+      "category": "23 확장 분야와 물리 세계"
+    },
+    {
+      "number": 536,
+      "code": "K23-14",
+      "title": "Robotics에서 Perception·Planning·Control은 무엇인가",
+      "category": "23 확장 분야와 물리 세계"
+    },
+    {
+      "number": 537,
+      "code": "K23-15",
+      "title": "Vision-Language-Action Model이란 무엇인가",
+      "category": "23 확장 분야와 물리 세계"
+    },
+    {
+      "number": 538,
+      "code": "K23-16",
+      "title": "World Model이란 무엇인가 — AI가 세상의 변화를 예측하려는 방법",
+      "category": "23 확장 분야와 물리 세계"
+    },
+    {
+      "number": 539,
+      "code": "K23-17",
+      "title": "AI는 과학 연구에서 실제로 어떻게 쓰일까",
+      "category": "23 확장 분야와 물리 세계"
+    },
+    {
+      "number": 540,
+      "code": "K23-18",
+      "title": "추천의 후보 생성·랭킹·피드백 루프는 무엇인가",
+      "category": "23 확장 분야와 물리 세계"
+    },
+    {
+      "number": 541,
+      "code": "K23-19",
+      "title": "로봇의 시뮬레이션과 Sim-to-real은 무엇이 다른가",
+      "category": "23 확장 분야와 물리 세계"
+    },
+    {
+      "number": 542,
+      "code": "K24-01",
+      "title": "Trustworthy AI란 무엇인가 — 에이전트의 신뢰 조건까지",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 543,
+      "code": "K24-02",
+      "title": "Responsible AI란 무엇인가",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 544,
+      "code": "K24-03",
+      "title": "AI Governance란 무엇인가 — AI를 조직에서 책임 있게 관리하는 방법",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 545,
+      "code": "K24-04",
+      "title": "AI Risk Management란 무엇인가",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 546,
+      "code": "K24-05",
+      "title": "AI는 왜 편향될까 — Algorithmic Bias란 무엇인가",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 547,
+      "code": "K24-06",
+      "title": "AI의 ‘공정함’은 하나의 기준으로 정할 수 있을까 — Fairness란 무엇인가",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 548,
+      "code": "K24-07",
+      "title": "Explainability와 Interpretability는 무엇이 다른가",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 549,
+      "code": "K24-08",
+      "title": "Transparency와 Disclosure란 무엇인가",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 550,
+      "code": "K24-09",
+      "title": "Accountability란 무엇인가",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 551,
+      "code": "K24-10",
+      "title": "Privacy와 Data Protection이란 무엇인가",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 552,
+      "code": "K24-11",
+      "title": "Data Governance란 무엇인가",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 553,
+      "code": "K24-12",
+      "title": "Data Provenance란 무엇인가",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 554,
+      "code": "K24-13",
+      "title": "AI 회사가 Model Card와 System Card를 공개하는 이유",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 555,
+      "code": "K24-14",
+      "title": "Content Provenance란 무엇인가",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 556,
+      "code": "K24-15",
+      "title": "AI 생성물에 표시나 Watermark가 필요한 이유",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 557,
+      "code": "K24-16",
+      "title": "AI가 만든 글·이미지의 저작권은 누구에게 있을까 — 핵심 쟁점 정리",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 558,
+      "code": "K24-17",
+      "title": "AI 라이선스란 무엇인가",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 559,
+      "code": "K24-18",
+      "title": "어떤 AI가 ‘고위험 AI’로 분류될까",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 560,
+      "code": "K24-19",
+      "title": "AI Impact Assessment란 무엇인가",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 561,
+      "code": "K24-20",
+      "title": "AI Incident Disclosure란 무엇인가",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 562,
+      "code": "K24-21",
+      "title": "AI Literacy란 무엇인가 — AI를 잘 쓰는 것보다 먼저 필요한 능력",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 563,
+      "code": "K24-22",
+      "title": "Frontier AI와 Systemic Risk란 무엇인가",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 564,
+      "code": "K24-23",
+      "title": "AI 한 번 쓰는 데 전기와 물은 얼마나 들까 — 환경 영향을 볼 때 확인할 것",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 565,
+      "code": "K24-24",
+      "title": "내가 AI에 넣은 데이터는 어디까지 쓰일까 — 수집·보관·학습 이용·제3자 전송의 차이",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 566,
+      "code": "K24-25",
+      "title": "Content Credentials와 C2PA는 무엇을 증명하고 무엇은 증명하지 못할까",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 567,
+      "code": "K24-26",
+      "title": "AI가 만들었다는 걸 탐지하는 것과 생성 이력을 증명하는 것은 무엇이 다를까",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 568,
+      "code": "K24-27",
+      "title": "AI를 많이 쓰면 정말 실력이 떨어질까 — 의존·학습 효과·숙련 저하",
+      "category": "24 권리·책임·사회"
+    },
+    {
+      "number": 569,
+      "code": "K24-28",
+      "title": "내 얼굴과 목소리를 AI가 써도 될까 — 동의·사칭·신원 사용의 문제",
+      "category": "24 권리·책임·사회"
+    }
+  ]
+}

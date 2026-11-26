@@ -10,12 +10,18 @@ from collections import deque
 import json,os,time
 
 WAKE_THRESHOLD = .25
-# Strict threshold from synthetic held-out voices: 11/12 target hits, 0/68
-# confusable/ordinary negative hits at 0.95. Real microphone still unverified.
-WAKEWORD_THRESHOLD = .95
+# English-only wake detection. The official openWakeWord "Hey Jarvis"
+# model alone misses some voices speaking just "Jarvis", so supplement it
+# with a locally trained English single-word model. Results are synthetic,
+# not a real-owner microphone accuracy guarantee. Keep speaker verification.
+WAKEWORD_THRESHOLD = .80
+ENGLISH_SOLO_THRESHOLD = .75
 COMMAND_THRESHOLD = .52
 CHUNK = 2560
-WAKE_MODEL = Path.home()/".jarvis-lab/wakeword/aegiya_ko_wake.onnx"
+WAKE_MODELS = [
+    Path.home()/".jarvis-lab/wakeword/hey_jarvis_v0.1.onnx",
+    Path.home()/".jarvis-lab/wakeword/jarvis_en_wake.onnx",
+]
 
 def assess(model, owner, raw, threshold, min_seconds):
     try:
@@ -61,9 +67,17 @@ class QuietWake:
 
     def predict(self,pcm):
         self.calls+=1
-        score=float(max(self.detector.predict(pcm).values()))
-        if not np.isfinite(score):raise ValueError("wake score")
-        return score
+        probabilities=self.detector.predict(pcm)
+        official=float(probabilities.get("hey_jarvis_v0.1",0.))
+        solo=float(probabilities.get("jarvis_en_wake",0.))
+        if not (np.isfinite(official) and np.isfinite(solo)):
+            raise ValueError("wake score")
+        # Each detector has its own validated synthetic threshold. Map the
+        # solo trigger onto the common 0.80..1.00 activation scale.
+        solo_normalized=(WAKEWORD_THRESHOLD + (solo-ENGLISH_SOLO_THRESHOLD)*
+                         ((1-WAKEWORD_THRESHOLD)/(1-ENGLISH_SOLO_THRESHOLD))
+                         if solo>=ENGLISH_SOLO_THRESHOLD else 0.)
+        return min(1., max(official,solo_normalized))
 
 class WakeDiagnostics:
     """Last rolling numerical summary only; never PCM, transcript or embedding."""
@@ -106,7 +120,8 @@ class WakeDiagnostics:
 
 def wake(model,owner,diagnostics=None):
     from openwakeword.model import Model
-    detector=Model(wakeword_models=[str(WAKE_MODEL)],inference_framework="onnx",ncpu=1)
+    detector=Model(wakeword_models=[str(path) for path in WAKE_MODELS],
+                   inference_framework="onnx",ncpu=1)
     gate=QuietWake(detector)
     ring=deque(maxlen=20) # most recent 1.6s only
     pending=0

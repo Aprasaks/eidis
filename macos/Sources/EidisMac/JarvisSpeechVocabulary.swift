@@ -7,8 +7,6 @@ import Foundation
 enum JarvisSpeechVocabulary {
     static let phrases: [String] = [
         "자비스",
-        "애기야",
-        "아기야",
         "데카",
         "데카이브",
         "DECHIVE",

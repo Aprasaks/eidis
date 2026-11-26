@@ -5,10 +5,12 @@ CHAT=(ROOT/"JarvisOverlayConversation.swift").read_text()
 UI=(ROOT/"JarvisFullscreenOverlay.swift").read_text()
 VOICE=(ROOT/"ElevenLabsVoiceService.swift").read_text()
 class TurnStability(unittest.TestCase):
-    def test_idle_mini_promotion_does_not_skip_greeting(self):
+    def test_idle_mini_promotion_preserves_active_turn_without_idle_speech(self):
         self.assertIn("let continuingActiveTurn = fullscreenDialogue?.wakeCaptureBusy == true",UI)
         self.assertIn("if continuingActiveTurn {",UI)
-        self.assertIn("dialogue.showSummonCaption()",UI)
+        self.assertIn("dialogue.resumeFullWorkspace()",UI)
+        self.assertIn("dialogue.prepareHomeStandby()",UI)
+        self.assertNotIn("dialogue.showSummonCaption()",UI)
         self.assertIn("fallback.speak(Self.summonGreeting, rateOverride: Self.summonFallbackRate)",VOICE)
     def test_recognizer_stopped_and_missing_partial_time(self):
         self.assertIn("if !self.listener.isListening {\n                    self.completeUtterance()",CHAT)

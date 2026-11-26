@@ -48,12 +48,14 @@
 		BBAA00000000000000000021 /* JARVISAlarmStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISAlarmStore.swift; sourceTree = "<group>"; };
 		BBAA00000000000000000022 /* JARVISAlarmView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISAlarmView.swift; sourceTree = "<group>"; };
 		BBAA00000000000000000023 /* JARVISWakeConfirmationIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISWakeConfirmationIntent.swift; sourceTree = "<group>"; };
+		BBAA00000000000000003005 /* JARVISRemote.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = JARVISRemote.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
 		BBAA00000000000000004001 = {
 			isa = PBXGroup;
 			children = (
+				BBAA00000000000000003005 /* JARVISRemote.xcconfig */,
 				BBAA00000000000000004002 /* JARVIS */,
 				BBAA00000000000000004004 /* Products */,
 			);
@@ -225,10 +227,11 @@
 		};
 		BBAA00000000000000008003 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = BBAA00000000000000003005 /* JARVISRemote.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 19;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = JARVIS/Info.plist;
@@ -240,7 +243,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 0.4.1;
+				MARKETING_VERSION = 0.4.10;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.dechive.jarvis.mobile;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -252,10 +255,11 @@
 		};
 		BBAA00000000000000008004 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = BBAA00000000000000003005 /* JARVISRemote.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 19;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = JARVIS/Info.plist;
@@ -267,7 +271,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 0.4.1;
+				MARKETING_VERSION = 0.4.10;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.dechive.jarvis.mobile;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

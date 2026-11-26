@@ -43,7 +43,31 @@ enum JarvisLiveDashboardIntent: Equatable {
         let system = ["자비스상태", "시스템상태", "서버상태", "ollama상태", "로컬서버", "시스템진단"].contains { text.contains($0) }
         let close = ["닫아", "꺼줘", "숨겨", "치워", "내려", "접어"].contains { text.contains($0) }
         let returnToCore = ["원래대로돌아", "기본화면으로", "처음화면으로", "코어중앙으로", "관제실닫아", "관제실꺼", "전체현황닫아"].contains { text.contains($0) }
+        // The immersive workroom is the live overview, not a folder or
+        // generic web search. Do not open on a negated or close request.
+        let workroom = ["작업실", "운영실", "라이브작업실"].contains {
+            text.contains($0)
+        }
+        if workroom && close { return .hide }
+        if workroom && !["보여주지마", "열지마", "띄우지마", "말고"].contains(where: { text.contains($0) }) &&
+            ["보여", "열어", "띄워", "켜", "전환", "가자", "들어가"].contains(where: { text.contains($0) }) {
+            return .show(.overview)
+        }
         if returnToCore || (dashboard && close) { return .hide }
+        // Primary spoken command: "자비스" → "네 오빠" →
+        // "실시간 대시보드 열어봐". Resolve before generic search/Qwen.
+        // Speech recognition occasionally writes 대쉬보드/데시보드.
+        let liveBoard = ["실시간대시보드", "실시간대쉬보드", "실시간데시보드"]
+            .contains { text.contains($0) }
+        let liveBoardNegated = ["열지마", "띄우지마", "보여주지마", "켜지마", "말고"]
+            .contains { text.contains($0) }
+        // A negative phrase must not fall through to the generic
+        // "보여"/"열어" handler and accidentally open the panel.
+        if liveBoard && liveBoardNegated { return nil }
+        if liveBoard &&
+            ["열어", "띄워", "보여", "켜줘", "켜", "실행"].contains(where: { text.contains($0) }) {
+            return .show(.overview)
+        }
         // GitHub account status is backed by a real read-only gh API call.
         let githubRequest = ["깃허브", "github", "깃전체", "깃프로젝트", "git현황",
                              "vercel", "버셀"]
@@ -81,6 +105,25 @@ enum JarvisLiveDashboardIntent: Equatable {
             .contains(where: { text.hasPrefix($0) })
         if plainStatus && openWords.contains(where: { text.contains($0) }) {
             return .show(.overview)
+        }
+        // Existing, verified read-only screens must be accessible through
+        // ordinary speech, not only the magic word "대시보드".
+        // Never mistake a request for a project folder/file as a dashboard.
+        let opening = openWords.contains { text.contains($0) }
+        let localProjectList = ["내프로젝트", "우리프로젝트", "프로젝트들",
+                                "프로젝트목록", "프로젝트를", "프로젝트열어",
+                                "진행중인프로젝트"].contains { text.contains($0) }
+        let localArchive = ["내보관함", "자료보관함", "보관함", "저장자료",
+                            "저장한자료", "내지식", "지식보관함"].contains {
+            text.contains($0)
+        }
+        let fileRequest = ["파일", "폴더", "디렉터리", "소스코드", "문서원본",
+                           "깃허브저장소", "githubrepo"].contains { text.contains($0) }
+        let canceledRequest = ["열지마", "열지말", "띄우지마", "보여주지마",
+                               "하지마", "말고"].contains { text.contains($0) }
+        if opening && !fileRequest && !canceledRequest {
+            if localProjectList { return .show(.projects) }
+            if localArchive { return .show(.knowledge) }
         }
         if system && (dashboard || text.contains("자비스") || text.contains("시스템") || text.contains("서버") || text.contains("ollama")) {
             return .show(.system)
@@ -175,6 +218,7 @@ struct JarvisVerifiedSourceCheck: Identifiable {
 @MainActor
 final class JarvisLiveDashboard: ObservableObject {
     @Published private(set) var isVisible = false
+    @Published var workroomProject: JarvisWorkroomProject? = nil
     @Published private(set) var mode: JarvisLiveDashboardMode = .overview
     @Published private(set) var isLoading = false
     @Published private(set) var isRefreshing = false
@@ -313,8 +357,14 @@ final class JarvisLiveDashboard: ObservableObject {
                 _ = await self.refresh(id: id)
             }
         }
-        return loaded ? "오빠, \(selected.koreanName) 대시보드를 열었습니다. 로컬 데이터는 약 7초마다 갱신하고 GitHub는 10분, Vercel은 15분 간격으로 확인합니다."
-            : "\(selected.koreanName) 대시보드를 열었지만 일부 데이터를 가져오지 못했습니다. 연결 상태를 표시했습니다."
+        // A dashboard launch is a short conversational handoff, not a
+        // recitation of polling intervals. Refresh timing stays visible in UI.
+        if loaded {
+            return selected == .overview
+                ? "필요한 대시보드를 알려주세요."
+                : "\(selected.koreanName) 대시보드를 열었습니다."
+        }
+        return "\(selected.koreanName) 대시보드를 열었지만 일부 데이터를 가져오지 못했습니다. 연결 상태를 표시했습니다."
     }
 
     @discardableResult
@@ -433,6 +483,9 @@ final class JarvisLiveDashboard: ObservableObject {
     private func recordCheck(_ source: String, success: Bool, detail: String) {
         // These entries represent completed, real HTTP checks. They are never
         // synthetic 'AI jobs' or invented progress indicators.
+        // A periodic health check replaces the previous state of its source.
+        // It does not create another AI execution or a duplicate activity row.
+        sourceChecks.removeAll { $0.source == source }
         sourceChecks.insert(JarvisVerifiedSourceCheck(at: Date(), source: source,
                                                       success: success, detail: detail), at: 0)
         if sourceChecks.count > 40 { sourceChecks.removeLast(sourceChecks.count - 40) }
@@ -659,7 +712,23 @@ final class JarvisLiveDashboard: ObservableObject {
         }
     }
 
+    /// Called only while the overview is on screen. Persist the KST day so
+    /// returning to the overview or restarting in the same minute cannot reopen it.
+    @discardableResult
+    func openKnowledgeAtMidnightIfDue(now: Date = Date(), defaults: UserDefaults = .standard) -> Bool {
+        let key = JarvisKnowledgeMidnightNavigation.lastOpenedDayKey
+        guard let day = JarvisKnowledgeMidnightNavigation.dueDay(
+            at: now, lastOpenedDay: defaults.string(forKey: key),
+            overviewVisible: isVisible && mode == .overview,
+            projectAlreadyOpen: workroomProject != nil
+        ) else { return false }
+        defaults.set(day, forKey: key)
+        workroomProject = .dev
+        return true
+    }
+
     func hide() -> String {
+        workroomProject = nil
         revision = UUID()
         pollingTask?.cancel()
         pollingTask = nil

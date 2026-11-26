@@ -22,3 +22,6 @@ DerivedData/
 
 # Local macOS app build artifact
 dist/
+
+# Private per-device Tailscale configuration
+ios/JARVISRemote.local.xcconfig

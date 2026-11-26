@@ -31,8 +31,8 @@ class CasualProjectRecallContract(unittest.TestCase):
         self.assertIn('conversation.append(["role": "assistant", "content": inventory])', CHAT)
 
     def test_personal_call_and_correction_are_handled_without_lecture(self):
-        self.assertIn('["애기야", "아기야", "자비스", "자비스야"].contains(wake)', CHAT)
-        self.assertIn("네, 오라버니. 듣고 있어요.", CHAT)
+        self.assertIn('["자비스", "자비스야"].contains(wake)', CHAT)
+        self.assertIn("네, 오빠. 듣고 있어요.", CHAT)
         self.assertIn("사용자가 방금 정정한 말은 앞선 당신의 추정이나 오해보다 우선합니다", CHAT)
         self.assertIn("줄였다'는 말은 감소로 이해", CHAT)
         self.assertIn("수치가 앞뒤로 맞지 않는다면 추측하지 말고 짧게 확인", CHAT)

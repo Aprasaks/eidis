@@ -10,7 +10,7 @@ PLIST = (ROOT / 'macos/Resources/Info.plist').read_text()
 
 class OllamaFullscreenConversationContract(unittest.TestCase):
     def test_local_model_only_not_remote_brain(self):
-        for needle in ['http://127.0.0.1:11434/api/chat', 'qwen3.5:9b-q4_K_M',
+        for needle in ['http://127.0.0.1:11434/api/chat', 'JarvisLocalModelConfiguration.selectedModel',
                        '"think": false', '"stream": false',
                        '"num_predict": thinkingMode == .deliberate ? 380 : 260',
                        'URLSessionConfiguration.ephemeral', 'conversation.suffix(8)',
@@ -23,13 +23,12 @@ class OllamaFullscreenConversationContract(unittest.TestCase):
     def test_microphone_esc_and_utterance_turns(self):
         for needle in ['LocalSpeechListener()', 'listener.start()', 'listener.finish()',
                        'listener.cancel()', 'isListening', 'afterGreeting()',
-                       'if isActive { activateListening() }',
+                       'if dashboardDictationEnabled || isActive { activateListening() }',
                        'session.invalidateAndCancel()', 'generation = UUID()',
                        'SFSpeechRecognizer.authorizationStatus()',
                        'AVCaptureDevice.authorizationStatus(for: .audio)']:
             self.assertIn(needle, CHAT)
-        for needle in ['dialogue?.cancel()', 'speakSummonGreeting',
-                       'waitForOutputToFinish', 'await dialogue.afterGreeting()',
+        for needle in ['dialogue?.cancel()', 'dialogue.prepareHomeStandby()',
                        'if event.keyCode == 53', 'if let dialogue { dialogue.toggleMicrophone() }',
                        'jarvis-overlay-microphone', 'jarvis-overlay-text-input',
                        '.focused($isInputFocused)', 'dialogue.textInputFocused = focused',
@@ -46,7 +45,7 @@ class OllamaFullscreenConversationContract(unittest.TestCase):
         self.assertIn('moveToAdjacentScreen', OVERLAY)
         self.assertIn('NSSpeechRecognitionUsageDescription', PLIST)
         self.assertIn('NSMicrophoneUsageDescription', PLIST)
-        self.assertIn('<string>3.14.16</string>', PLIST)
+        self.assertIn('<string>3.14.47</string>', PLIST)
 
 if __name__ == '__main__':
     unittest.main()

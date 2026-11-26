@@ -6,15 +6,16 @@ OVERLAY = (ROOT / 'macos/Sources/EidisMac/JarvisFullscreenOverlay.swift').read_t
 ELEVEN = (ROOT / 'macos/Sources/EidisMac/ElevenLabsVoiceService.swift').read_text()
 
 class AriaFullscreenGreetingContract(unittest.TestCase):
-    def test_greeting_on_manual_summon_only(self):
-        self.assertIn('speakSummonGreeting(fallback: self.greetingFallback)', OVERLAY)
-        self.assertIn('let greetingFallback = JarvisVoiceService()', OVERLAY)
+    def test_quiet_home_does_not_speak_or_take_keyboard_focus(self):
+        self.assertIn('dialogue.prepareHomeStandby()', OVERLAY)
+        self.assertNotIn('speakSummonGreeting(fallback: self.greetingFallback)', OVERLAY)
+        self.assertNotIn('dialogue.showSummonCaption()', OVERLAY)
         self.assertIn('window.orderFrontRegardless()', OVERLAY)
-        self.assertLess(OVERLAY.index('window.orderFrontRegardless()\n        window.makeKey()'),
-                        OVERLAY.index('speakSummonGreeting(fallback: self.greetingFallback)'))
+        self.assertNotIn('window.orderFrontRegardless()\n        window.makeKey()', OVERLAY)
         self.assertIn('private static let summonGreeting = "오빠, 뭘 도와드릴까요?"', ELEVEN)
         self.assertIn('if !keyPresent { await refreshSavedKeyAvailability() }', ELEVEN)
         self.assertNotIn('SFSpeechRecognizer', OVERLAY)
+
     def test_cancel_on_escape_and_termination(self):
         self.assertIn('if event.keyCode == 53', OVERLAY)
         self.assertIn('greetingTask?.cancel()', OVERLAY)

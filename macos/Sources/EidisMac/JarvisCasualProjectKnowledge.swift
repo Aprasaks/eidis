@@ -73,7 +73,7 @@ enum JarvisCasualProjectKnowledge {
                 return "지금 자비스 로컬 프로젝트 목록에 등록된 항목은 없어요. 실제로 진행하는 프로젝트가 없다는 뜻은 아니에요."
             }
             let names = projects.map { $0.name }.joined(separator: ", ")
-            return "지금 자비스의 로컬 기록에 등록된 프로젝트는 \(projects.count)개예요. \(names)입니다. 다만 이 목록이 오라버니가 실제로 진행 중인 모든 프로젝트를 뜻하지는 않아요. 아직 등록되지 않은 프로젝트는 따로 확인해야 해요."
+            return "지금 자비스의 로컬 기록에 등록된 프로젝트는 \(projects.count)개예요. \(names)입니다. 다만 이 목록이 오빠가 실제로 진행 중인 모든 프로젝트를 뜻하지는 않아요. 아직 등록되지 않은 프로젝트는 따로 확인해야 해요."
         }
     }
 

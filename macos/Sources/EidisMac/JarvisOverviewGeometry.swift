@@ -3,7 +3,7 @@ import CoreGraphics
 /// Shared geometry for the center slot and its independent video surface.
 enum JarvisOverviewGeometry {
     static func centerWidth(innerWidth: CGFloat, height: CGFloat) -> CGFloat {
-        min(innerWidth * 0.30, height * 0.58)
+        min(innerWidth * 0.25, height * 0.47)
     }
     static func coreFrame(width: CGFloat, height: CGFloat) -> CGRect {
         let outer = min(32, max(12, width * 0.015))
@@ -11,12 +11,13 @@ enum JarvisOverviewGeometry {
         let innerWidth = max(0,width - 2 * outer)
         let center = centerWidth(innerWidth: innerWidth,height:height)
         let left = max(0,(innerWidth - center - 2 * gap) * 0.5)
-        let columnHeight = max(0,height - 116 - 12 - 52 - 66 - 2 * gap)
-        // Center in the *full* overview lane, not the former upper 64% slot
-        // once reserved above the terminal. All panels stay outside this lane.
-        let size = max(0,min(center - 12,columnHeight - 24))
-        return CGRect(x: outer + left + gap + (center - size)/2,
-                      y: 12 + 52 + 66 + 2 * gap + (columnHeight - size)/2,
-                      width:size,height:size)
+        // Match the workroom's minimal close-only 28pt top row. Keep the
+        // original video in the center and leave its bottom for live dialogue.
+        let columnTop: CGFloat = 10 + 28
+        let columnHeight = max(0, height - columnTop - 14)
+        let size = max(0, min(center * 0.74, columnHeight * 0.40))
+        return CGRect(x: outer + left + gap + (center - size) / 2,
+                      y: columnTop + (columnHeight - size) * 0.42,
+                      width: size, height: size)
     }
 }

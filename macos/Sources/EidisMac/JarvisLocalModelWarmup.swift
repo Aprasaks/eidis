@@ -15,12 +15,13 @@ final class JarvisLocalModelWarmup {
         task=Task {
             defer { task=nil }
             let started=Date()
+            let selectedModel = JarvisLocalModelConfiguration.selectedModel
             var request=URLRequest(url:URL(string:"http://127.0.0.1:11434/api/generate")!)
             request.httpMethod="POST"
             request.setValue("application/json",forHTTPHeaderField:"Content-Type")
             request.timeoutInterval=45
             request.httpBody=try? JSONSerialization.data(withJSONObject:[
-                "model":"qwen3.5:9b-q4_K_M",
+                "model":selectedModel,
                 "stream":false,
                 "keep_alive":"2m"
             ])
@@ -35,7 +36,7 @@ final class JarvisLocalModelWarmup {
                       (response as? HTTPURLResponse)?.statusCode==200,
                       data.count<5000,
                       let object=try JSONSerialization.jsonObject(with:data) as? [String:Any],
-                      object["model"] as? String == "qwen3.5:9b-q4_K_M"
+                      object["model"] as? String == selectedModel
                 else {return}
                 NSLog("DECHIVE local Ollama weights ready preload_ms=%.1f",
                       Date().timeIntervalSince(started)*1000)

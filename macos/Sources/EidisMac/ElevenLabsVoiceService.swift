@@ -59,12 +59,16 @@ final class ElevenLabsVoiceService: ObservableObject {
     @Published private(set) var isLoadingLibrary = false
     private var samplePlayer: AVPlayer?
     private static let summonGreeting = "오빠, 뭘 도와드릴까요?"
+    private static let wakeAcknowledgment = "네 오빠"
     // Only the initial greeting speaks more slowly; normal replies stay unchanged.
     private static let summonSpeed = 0.85
     private static let summonFallbackRate = 0.38
     // Cache only the fixed greeting for the lifetime of this app process.
     // Dynamic answers still use the existing per-request synthesis path.
     private var greetingCache: (voiceID: String, modelID: String, audio: Data)?
+    // The fixed wake acknowledgment is reused in memory so repeated "Jarvis"
+    // calls don't spend ElevenLabs credits each time. Never persist the audio.
+    private var wakeAcknowledgmentCache: (voiceID: String, modelID: String, speed: Double, audio: Data)?
     private var speechGeneration = 0
 
 
@@ -399,6 +403,54 @@ final class ElevenLabsVoiceService: ObservableObject {
                          explicitlyPreviewed: false, isSummonGreeting: true)
     }
 
+    /// The user's wake phrase uses the SAME configured ElevenLabs voice as
+    /// normal replies. On the first call we generate once; subsequent calls
+    /// replay a short in-memory audio buffer without additional API credits.
+    /// If the user opted out, the key is unavailable or synthesis fails,
+    /// the existing offline Mac voice remains an honest fallback.
+    func speakWakeAcknowledgment(fallback: JarvisVoiceService) async {
+        guard !Task.isCancelled else { return }
+        if !keyPresent { await refreshSavedKeyAvailability() }
+        guard !Task.isCancelled else { return }
+        if enabled, let cached = wakeAcknowledgmentCache,
+           cached.voiceID == voiceID, cached.modelID == modelID,
+           cached.speed == responseSpeed {
+            do {
+                let audio = try AVAudioPlayer(data: cached.audio)
+                audio.isMeteringEnabled = true
+                guard !Task.isCancelled else { return }
+                fallback.stop()
+                player?.stop()
+                guard audio.prepareToPlay(), audio.play() else {
+                    wakeAcknowledgmentCache = nil
+                    await synthesize(Self.wakeAcknowledgment, fallback: fallback,
+                                     explicitlyPreviewed: false, isWakeAcknowledgment: true)
+                    return
+                }
+                player = audio
+                status = "Jarvis 호출 인사 · ElevenLabs 캐시 재생 (추가 크레딧 없음)"
+                return
+            } catch {
+                wakeAcknowledgmentCache = nil
+            }
+        }
+        // A new wake often interrupts an ElevenLabs reply. Allow its canceled
+        // request a brief moment to unwind instead of immediately defaulting
+        // to the Mac voice while isBusy is still true.
+        for _ in 0..<12 where isBusy {
+            guard !Task.isCancelled else { return }
+            do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+        }
+        guard !Task.isCancelled else { return }
+        if isBusy {
+            status = "기존 음성 생성 종료 대기 초과 · Mac 기본 음성으로 호출 응답"
+            fallback.speak(Self.wakeAcknowledgment)
+            return
+        }
+        await synthesize(Self.wakeAcknowledgment, fallback: fallback,
+                         explicitlyPreviewed: false, isWakeAcknowledgment: true)
+    }
+
     /// Esc cancels in-flight greeting playback/response and prevents late audio.
     /// Normal voice panel can be opened separately after dismissal.
     func stopSpeakingNow() {
@@ -414,6 +466,17 @@ final class ElevenLabsVoiceService: ObservableObject {
     /// Each 150ms pause is cancellable; Esc stops playback and the next question.
     var outputActive: Bool {
         isBusy || player?.isPlaying == true || (samplePlayer?.rate ?? 0) != 0
+    }
+
+    var isPlayingVoice: Bool { player?.isPlaying == true }
+
+    /// Audio-player RMS for the speaking glow (nil for Mac system TTS).
+    /// Calling this never creates an ElevenLabs request or records audio.
+    var visualOutputAmplitude: Double? {
+        guard let player, player.isPlaying else { return nil }
+        player.updateMeters()
+        let power = Double(player.averagePower(forChannel: 0))
+        return min(1, max(0, pow(10, power / 20) * 2.5))
     }
     func waitForOutputToFinish(fallback: JarvisVoiceService) async {
         for _ in 0..<400 {
@@ -434,7 +497,8 @@ final class ElevenLabsVoiceService: ObservableObject {
 
     private func synthesize(_ text: String, fallback: JarvisVoiceService,
                             explicitlyPreviewed: Bool,
-                            isSummonGreeting: Bool = false) async {
+                            isSummonGreeting: Bool = false,
+                            isWakeAcknowledgment: Bool = false) async {
         let generation = speechGeneration
         guard !Task.isCancelled else { return }
         let phrase = KoreanSpeechText.normalize(text).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -517,6 +581,7 @@ final class ElevenLabsVoiceService: ObservableObject {
                 throw ElevenLabsVoiceError.invalidResponse
             }
             let audio = try AVAudioPlayer(data: data)
+            audio.isMeteringEnabled = true
             guard audio.prepareToPlay(), !Task.isCancelled,
                   generation == speechGeneration, audio.play() else {
                 throw ElevenLabsVoiceError.playbackUnavailable
@@ -525,6 +590,11 @@ final class ElevenLabsVoiceService: ObservableObject {
             if isSummonGreeting {
                 greetingCache = (voiceID: id, modelID: modelID, audio: data)
                 NSLog("JARVIS: fullscreen greeting ElevenLabs playback started; cached in memory")
+            }
+            if isWakeAcknowledgment {
+                wakeAcknowledgmentCache = (voiceID: id, modelID: modelID,
+                                           speed: responseSpeed, audio: data)
+                NSLog("JARVIS: wake acknowledgment using configured ElevenLabs voice; cached in memory")
             }
             status = "ElevenLabs 음성 재생 중 · 이번 실행 \(attempts)회 요청 (크레딧 소모 가능)"
         } catch {

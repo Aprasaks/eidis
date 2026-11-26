@@ -1,0 +1,4 @@
+// Optional local device addresses; never commit the local override.
+JARVIS_REMOTE_MAC =
+JARVIS_REMOTE_PHONE =
+#include? "JARVISRemote.local.xcconfig"

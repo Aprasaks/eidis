@@ -10,16 +10,28 @@ struct JARVISCalendarPairingView: View {
             Form {
                 Section {
                     HStack(spacing: 13) {
-                        Image(systemName: nearby.connected ? "checkmark.circle.fill" : "laptopcomputer")
+                        Image(systemName: (nearby.connected || nearby.remoteProjectVerified) ? "checkmark.circle.fill" : "laptopcomputer")
                             .font(.system(size: 29, weight: .light))
                             .foregroundStyle(JARVISPalette.gold)
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(nearby.connected ? "Mac 연결됨" : "Mac 연결")
+                            Text(nearby.connectionSummary)
                                 .font(.headline)
-                            Text(nearby.status)
+                            Text(nearby.connected ? nearby.status : nearby.remoteStatus)
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }
+                    }
+                }
+
+                if nearby.remembered {
+                    Section("연결 방식") {
+                        Toggle("Tailscale 원격 전용 테스트", isOn: Binding(
+                            get: { nearby.remoteOnly }, set: { nearby.setRemoteOnly($0) }))
+                            .disabled(nearby.publishing)
+                        Text(nearby.remoteOnly ? "근거리 연결을 일시 중지합니다. 원격 조회 및 승인 발행을 시험합니다. 일정 동기화는 근거리 연결이 필요합니다." : "자동 연결 · 근거리 우선, 실패하면 원격 조회")
+                            .font(.footnote).foregroundStyle(.secondary)
+                        Text(nearby.remoteStatus).font(.footnote)
+                        Button("프로젝트 다시 조회") { nearby.refreshProjects() }
                     }
                 }
 
@@ -32,9 +44,16 @@ struct JARVISCalendarPairingView: View {
                                   systemImage: "arrow.triangle.2.circlepath")
                         }
                         .disabled(nearby.syncing)
-                        Button("연결 해제", role: .destructive) {
+                        Button("기기 등록 해제", role: .destructive) {
                             nearby.disconnect()
                         }
+                    }
+                } else if nearby.remembered {
+                    Section {
+                        Text("Mac 자비스가 실행 중이어야 합니다. 외부에서는 두 기기의 Tailscale 연결을 확인하세요.")
+                            .font(.footnote)
+                        Button("다시 연결 시도") { nearby.setForeground(true); nearby.refreshProjects() }
+                        Button("기기 등록 해제", role: .destructive) { nearby.disconnect() }
                     }
                 } else {
                     Section {

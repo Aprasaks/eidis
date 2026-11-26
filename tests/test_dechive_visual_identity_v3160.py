@@ -25,8 +25,9 @@ class DechiveIdentityContract(unittest.TestCase):
         self.assertIn('<key>CFBundleName</key>\n\t<string>DECHIVE</string>', PLIST)
         self.assertIn('<string>dev.dechive.eidis</string>', PLIST)
         self.assertIn('Text("DECHIVE / LIVE DIALOGUE")', PANEL)
-        self.assertIn('Text("DECHIVE / COMMAND CENTER")', ROOM)
-        self.assertIn('jarvis-overview-core-clear-lane', ROOM)
+        self.assertNotIn('Text("DECHIVE / LIVE WORKROOM")', ROOM)
+        self.assertIn('jarvis-workroom-center-conversation', ROOM)
+        self.assertIn('jarvis-workroom-center-conversation', ROOM)
         self.assertIn('Text("DECHIVE")', APP)
 
     def test_video_clip_is_new_brand_without_deleting_original(self):

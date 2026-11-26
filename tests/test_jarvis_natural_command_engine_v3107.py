@@ -9,7 +9,7 @@ BROWSER=(ROOT/'macos/Sources/EidisMac/JarvisOverlayBrowser.swift').read_text()
 class NaturalCommandEngine(unittest.TestCase):
     def test_qwen_local_structured_tool_calls_and_registry(self):
         for marker in ('"tools": JarvisCommand.tools', '"think": false',
-                       '"stream": false', '"model": "qwen3.5:9b-q4_K_M"',
+                       '"stream": false', '"model": JarvisLocalModelConfiguration.selectedModel',
                        'JarvisCommand.actions(from: message, utterance: prompt)',
                        'JarvisCommand.directFallback(for: prompt)',
                        'private func execute(_ actions: [JarvisCommand]',

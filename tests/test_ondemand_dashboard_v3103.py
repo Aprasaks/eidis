@@ -40,9 +40,9 @@ class OnDemandDashboard(unittest.TestCase):
             self.assertIn(marker, OVERLAY)
         self.assertIn('DECHIVE_FullHD_Loop', OVERLAY)
         self.assertIn('hotkey?.uninstallEscape()', OVERLAY)
-        self.assertIn('if !commandCenter && !workspaceActive {', OVERLAY)
-        self.assertIn('JarvisLiveDialoguePanel(dialogue: dialogue, quiet: true)', OVERLAY)
-        self.assertIn('.padding(.trailing, 24)', OVERLAY)
+        self.assertIn('if workspaceActive {', OVERLAY)
+        self.assertNotIn('JarvisLiveDialoguePanel(dialogue: dialogue, quiet: true)', OVERLAY)
+        self.assertIn('workspaceConversationPanel', OVERLAY)
     def test_voice_request_cap_removed_without_removing_safety(self):
         self.assertNotIn('private static let maxRequests = 5', VOICE)
         self.assertNotIn('guard remaining > 0', VOICE)
