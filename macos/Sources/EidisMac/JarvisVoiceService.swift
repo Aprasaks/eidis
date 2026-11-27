@@ -50,6 +50,31 @@ final class JarvisVoiceService: ObservableObject {
     }
 
     func speak(_ text: String, rateOverride: Double? = nil) {
+        // 모든 화면 공통 목소리: Kokoro "Heart" (무료·로컬). 서버를 쓸 수 없을 때만 아래 Mac 음성.
+        if JarvisKokoroVoice.shared.isPrimary {
+            let raw = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !raw.isEmpty else { return }
+            synthesizer.stopSpeaking(at: .immediate)
+            Task { @MainActor in
+                if await !JarvisKokoroVoice.shared.speak(raw) { self.speakNative(text, rateOverride: rateOverride) }
+            }
+            return
+        }
+        speakNative(text, rateOverride: rateOverride)
+    }
+
+    /// Mac 내장 음성 (대체용). 한글이 없으면 영어 음성으로 읽는다.
+    private func speakNative(_ text: String, rateOverride: Double?) {
+        if text.range(of: "[가-힣]", options: .regularExpression) == nil {
+            let english = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !english.isEmpty else { return }
+            synthesizer.stopSpeaking(at: .immediate)
+            let utterance = AVSpeechUtterance(string: english)
+            utterance.voice = AVSpeechSynthesisVoice(identifier: "com.apple.voice.compact.en-US.Samantha")
+                ?? AVSpeechSynthesisVoice(language: "en-US")
+            synthesizer.speak(utterance)
+            return
+        }
         let phrase = KoreanSpeechText.normalize(text).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !phrase.isEmpty else { return }
         synthesizer.stopSpeaking(at: .immediate)
@@ -61,10 +86,11 @@ final class JarvisVoiceService: ObservableObject {
         synthesizer.speak(utterance)
     }
 
-    var isSpeaking: Bool { synthesizer.isSpeaking }
+    var isSpeaking: Bool { synthesizer.isSpeaking || JarvisKokoroVoice.shared.isPlaying }
 
     func stop() {
         synthesizer.stopSpeaking(at: .immediate)
+        JarvisKokoroVoice.shared.stop()
     }
 
     func preview() {

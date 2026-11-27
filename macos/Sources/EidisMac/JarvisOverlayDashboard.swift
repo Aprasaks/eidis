@@ -11,7 +11,7 @@ enum JarvisDashboardIntent: Equatable {
             .replacingOccurrences(of: " ", with: "")
             .replacingOccurrences(of: ",", with: "")
             .replacingOccurrences(of: ".", with: "")
-        let dashboard = normalized.contains("대시보드") || normalized.contains("현황판")
+        let dashboard = normalized.contains("대시보드") || normalized.contains("현황판") || normalized.contains("dashboard")
         let work = normalized.contains("작업") || normalized.contains("프로젝트") ||
             normalized.contains("할일") || normalized.contains("해야할일")
         guard dashboard || work else { return nil }

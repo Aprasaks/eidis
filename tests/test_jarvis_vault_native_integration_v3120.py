@@ -1,5 +1,5 @@
 from pathlib import Path
-import unittest
+import unittest  # 2026-11-27: 영어 대화·Kokoro Heart 음성으로 갱신 (사용자 요청)
 ROOT=Path(__file__).resolve().parents[1]
 VAULT=(ROOT/'macos/Sources/EidisMac/JarvisKnowledgeVault.swift').read_text()
 CONV=(ROOT/'macos/Sources/EidisMac/JarvisOverlayConversation.swift').read_text()
@@ -19,7 +19,7 @@ class NativeVaultContract(unittest.TestCase):
             self.assertIn(marker,VAULT)
         self.assertNotIn('api.openai.com',VAULT)
         self.assertNotIn('api.anthropic.com',VAULT)
-        self.assertIn('private static let summonGreeting = "오빠, 뭘 도와드릴까요?"',VOICE)
+        self.assertIn('private static var summonGreeting: String { JarvisConversationLanguage.summonGreeting }',VOICE)
         self.assertIn('replacingOccurrences(of: "DECHIVE", with: "데카이브"',CONV)
         self.assertIn("예외 없이 '오빠'라는 호칭을 사용하세요",CMD)
     def test_on_demand_ui_and_command_routing(self):

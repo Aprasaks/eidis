@@ -1,6 +1,6 @@
 """Source contract for guarded on-device microphone finishing; no audio in CI."""
 from pathlib import Path
-import unittest
+import unittest  # 2026-11-27: 영어 대화·Kokoro Heart 음성으로 갱신 (사용자 요청)
 
 ROOT = Path(__file__).resolve().parents[1]
 VOICE = (ROOT / "macos/Sources/EidisMac/NativeSpeech.swift").read_text("utf-8")
@@ -10,7 +10,7 @@ CI = (ROOT / ".github/workflows/ci.yml").read_text("utf-8")
 
 class VoiceFinishContractTests(unittest.TestCase):
     def test_on_device_only_and_explicit_permission(self):
-        self.assertIn('SFSpeechRecognizer(locale: Locale(identifier: "ko-KR"))', VOICE)
+        self.assertIn('SFSpeechRecognizer(locale: JarvisConversationLanguage.speechLocale)', VOICE)
         self.assertIn("recognizer.supportsOnDeviceRecognition", VOICE)
         self.assertIn("request.requiresOnDeviceRecognition = true", VOICE)
         self.assertIn("SFSpeechRecognizer.requestAuthorization", VOICE)

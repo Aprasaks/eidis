@@ -1,6 +1,6 @@
 """Regression for iPhone mobile dashboard and truthful data-source boundaries."""
 from pathlib import Path
-import unittest
+import unittest  # 2026-11-27: 영어 대화·Kokoro Heart 음성으로 갱신 (사용자 요청)
 
 ROOT = Path(__file__).resolve().parents[1]
 IOS = ROOT / 'ios/JARVIS/Sources'
@@ -39,7 +39,7 @@ class MobileDashboardContractTests(unittest.TestCase):
 
     def test_iphone_only_and_mac_address_not_modified(self):
         self.assertIn('오라버니', (IOS / 'JARVISCommand.swift').read_text())
-        self.assertIn('오빠, 뭘 도와드릴까요?',
+        self.assertIn('JarvisConversationLanguage.summonGreeting',
                       (ROOT / 'macos/Sources/EidisMac/ElevenLabsVoiceService.swift').read_text())
 
 

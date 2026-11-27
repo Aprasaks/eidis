@@ -35,13 +35,15 @@ enum JarvisLiveDashboardIntent: Equatable {
     static func parse(_ phrase: String) -> Self? {
         let text = phrase.lowercased().filter { !$0.isWhitespace && !$0.isNewline }
         let dashboard = text.contains("대시보드") || text.contains("현황판") ||
+            text.contains("dashboard") ||   // 영어 대화: "turn on dashboard", "open the dashboard"
             text.contains("실시간보드") || text.contains("라이브보드") ||
             text.contains("통계") || text.contains("관제실")
         let overview = ["전체현황", "전체상황", "내상황", "종합현황", "통합현황", "전반적인현황", "모든현황"].contains { text.contains($0) }
         let project = ["프로젝트", "작업현황", "할일", "해야할일", "진행상황"].contains { text.contains($0) }
         let knowledge = ["보관함", "저장자료", "저장한자료", "내자료", "지식", "기억통계", "자료분석"].contains { text.contains($0) }
         let system = ["자비스상태", "시스템상태", "서버상태", "ollama상태", "로컬서버", "시스템진단"].contains { text.contains($0) }
-        let close = ["닫아", "꺼줘", "숨겨", "치워", "내려", "접어"].contains { text.contains($0) }
+        let close = ["닫아", "꺼줘", "숨겨", "치워", "내려", "접어",
+                     "close", "turnoff", "hide", "shutdown"].contains { text.contains($0) }   // 영어: "turn off dashboard"
         let returnToCore = ["원래대로돌아", "기본화면으로", "처음화면으로", "코어중앙으로", "관제실닫아", "관제실꺼", "전체현황닫아"].contains { text.contains($0) }
         // The immersive workroom is the live overview, not a folder or
         // generic web search. Do not open on a negated or close request.
@@ -54,6 +56,10 @@ enum JarvisLiveDashboardIntent: Equatable {
             return .show(.overview)
         }
         if returnToCore || (dashboard && close) { return .hide }
+        // 영어 대화: "turn on / open / show (the) dashboard" → 전체 관제실
+        if dashboard && ["turnon", "open", "show", "launch", "bringup"].contains(where: { text.contains($0) }) {
+            return .show(.overview)
+        }
         // Primary spoken command: "자비스" → "네 오빠" →
         // "실시간 대시보드 열어봐". Resolve before generic search/Qwen.
         // Speech recognition occasionally writes 대쉬보드/데시보드.

@@ -3,7 +3,7 @@
 This is a source and flow contract, not a paid API or live microphone test.
 """
 from pathlib import Path
-import unittest
+import unittest  # 2026-11-27: 영어 대화·Kokoro Heart 음성으로 갱신 (사용자 요청)
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "macos/Sources/EidisMac"
@@ -30,9 +30,9 @@ class JarvisElevenlabsWakeContract(unittest.TestCase):
     def test_wake_acknowledgment_uses_selected_voice_and_opt_in(self):
         section = ELEVEN.split('func speakWakeAcknowledgment(fallback:', 1)[1].split(
             '/// Esc cancels in-flight greeting', 1)[0]
-        self.assertIn('private static let wakeAcknowledgment = "네 오빠"', ELEVEN)
+        self.assertIn('private static var wakeAcknowledgment: String { JarvisConversationLanguage.wakeAcknowledgment }', ELEVEN)
         self.assertIn('if !keyPresent { await refreshSavedKeyAvailability() }', section)
-        self.assertIn('if enabled, let cached = wakeAcknowledgmentCache,', section)
+        self.assertIn('if enabled, !JarvisKokoroVoice.shared.isPrimary, let cached = wakeAcknowledgmentCache,', section)
         self.assertIn('cached.voiceID == voiceID, cached.modelID == modelID', section)
         self.assertIn('cached.speed == responseSpeed', section)
         self.assertIn('await synthesize(Self.wakeAcknowledgment, fallback: fallback,', section)

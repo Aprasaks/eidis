@@ -1,5 +1,5 @@
 from pathlib import Path
-import unittest
+import unittest  # 2026-11-27: 영어 대화·Kokoro Heart 음성으로 갱신 (사용자 요청)
 
 ROOT = Path(__file__).resolve().parents[1]
 OVERLAY = (ROOT / 'macos/Sources/EidisMac/JarvisFullscreenOverlay.swift').read_text()
@@ -12,7 +12,7 @@ class AriaFullscreenGreetingContract(unittest.TestCase):
         self.assertNotIn('dialogue.showSummonCaption()', OVERLAY)
         self.assertIn('window.orderFrontRegardless()', OVERLAY)
         self.assertNotIn('window.orderFrontRegardless()\n        window.makeKey()', OVERLAY)
-        self.assertIn('private static let summonGreeting = "오빠, 뭘 도와드릴까요?"', ELEVEN)
+        self.assertIn('private static var summonGreeting: String { JarvisConversationLanguage.summonGreeting }', ELEVEN)
         self.assertIn('if !keyPresent { await refreshSavedKeyAvailability() }', ELEVEN)
         self.assertNotIn('SFSpeechRecognizer', OVERLAY)
 
@@ -24,7 +24,7 @@ class AriaFullscreenGreetingContract(unittest.TestCase):
         self.assertIn('guard !Task.isCancelled, generation == speechGeneration else { return }', ELEVEN)
         self.assertIn('speechGeneration += 1', ELEVEN)
     def test_opt_in_and_cache_fixed_greeting(self):
-        self.assertIn('if enabled, let cached = greetingCache', ELEVEN)
+        self.assertIn('if enabled, !JarvisKokoroVoice.shared.isPrimary, let cached = greetingCache', ELEVEN)
         self.assertIn('greetingCache = (voiceID: id, modelID: modelID, audio: data)', ELEVEN)
         self.assertIn('enabled || explicitlyPreviewed', ELEVEN)
         self.assertNotIn('private static let maxRequests = 5', ELEVEN)

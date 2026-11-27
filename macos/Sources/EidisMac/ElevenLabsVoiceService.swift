@@ -58,8 +58,9 @@ final class ElevenLabsVoiceService: ObservableObject {
     @Published private(set) var libraryStatus = "ElevenLabs 계정에 저장된 목소리를 가져올 수 있습니다."
     @Published private(set) var isLoadingLibrary = false
     private var samplePlayer: AVPlayer?
-    private static let summonGreeting = "오빠, 뭘 도와드릴까요?"
-    private static let wakeAcknowledgment = "네 오빠"
+    // 대화 언어 설정을 따른다 (영어: "Welcome back. How can I help?" / "Yes?")
+    private static var summonGreeting: String { JarvisConversationLanguage.summonGreeting }
+    private static var wakeAcknowledgment: String { JarvisConversationLanguage.wakeAcknowledgment }
     // Only the initial greeting speaks more slowly; normal replies stay unchanged.
     private static let summonSpeed = 0.85
     private static let summonFallbackRate = 0.38
@@ -379,7 +380,7 @@ final class ElevenLabsVoiceService: ObservableObject {
         }
         if !keyPresent { await refreshSavedKeyAvailability() }
         guard !Task.isCancelled else { return }
-        if enabled, let cached = greetingCache,
+        if enabled, !JarvisKokoroVoice.shared.isPrimary, let cached = greetingCache,
            cached.voiceID == voiceID, cached.modelID == modelID {
             do {
                 let audio = try AVAudioPlayer(data: cached.audio)
@@ -412,7 +413,7 @@ final class ElevenLabsVoiceService: ObservableObject {
         guard !Task.isCancelled else { return }
         if !keyPresent { await refreshSavedKeyAvailability() }
         guard !Task.isCancelled else { return }
-        if enabled, let cached = wakeAcknowledgmentCache,
+        if enabled, !JarvisKokoroVoice.shared.isPrimary, let cached = wakeAcknowledgmentCache,
            cached.voiceID == voiceID, cached.modelID == modelID,
            cached.speed == responseSpeed {
             do {
@@ -503,6 +504,11 @@ final class ElevenLabsVoiceService: ObservableObject {
         guard !Task.isCancelled else { return }
         let phrase = KoreanSpeechText.normalize(text).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !phrase.isEmpty else { return }
+        // 자비스 기본 목소리는 Kokoro "Heart" (무료). ElevenLabs는 사용자가 엔진을 직접 고른 경우만 쓴다.
+        if JarvisKokoroVoice.shared.isPrimary && !explicitlyPreviewed {
+            fallback.speak(text, rateOverride: isSummonGreeting ? Self.summonFallbackRate : nil)
+            return
+        }
         guard (enabled || explicitlyPreviewed) && keyPresent else {
             fallback.speak(phrase, rateOverride: isSummonGreeting ? Self.summonFallbackRate : nil)
             if explicitlyPreviewed {

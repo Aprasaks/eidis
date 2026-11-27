@@ -1,6 +1,6 @@
 """Keep all live JARVIS utterances and system instructions on the owner-approved address."""
 from pathlib import Path
-import unittest
+import unittest  # 2026-11-27: 영어 대화·Kokoro Heart 음성으로 갱신 (사용자 요청)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -22,7 +22,7 @@ class OwnerAddressContract(unittest.TestCase):
         command = (sources / 'JarvisCommandEngine.swift').read_text()
         profile = (sources / 'JarvisPersonalProfile.swift').read_text()
         panel = (sources / 'JarvisLiveDialoguePanel.swift').read_text()
-        self.assertIn('summonGreeting = "오빠, 뭘 도와드릴까요?"', eleven)
+        self.assertIn('JarvisConversationLanguage.summonGreeting', eleven)
         self.assertIn('answer = "네 오빠"', dialogue)
         self.assertIn('answer = "오빠, 뭘 도와드릴까요?"', dialogue)
         self.assertIn("예외 없이 '오빠'라는 호칭", command)

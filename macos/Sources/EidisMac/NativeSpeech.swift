@@ -59,7 +59,8 @@ final class LocalSpeechListener: ObservableObject {
     @Published private(set) var lastCaptureEvidence = ""
     @Published private(set) var activeMicrophone = ""
 
-    private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "ko-KR"))
+    // 대화 언어 설정에 따라 영어(en-US) 또는 한국어(ko-KR) 인식 (JarvisConversationLanguage)
+    private let recognizer = SFSpeechRecognizer(locale: JarvisConversationLanguage.speechLocale)
     private let engine = AVAudioEngine()
     private var audioRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?

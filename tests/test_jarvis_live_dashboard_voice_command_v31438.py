@@ -1,6 +1,6 @@
 """Explicit natural voice command for the fullscreen live dashboard."""
 from pathlib import Path
-import unittest
+import unittest  # 2026-11-27: 영어 대화·Kokoro Heart 음성으로 갱신 (사용자 요청)
 
 ROOT=Path(__file__).resolve().parents[1]
 SRC=ROOT / "macos/Sources/EidisMac"
@@ -18,7 +18,7 @@ class LiveDashboardVoiceCommand(unittest.TestCase):
 
     def test_wake_acknowledges_then_listens_again(self):
         self.assertIn('answer = "네 오빠"', DIALOGUE)
-        self.assertIn('private static let wakeAcknowledgment = "네 오빠"', VOICE)
+        self.assertIn('private static var wakeAcknowledgment: String { JarvisConversationLanguage.wakeAcknowledgment }', VOICE)
         wake = DIALOGUE.split('func beginDekaWakeTurn()', 1)[1].split('func prepareMiniStandby()',1)[0]
         self.assertIn('self.activateListening()',wake)
 

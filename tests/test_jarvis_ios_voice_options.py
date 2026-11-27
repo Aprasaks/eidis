@@ -1,6 +1,6 @@
 """Guard iPhone-only form of address and explicit credit-based voice opt-in."""
 from pathlib import Path
-import unittest
+import unittest  # 2026-11-27: 영어 대화·Kokoro Heart 음성으로 갱신 (사용자 요청)
 
 ROOT = Path(__file__).resolve().parents[1]
 IOS = ROOT / 'ios/JARVIS/Sources'
@@ -18,7 +18,7 @@ class JARVISIOSVoiceOptionTests(unittest.TestCase):
 
     def test_mac_uses_its_own_address_and_voice_id(self):
         mac = (ROOT / 'macos/Sources/EidisMac/ElevenLabsVoiceService.swift').read_text()
-        self.assertIn('"오빠, 뭘 도와드릴까요?"', mac)
+        self.assertIn('JarvisConversationLanguage.summonGreeting', mac)
         mobile = (IOS / 'JARVISMobileElevenLabs.swift').read_text()
         self.assertIn('"6Vgh4FaCc0SCcWPwcyXa"', mobile)
         self.assertIn('"eleven_flash_v2_5"', mobile)

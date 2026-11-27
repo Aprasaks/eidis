@@ -876,7 +876,8 @@ final class JarvisOverlayConversation: ObservableObject {
             "\n[현재 Mac 날짜·시간 참고] " + JarvisLocalClock.context() +
             (profile.isEmpty ? "" : "\n" + profile) +
             (related.isEmpty ? "" : "\n" + related) +
-            (projectContext.isEmpty ? "" : "\n" + projectContext)]]
+            (projectContext.isEmpty ? "" : "\n" + projectContext) +
+            JarvisConversationLanguage.finalDirective]]
         messages.append(contentsOf: conversation.suffix(8))
         messages.append(["role": "user", "content": String(prompt.prefix(900))])
         var request = URLRequest(url: URL(string: "http://127.0.0.1:11434/api/chat")!)
@@ -1307,7 +1308,8 @@ final class JarvisOverlayConversation: ObservableObject {
                         JarvisLocalClock.context() +
                         (profileContext.isEmpty ? "" : "\n" + profileContext) +
                         (recalledContext.isEmpty ? "" : "\n" + recalledContext) +
-                        "\n[최종 답변 규칙] 평소 대화는 편안한 해요체 한두 문장. 시각과 출처를 묻지 않았다면 답변 첫머리에 날짜, 시스템 시각, 근거를 읊지 마세요. 필요한 답부터 말하세요."]]
+                        "\n[최종 답변 규칙] 평소 대화는 편안한 해요체 한두 문장. 시각과 출처를 묻지 않았다면 답변 첫머리에 날짜, 시스템 시각, 근거를 읊지 마세요. 필요한 답부터 말하세요." +
+                        JarvisConversationLanguage.finalDirective]]
         messages.append(contentsOf: conversation.suffix(8))
         messages.append(["role": "user", "content": String(prompt.prefix(900))])
         var body: [String: Any] = [

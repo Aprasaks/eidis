@@ -1,6 +1,6 @@
 """Mac-screen branding is DECHIVE; spoken name is 자비스; user address is 오빠."""
 from pathlib import Path
-import unittest
+import unittest  # 2026-11-27: 영어 대화·Kokoro Heart 음성으로 갱신 (사용자 요청)
 
 ROOT = Path(__file__).resolve().parents[1]
 MAC = ROOT / "macos"
@@ -49,7 +49,7 @@ class DechiveIdentityContract(unittest.TestCase):
         self.assertIn('dialogue.isSpeaking ? "끼어들기"', OVERLAY)
 
     def test_spoken_name_owner_address_and_existing_voice_command(self):
-        self.assertIn('private static let summonGreeting = "오빠, 뭘 도와드릴까요?"', VOICE)
+        self.assertIn('private static var summonGreeting: String { JarvisConversationLanguage.summonGreeting }', VOICE)
         self.assertIn("예외 없이 '오빠'라는 호칭을 사용하세요", MODEL)
         self.assertIn("사용자는 당신을 '자비스'라고 부릅니다", MODEL)
         self.assertIn('s.hasPrefix("자비스")', PROFILE)
