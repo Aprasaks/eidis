@@ -345,12 +345,15 @@ struct JarvisProjectWorkspace: View {
                 Button {
                     agentBay.runKnowledgePilot()
                 } label: {
-                    Label("K03-06 재시험", systemImage: "play.fill")
+                    // 동작은 그대로(K03-06 이미지 기준 시범 재실행). 이름만 명확히 한다:
+                    // 이전 "K03-06 재시험"은 다음 집필(예: 040) 버튼처럼 보여 헷갈렸다.
+                    Label("시범 재시험 · K03-06 이미지", systemImage: "play.fill")
                         .font(.system(size: 13 * scale, weight: .semibold))
                         .padding(.horizontal, 10).padding(.vertical, 6)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bordered)
                 .tint(pink.opacity(0.85))
+                .help("예전 시범 원고 K03-06으로 이미지 제작 기준만 다시 시험합니다. 다음 글 집필은 야간 근무(00~01시)가 자동으로 진행합니다.")
                 .disabled(agentBay.isAnyRunning || running || agentBay.nightShiftRunning || agentBay.knowledgeDailyLimitReached)
                 .accessibilityIdentifier("jarvis-knowledge-pilot-start")
                 Button("중단") { agentBay.cancel(.codex) }

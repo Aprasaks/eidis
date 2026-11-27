@@ -219,6 +219,9 @@ struct JarvisVerifiedSourceCheck: Identifiable {
 final class JarvisLiveDashboard: ObservableObject {
     @Published private(set) var isVisible = false
     @Published var workroomProject: JarvisWorkroomProject? = nil
+    /// SNS / YouTube 작업실이 열려 있는지. 뷰(@State)가 아닌 모델에 두어야
+    /// Esc 한 단계 뒤로 가기와 코어 버튼이 "작업실이 열려 있음"을 알 수 있다.
+    @Published var snsRoomOpen = false
     @Published private(set) var mode: JarvisLiveDashboardMode = .overview
     @Published private(set) var isLoading = false
     @Published private(set) var isRefreshing = false
@@ -720,7 +723,7 @@ final class JarvisLiveDashboard: ObservableObject {
         guard let day = JarvisKnowledgeMidnightNavigation.dueDay(
             at: now, lastOpenedDay: defaults.string(forKey: key),
             overviewVisible: isVisible && mode == .overview,
-            projectAlreadyOpen: workroomProject != nil
+            projectAlreadyOpen: workroomProject != nil || snsRoomOpen
         ) else { return false }
         defaults.set(day, forKey: key)
         workroomProject = .dev
@@ -729,6 +732,7 @@ final class JarvisLiveDashboard: ObservableObject {
 
     func hide() -> String {
         workroomProject = nil
+        snsRoomOpen = false
         revision = UUID()
         pollingTask?.cancel()
         pollingTask = nil

@@ -846,6 +846,14 @@ final class JarvisAgentTerminalBay: ObservableObject {
               let data = line.data(using: .utf8),
               let item = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let type = item["type"] as? String else { return line }
+        // Claude Code 시스템 이벤트(훅 실행 등)는 내용 없이 "[system]"만 반복되어
+        // 에이전트 칸을 가득 채웠다. 세션 시작(init)만 한 줄로 보이고 나머지는 숨긴다.
+        // (빈 문자열은 append()에서 버려진다.)
+        if type == "system" {
+            guard item["subtype"] as? String == "init" else { return "" }
+            let model = item["model"] as? String ?? ""
+            return "[system] 세션 시작" + (model.isEmpty ? "" : " · " + model)
+        }
         // Errors must show the provider's own message rather than an empty
         // "[error]" tag. Never invent completion state from log shape.
         if let errorMessage = item["message"] as? String, !errorMessage.isEmpty {

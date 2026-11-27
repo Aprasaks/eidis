@@ -44,10 +44,19 @@ struct JARVISMobileSocialView: View {
     @State private var confirming: Bool?          // true = 승인 확인, false = 반려 확인
     @State private var showFullCaption = false
     @State private var page = 0
+    @State private var showingPairing = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             statusRow
+            if !nearby.remembered && !nearby.connected {
+                // 안내 문구만 있던 자리에 등록 화면을 바로 여는 버튼.
+                Button { showingPairing = true } label: {
+                    Label("Mac 연결하기 · 12자리 코드", systemImage: "link")
+                        .frame(maxWidth: .infinity).padding(.vertical, 8)
+                }
+                .buttonStyle(.borderedProminent).tint(JARVISPalette.gold)
+            }
             channelGrid
             if let carousel = nearby.socialSnapshot?.carousel {
                 carouselCard(carousel)
@@ -56,6 +65,9 @@ struct JARVISMobileSocialView: View {
             }
         }
         .onAppear { nearby.refreshSocial() }
+        .sheet(isPresented: $showingPairing, onDismiss: { nearby.refreshSocial() }) {
+            JARVISCalendarPairingView(nearby: nearby)
+        }
     }
 
     private var statusRow: some View {

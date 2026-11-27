@@ -3,6 +3,8 @@ import SwiftUI
 /// First native iPhone companion to the current macOS JARVIS.
 /// The primary Mac golden core video is real; Mac remote control is not yet paired.
 struct JARVISHomeView: View {
+    /// 아래 탭 막대에 있는 화면. 나머지는 상단 뒤로가기 버튼을 보여준다.
+    static let tabPages: Set<JARVISMobilePage> = [.core, .dashboard, .alarm, .calendar, .memory]
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var voice = JARVISVoice()
@@ -60,6 +62,21 @@ struct JARVISHomeView: View {
                                 selectedPage = destination
                             }
                         } else {
+                            // 아래 탭에 없는 화면(SNS·프로젝트·뉴스 등)은 돌아갈 곳이 안 보였다.
+                            // 상단 "‹ 전체 현황" 버튼과 왼쪽 가장자리 밀기로 전체 현황으로 돌아간다.
+                            if !Self.tabPages.contains(selectedPage) {
+                                Button { selectedPage = .dashboard } label: {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "chevron.left").font(.system(size: 15, weight: .semibold))
+                                        Text("전체 현황").font(.system(size: 15))
+                                    }
+                                    .foregroundStyle(JARVISPalette.gold)
+                                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("전체 현황으로 돌아가기")
+                            }
                             JARVISMobileDataPageView(page: selectedPage, calendar: calendar, nearby: nearby)
                         }
                     }
@@ -70,6 +87,15 @@ struct JARVISHomeView: View {
                 }
                 .id(selectedPage)
                 .scrollDismissesKeyboard(.interactively)
+                .simultaneousGesture(
+                    // 왼쪽 가장자리(32pt 이내)에서 오른쪽으로 밀면 뒤로가기 (iOS 기본 동작과 같은 방향).
+                    DragGesture(minimumDistance: 24)
+                        .onEnded { value in
+                            guard !Self.tabPages.contains(selectedPage), value.startLocation.x < 32,
+                                  value.translation.width > 80, abs(value.translation.height) < 70 else { return }
+                            selectedPage = .dashboard
+                        }
+                )
 
                 navigationBar
             }

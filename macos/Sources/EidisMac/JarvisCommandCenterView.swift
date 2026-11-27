@@ -14,7 +14,12 @@ struct JarvisCommandCenterView: View {
     @FocusState private var workroomInputFocused: Bool
     @State private var workspaceRevealed = false
     @StateObject private var telemetry = JarvisMacSampler()
-    @State private var showChannelOverview = false
+    /// SNS 작업실 열림 상태는 모델(JarvisLiveDashboard.snsRoomOpen)에 둔다.
+    /// Esc 한 단계 뒤로 가기와 코어 버튼이 이 상태를 함께 본다.
+    private var showChannelOverview: Bool {
+        get { model.snsRoomOpen }
+        nonmutating set { model.snsRoomOpen = newValue }
+    }
 
     private let amber = Color(red: 0.94, green: 0.67, blue: 0.30)
     private let muted = Color(red: 0.64, green: 0.66, blue: 0.68)
@@ -43,15 +48,26 @@ struct JarvisCommandCenterView: View {
             VStack(spacing: 0) {
                 HStack {
                     Spacer(minLength: 0)
-                    Button(action: close) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 13, weight: .medium))
-                            .frame(width: 26, height: 26)
+                    // 대시보드 닫기(코어로). 작업실이 열려 있으면 작업실의 "관제실 복귀"만 보이도록 숨긴다.
+                    // 이전에는 8×8px로 거의 보이지 않았고, 작업실 위에서 닫기 버튼이 두 개로 보였다.
+                    if model.workroomProject == nil && !showChannelOverview {
+                        Button(action: close) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "xmark").font(.system(size: 12, weight: .semibold))
+                                Text("코어로 · esc").font(.system(size: 11, weight: .medium))
+                            }
+                            .padding(.horizontal, 11)
+                            .frame(height: 26)
+                            .background(Color.white.opacity(0.08), in: Capsule())
+                            .overlay(Capsule().stroke(Color.white.opacity(0.22)))
+                            .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.white.opacity(0.88))
+                        .help("대시보드를 닫고 코어 화면으로 (Esc)")
+                        .accessibilityLabel("대시보드 닫기")
+                        .accessibilityIdentifier("jarvis-command-center-close")
                     }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.white.opacity(0.7))
-                    .accessibilityLabel("작업실 닫기")
-                    .accessibilityIdentifier("jarvis-command-center-close")
                 }
                 .frame(height: closeReserve)
                 HStack(alignment: .top, spacing: gap) {
@@ -75,6 +91,9 @@ struct JarvisCommandCenterView: View {
             .clipped()
             .accessibilityIdentifier("jarvis-command-center")
             .allowsHitTesting(model.workroomProject == nil && !showChannelOverview)
+            // 작업실이 열리면 뒤 대시보드 버튼을 접근성 트리에서도 숨긴다.
+            // (자동 클릭·음성 제어가 보이지 않는 뒤쪽 버튼을 누르는 문제 방지)
+            .accessibilityHidden(model.workroomProject != nil || showChannelOverview)
             .overlay {
                 if showChannelOverview {
                     // SNS / YouTube workroom: same full-size layer as project workrooms.
@@ -185,7 +204,7 @@ struct JarvisCommandCenterView: View {
                                 .foregroundStyle(project.accent)
                         } else {
                             Text("운영 업무 미등록")
-                                .font(.system(size: 10 * scale))
+                                .font(.system(size: 12 * scale))   // 10 → 12: TV 거리에서도 읽히게
                                 .foregroundStyle(muted)
                         }
                         Spacer(minLength: 0)
@@ -203,9 +222,11 @@ struct JarvisCommandCenterView: View {
             Button {
                 withAnimation(.easeInOut(duration: 0.28)) { showChannelOverview = true }
             } label: {
-                // Live API values only; unknown stays "—".
-                let instagram = model.instagramSnapshot?.followersCount.map { String($0) } ?? "—"
-                let youtube = (model.youtubeSummary?.connected == true ? model.youtubeSummary?.data?.subscriberCount : nil) ?? "—"
+                // Live API values only; unknown stays "—". 아직 첫 조회 전이면 "…"(확인 중)로 구분한다.
+                let instagram = model.instagramSnapshot == nil ? "…"
+                    : (model.instagramSnapshot?.followersCount.map { String($0) } ?? "—")
+                let youtube = model.youtubeSummary == nil ? "…"
+                    : ((model.youtubeSummary?.connected == true ? model.youtubeSummary?.data?.subscriberCount : nil) ?? "—")
                 HStack(spacing: 10) {
                     Image(systemName: "waveform.path")
                     Text("SNS / YOUTUBE").fontWeight(.semibold)
@@ -390,8 +411,8 @@ struct JarvisCommandCenterView: View {
                      lane.state == .missing ? "CLI 실행 파일 없음" :
                      lane.state == .checking ? "로컬 실행 파일 확인 중" :
                      "아직 실행 출력 없음")
-                    .font(.system(size: 10 * scale, design: .monospaced))
-                    .foregroundStyle(muted.opacity(0.82))
+                    .font(.system(size: 12 * scale, design: .monospaced))   // 10 → 12
+                    .foregroundStyle(muted)
                 Spacer(minLength: 0)
             } else {
                 ScrollViewReader { proxy in
@@ -399,7 +420,7 @@ struct JarvisCommandCenterView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             ForEach(Array(lane.logs.enumerated()), id: \.offset) { i, line in
                                 Text(line)
-                                    .font(.system(size: 10 * scale, design: .monospaced))
+                                    .font(.system(size: 11 * scale, design: .monospaced))   // 10 → 11
                                     .foregroundStyle(.white.opacity(0.85))
                                     .textSelection(.enabled)
                                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -441,7 +462,7 @@ struct JarvisCommandCenterView: View {
                     .foregroundStyle(mint)
                     .accessibilityIdentifier("jarvis-agent-probe")
             }
-            .font(.system(size: 10 * scale, weight: .semibold, design: .monospaced))
+            .font(.system(size: 11 * scale, weight: .semibold, design: .monospaced))   // 10 → 11
             HStack(spacing: 6) {
                 Picker("작업자", selection: $selectedAgent) {
                     ForEach(JarvisAgentID.allCases) { id in
@@ -457,16 +478,18 @@ struct JarvisCommandCenterView: View {
                 .disabled(agentPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
                           agentBay.isAnyRunning ||
                           [.missing, .checking].contains(agentBay.lane(selectedAgent).state))
-                .buttonStyle(.bordered)
+                .buttonStyle(.borderedProminent)   // 비활성 회색 글자만 보이던 버튼을 눈에 띄게
+                .tint(amber.opacity(0.8))
                 .controlSize(.small)
+                .font(.system(size: 11 * scale, weight: .semibold))
                 .accessibilityIdentifier("jarvis-agent-start-readonly")
             }
             TextField("읽기 전용 분석 요청을 입력하세요", text: $agentPrompt)
                 .textFieldStyle(.roundedBorder)
-                .font(.system(size: 10 * scale))
+                .font(.system(size: 12 * scale))   // 10 → 12
                 .accessibilityIdentifier("jarvis-agent-task-prompt")
             Text("사용자 요청 시 실행 · 읽기 전용 · 수정/발행 차단")
-                .font(.system(size: 9 * scale))
+                .font(.system(size: 10 * scale))   // 9 → 10
                 .foregroundStyle(muted)
                 .lineLimit(1)
         }

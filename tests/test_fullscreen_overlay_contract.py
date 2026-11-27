@@ -41,7 +41,12 @@ class FullscreenOverlayContract(unittest.TestCase):
         self.assertIn('AVPlayerLooper(player: player, templateItem: AVPlayerItem(url: url))', OVERLAY)
 
     def test_esc_is_immediate_and_screen_switching_has_input_guards(self):
-        self.assertIn('else { self.dismiss() }\n                    return nil', OVERLAY)
+        # Esc = 한 단계 뒤로 (작업실 → 대시보드 → 코어); 코어에서만 창을 닫는다. (2026-11-27 사용자 요청)
+        self.assertIn('self.escapeOneStep()\n                    return nil', OVERLAY)
+        self.assertIn('key.onEscape = { [weak self] in self?.escapeOneStep() }', OVERLAY)
+        self.assertIn('live.snsRoomOpen = false', OVERLAY)
+        self.assertIn('live.workroomProject = nil', OVERLAY)
+        self.assertIn('} else {\n            dismiss()\n        }', OVERLAY)
         self.assertIn('hotkey?.uninstallEscape()', OVERLAY)
         self.assertIn('await dialogue.returnFromChromeWorkspace()', OVERLAY)
         self.assertIn('window.orderOut(nil)', OVERLAY)

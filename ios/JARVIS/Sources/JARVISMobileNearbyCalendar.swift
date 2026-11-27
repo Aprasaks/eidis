@@ -348,7 +348,7 @@ final class JARVISMobileNearbyCalendar: NSObject, ObservableObject {
 
     func refreshSocial() {
         guard !socialLoading else { return }
-        guard connected || remembered else { socialStatus = "Mac 기기 등록 필요 · 프로젝트 화면에서 12자리 연결"; return }
+        guard connected || remembered else { socialStatus = "Mac 기기 등록 필요"; return }
         let id = UUID().uuidString
         socialLoading = true
         socialStatus = "Mac SNS 현황 확인 중"

@@ -441,7 +441,7 @@ private struct JarvisSummonedView: View {
                 // The glowing core is a direct, model-free way to open
                 // the same live workroom as the voice command. Clicking it
                 // again in the workroom returns to the clean central core.
-                if !workspaceActive && liveDashboard.workroomProject == nil {
+                if !workspaceActive && liveDashboard.workroomProject == nil && !liveDashboard.snsRoomOpen {
                     let hitDiameter = commandCenter
                         ? overviewCoreSize * 0.77
                         : min(area.size.width * 0.43, area.size.height * 0.66)
@@ -1628,7 +1628,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
         NSLog("JARVIS: overlay start, args=%@", ProcessInfo.processInfo.arguments.joined(separator: ","))
         let key = JarvisOverlayHotkey()
         key.onPress = { [weak self] in self?.toggle() }
-        key.onEscape = { [weak self] in self?.dismiss() }
+        key.onEscape = { [weak self] in self?.escapeOneStep() }
         key.onMicrophone = { [weak self] in self?.handleMicrophoneShortcut() }
         key.onMini = { [weak self] in self?.toggleMini() }
         if key.install() {
@@ -1962,9 +1962,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
             if event.type == .keyDown {
                 // Escape must win over animation, dialogue and other overlay states.
                 if event.keyCode == 53 {
-                    if let dialogue = self.dialogue, dialogue.chromeWorkspaceVisible {
-                        Task { await dialogue.returnFromChromeWorkspace() }
-                    } else { self.dismiss() }
+                    self.escapeOneStep()
                     return nil
                 }
                 // Option-Space is always voice-first, even when WKWebView has
@@ -2175,6 +2173,22 @@ final class JarvisFullscreenOverlay: ObservableObject {
     }
 
     /// Immediate dismissal: do not wait for a fade when the user presses Esc.
+    /// Esc = 한 단계 뒤로: 브라우저 작업 → 작업실(SNS·프로젝트) → 대시보드 → 코어.
+    /// 코어 화면에서 누를 때만 자비스 창을 닫는다. (이전에는 어디서 누르든 창 전체가 닫혔다.)
+    func escapeOneStep() {
+        if let dialogue, dialogue.chromeWorkspaceVisible {
+            Task { await dialogue.returnFromChromeWorkspace() }
+        } else if let live = dialogue?.liveDashboard, live.snsRoomOpen {
+            withAnimation(.easeInOut(duration: 0.28)) { live.snsRoomOpen = false }
+        } else if let live = dialogue?.liveDashboard, live.workroomProject != nil {
+            withAnimation(.easeInOut(duration: 0.28)) { live.workroomProject = nil }
+        } else if let live = dialogue?.liveDashboard, live.isVisible {
+            _ = live.hide()
+        } else {
+            dismiss()
+        }
+    }
+
     func dismiss() {
         guard let window = panel else { return }
         closeDetachedChat()
