@@ -14,7 +14,7 @@ class PushContract(unittest.TestCase):
         self.assertIn("posixPermissions: 0o600", src)
         self.assertNotIn("NSLog(pem", src)
         remote = (MAC / "JarvisSocialRemote.swift").read_text(encoding="utf-8")
-        self.assertIn('"registerPushToken", JarvisPlanRemote.requestKind, JarvisPhoneChat.requestKind]', remote)
+        self.assertIn('"registerPushToken", JarvisPlanRemote.requestKind, JarvisPhoneChat.requestKind, JarvisStockBoard.phoneRequestKind]', remote)
         for f in ("JarvisCarouselRunner.swift", "JarvisInstagramPublisher.swift", "JarvisThreadsPublisher.swift"):
             self.assertIn("JarvisPushNotifier.shared.send(", (MAC / f).read_text(encoding="utf-8"))
 

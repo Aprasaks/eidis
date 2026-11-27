@@ -20,7 +20,7 @@ class SnsPhoneLinkTests(unittest.TestCase):
     def test_mac_routes_social_kinds_through_existing_auth(self):
         src = read(MAC / "JarvisMacNearbyCalendar.swift")
         self.assertIn("JarvisSocialRemote.remoteKinds.contains(kind)", src)
-        self.assertIn('remoteKinds: Set<String> = ["socialSnapshotRequest", "approveSocialPost", "registerPushToken", JarvisPlanRemote.requestKind, JarvisPhoneChat.requestKind]',
+        self.assertIn('remoteKinds: Set<String> = ["socialSnapshotRequest", "approveSocialPost", "registerPushToken", JarvisPlanRemote.requestKind, JarvisPhoneChat.requestKind, JarvisStockBoard.phoneRequestKind]',
                       read(MAC / "JarvisSocialRemote.swift"))
         self.assertIn("JarvisSocialRemote.snapshot(requestID: id)", src)
         self.assertIn("JarvisSocialRemote.decide(request, requestID: id)", src)

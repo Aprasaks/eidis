@@ -40,10 +40,29 @@ enum JarvisPhoneChat {
         ["role": "assistant", "content": "지금 상황이면 작은 것부터 하나 끝내는 게 나아요. 제일 걸리는 게 뭐예요?"]
     ]
 
-    /// 모델이 규칙을 어겨도 화면에는 'DECHIVE 님'이 나오지 않게 한 번 더 정리한다.
+    /// 모델(9B)이 규칙을 어겨도 화면·음성에 나가기 전에 한 번 더 정리한다. 맥·폰 대화 공통.
+    /// - 'DECHIVE 님' → 'DECHIVE'
+    /// - 실제로 하지 않는 일을 해 두겠다는 문장('메모해 둘게요', '정리해 드릴게요' 등)은 뺀다.
     static func tidy(_ text: String) -> String {
-        text.replacingOccurrences(of: #"DECHIVE\s*님"#, with: "DECHIVE", options: [.regularExpression, .caseInsensitive])
-            .replacingOccurrences(of: #"데카이브\s*님"#, with: "데카이브", options: .regularExpression)
+        // '님'을 떼면 뒤 조사도 받침 없는 이름(데카이브)에 맞게 바꾼다: 님과→와, 님이→가 …
+        var named = text
+        for (after, particle) in [("께서", "가"), ("께", "한테"), ("과", "와"), ("이", "가"), ("은", "는"), ("을", "를"), ("", "")] {
+            for name in ["DECHIVE", "데카이브"] {
+                named = named.replacingOccurrences(of: name + #"\s*님"# + after, with: name + particle,
+                                                   options: [.regularExpression, .caseInsensitive])
+            }
+        }
+        let promise = #"(메모|저장|기록|정리|적어)\S*\s*(둘게요|둘께요|드릴게요|드릴께요|드리겠습니다|두겠습니다|놓을게요|해둘게요)"#
+        let lines = named.components(separatedBy: "\n").map { line -> String in
+            // 문장 단위로 나누되 끝맺음 부호는 문장에 붙여 둔다.
+            var parts: [String] = []; var current = ""
+            for ch in line { current.append(ch); if ".!?。".contains(ch) { parts.append(current); current = "" } }
+            if !current.isEmpty { parts.append(current) }
+            return parts.filter { $0.range(of: promise, options: .regularExpression) == nil }
+                .joined().trimmingCharacters(in: .whitespaces)
+        }
+        let joined = lines.filter { !$0.isEmpty }.joined(separator: "\n")
+        return joined.isEmpty ? named : joined
     }
 
     /// kind "chatRequest" → "chatReply"

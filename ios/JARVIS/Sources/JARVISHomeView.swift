@@ -29,7 +29,7 @@ struct JARVISHomeView: View {
     }
     @State private var selectedPage: JARVISMobilePage = JARVISMobilePage.initialPageForVerification
     @State private var prompt = ""
-    @State private var messages: [JARVISChatLine] = []
+    @State private var messages: [JARVISChatLine] = JARVISChatLine.load()
     @State private var showingPairing = false
     /// 마지막 입력이 마이크였을 때만 답을 소리 내어 읽는다.
     @State private var speakReplies = false
@@ -146,6 +146,7 @@ struct JARVISHomeView: View {
             await calendar.rescheduleUpcomingReminders()
             alarms.refresh()
         }
+        .onChange(of: messages.count) { _, _ in JARVISChatLine.save(messages) }
         .onChange(of: calendar.localRevision) { _, _ in
             nearby.sync()
         }
@@ -511,12 +512,24 @@ enum JARVISMacLink {
     }
 }
 
-struct JARVISChatLine: Identifiable {
+struct JARVISChatLine: Identifiable, Codable {
     var id = UUID()
     let fromOwner: Bool
     let text: String
     /// 맥 Qwen의 답을 기다리는 동안 보여주는 임시 말풍선
     var pending = false
+
+    /// 앱을 껐다 켜도 최근 대화 40개는 이 아이폰 안에 남긴다 (어디로도 보내지 않음).
+    private static let storeKey = "eidis.chat.history.v1"
+    static func load() -> [JARVISChatLine] {
+        guard let data = UserDefaults.standard.data(forKey: storeKey),
+              let lines = try? JSONDecoder().decode([JARVISChatLine].self, from: data) else { return [] }
+        return lines.filter { !$0.pending }
+    }
+    static func save(_ lines: [JARVISChatLine]) {
+        let kept = Array(lines.filter { !$0.pending }.suffix(40))
+        if let data = try? JSONEncoder().encode(kept) { UserDefaults.standard.set(data, forKey: storeKey) }
+    }
 }
 
 #Preview {

@@ -49,7 +49,7 @@ final class JarvisOverlayConversation: ObservableObject {
     @Published private(set) var briefingJob: JarvisBriefingJob?
     @Published private(set) var briefingNotice = ""
     private let briefingClient = JarvisBriefingClient()
-    let stockBoard = JarvisStockBoard()
+    let stockBoard = JarvisStockBoard.shared
     let weatherCenter = JarvisWeatherCenter()
     let chrome = JarvisChromeSession()
     @Published private(set) var socialDashboardChannel: JarvisSocialProfile?
@@ -605,7 +605,7 @@ final class JarvisOverlayConversation: ObservableObject {
         do {
             let command = JarvisDialogueInput.command(prompt)
             let localReply = JarvisDialogueInput.personalWakeGreeting(prompt) ?? JarvisDialogueInput.presenceOrEnd(command)
-            let response: String
+            var response: String
             if let intent = JarvisCasualChatIntent.parse(command) {
                 setCasualChatMode(intent == .start)
                 response = intent == .start
@@ -623,6 +623,8 @@ final class JarvisOverlayConversation: ObservableObject {
                 }
             } else if let localReply { response = localReply.reply }
             else { response = try await planAndRespond(command, token: token) }
+            // 9B 답변 정리: 'DECHIVE 님', 하지 않을 일을 해 두겠다는 약속 문장 제거 (폰 대화와 같은 규칙)
+            response = JarvisPhoneChat.tidy(response)
             guard token == generation && !Task.isCancelled else { return }
             guard !response.isEmpty else {
                 isThinking = false

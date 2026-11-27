@@ -20,6 +20,46 @@ struct JARVISPlanDocsReply: Decodable {
     let docs: [JARVISPlanDoc]
 }
 
+// MARK: 주식 데이터 (Mac JarvisStockBoard.phoneSnapshot 의 "stockSnapshot" 응답)
+
+struct JARVISStockRow: Decodable, Identifiable {
+    let rank: Int
+    let symbol: String
+    let name: String
+    let price: String
+    let changeRate: String
+    let currency: String
+    var id: String { symbol }
+
+    var priceLabel: String {
+        guard let value = Double(price) else { return price }
+        return currency == "KRW" ? value.formatted(.number.precision(.fractionLength(0))) + "원"
+                                 : "$" + value.formatted(.number.precision(.fractionLength(2)))
+    }
+    /// 등락률: 토스증권은 비율로 준다 (0.012 = +1.2%, 맥 주식 화면과 같은 계산)
+    var change: Double? { Double(changeRate).map { rate in rate * 100 } }
+}
+
+struct JARVISStockMarket: Decodable, Identifiable {
+    let market: String
+    let rankedAt: String
+    let rows: [JARVISStockRow]
+    var id: String { market }
+    var title: String { market == "KR" ? "국내" : "미국" }
+}
+
+struct JARVISStockSnapshot: Decodable {
+    let checkedAt: String?
+    let metric: String?
+    let markets: [JARVISStockMarket]?
+    let problem: String?
+
+    var checkedLabel: String {
+        guard let checkedAt, let date = ISO8601DateFormatter().date(from: checkedAt) else { return "" }
+        return date.formatted(date: .omitted, time: .shortened)
+    }
+}
+
 // MARK: 기억 탭 = 프로젝트 기획서 + 주식
 
 struct JARVISMemoryTabView: View {
@@ -47,11 +87,64 @@ struct JARVISMemoryTabView: View {
 
             switch section {
             case .plans: plans
-            case .stocks: JARVISMobileDataPageView(page: .stocks, calendar: calendar, nearby: nearby)
+            case .stocks: stocks
             }
         }
         .sheet(item: $openDoc) { JARVISPlanDocView(doc: $0) }
         .task { if nearby.planDocs.isEmpty { nearby.refreshPlans() } }
+        .onChange(of: section) { _, now in if now == .stocks { nearby.refreshStocks() } }
+    }
+
+    private var stocks: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text(nearby.stockStatus)
+                    .font(.system(size: 11))
+                    .foregroundStyle(JARVISPalette.muted)
+                    .lineLimit(2)
+                Spacer()
+                Button { nearby.refreshStocks() } label: {
+                    Image(systemName: "arrow.clockwise").font(.system(size: 13))
+                }
+                .disabled(nearby.stockLoading)
+                .accessibilityLabel("주식 새로고침")
+            }
+            ForEach(nearby.stockSnapshot?.markets ?? []) { market in
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(market.title)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(JARVISPalette.gold)
+                        .padding(.bottom, 6)
+                    ForEach(market.rows) { row in
+                        HStack(spacing: 10) {
+                            Text("\(row.rank)")
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(JARVISPalette.muted)
+                                .frame(width: 20, alignment: .trailing)
+                            Text(row.name)
+                                .font(.system(size: 13))
+                                .lineLimit(1)
+                            Spacer(minLength: 6)
+                            Text(row.priceLabel)
+                                .font(.system(size: 12, design: .monospaced))
+                            if let change = row.change {
+                                Text(String(format: "%+.2f%%", change))
+                                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                    .foregroundStyle(change > 0 ? Color(red: 0.95, green: 0.36, blue: 0.33)
+                                                     : change < 0 ? Color(red: 0.36, green: 0.58, blue: 0.98) : JARVISPalette.muted)
+                                    .frame(width: 66, alignment: .trailing)
+                            }
+                        }
+                        .padding(.vertical, 7)
+                        Divider().overlay(JARVISPalette.panelEdge)
+                    }
+                }
+                .padding(14)
+                .background(JARVISPalette.panel, in: RoundedRectangle(cornerRadius: 13))
+                .overlay(RoundedRectangle(cornerRadius: 13).stroke(JARVISPalette.panelEdge, lineWidth: 0.75))
+            }
+        }
+        .onAppear { if nearby.stockSnapshot == nil { nearby.refreshStocks() } }
     }
 
     private var plans: some View {

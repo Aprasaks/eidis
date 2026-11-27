@@ -384,6 +384,34 @@ final class JARVISMobileNearbyCalendar: NSObject, ObservableObject {
         }
     }
 
+    // MARK: 기억 탭 · 주식 (Mac: JarvisStockBoard.phoneSnapshot · 읽기 전용)
+
+    @Published private(set) var stockSnapshot: JARVISStockSnapshot?
+    @Published private(set) var stockStatus = "주식 확인 전"
+    @Published private(set) var stockLoading = false
+
+    func refreshStocks() {
+        guard !stockLoading else { return }
+        guard connected || remembered else { stockStatus = "맥북을 먼저 한 번 등록해 주세요"; return }
+        let id = UUID().uuidString
+        stockLoading = true
+        stockStatus = "주식 불러오는 중"
+        sendToMac(["kind": "stockSnapshotRequest", "requestID": id], id: id, expect: "stockSnapshot", timeout: 30) { [weak self] data in
+            guard let self else { return }
+            self.stockLoading = false
+            guard let data, let snapshot = try? JSONDecoder().decode(JARVISStockSnapshot.self, from: data) else {
+                self.stockStatus = self.stockSnapshot == nil ? "맥북이 연결되면 주식을 받아올게요" : "맥북 응답 없음 · 마지막으로 받은 시세"
+                return
+            }
+            if let problem = snapshot.problem {
+                self.stockStatus = problem
+                return
+            }
+            self.stockSnapshot = snapshot
+            self.stockStatus = "토스증권 \(snapshot.metric ?? "거래대금") TOP 10 · \(snapshot.checkedLabel)"
+        }
+    }
+
     // MARK: 코어 탭 대화창 → 맥에 상주 중인 Qwen (Mac: JarvisPhoneChat.swift)
 
     /// 답을 받으면 (text, true), 맥이 답하지 못했으면 (안내 문구, false), 연결 실패면 (nil, false).
@@ -737,7 +765,7 @@ final class JARVISMobileNearbyCalendar: NSObject, ObservableObject {
         }
         guard connected, trustedPeer == peer else { return }
         // SNS 응답: 기다리던 requestID일 때만 전달한다.
-        if kind == "socialSnapshot" || kind == "socialApprovalResult" || kind == "pushRegistered" || kind == "planDocs" || kind == "chatReply" {
+        if kind == "socialSnapshot" || kind == "socialApprovalResult" || kind == "pushRegistered" || kind == "planDocs" || kind == "chatReply" || kind == "stockSnapshot" {
             if let id = object["requestID"] as? String { deliverMacReply(id, data) }
             return
         }

@@ -745,3 +745,63 @@ struct JarvisStockBoardView:View {
     }
 }
 
+
+// MARK: 아이폰 기억 탭 · 주식 (읽기 전용)
+//
+// 토스증권은 새 토큰을 받으면 같은 클라이언트의 기존 토큰을 무효화하므로,
+// 맥 주식 화면과 같은 인스턴스(shared)·같은 토큰으로 조회한다. 60초 캐시.
+extension JarvisStockBoard {
+    static let shared = JarvisStockBoard()
+    static let phoneRequestKind = "stockSnapshotRequest"
+    private static var phoneCache: (at: Date, body: [String: Any])?
+
+    /// kind "stockSnapshotRequest" → "stockSnapshot": 국내·미국 거래대금 TOP 10 (종목명·가격·등락률)
+    func phoneSnapshot(requestID: String) async -> [String: Any] {
+        var reply: [String: Any] = ["kind": "stockSnapshot", "requestID": requestID]
+        if let cache = Self.phoneCache, Date().timeIntervalSince(cache.at) < 60 {
+            return reply.merging(cache.body) { $1 }
+        }
+        guard StockKeychain.load() != nil else {
+            reply["problem"] = "맥에 토스증권 키가 아직 없어요"
+            return reply
+        }
+        do {
+            let bearer = try await auth()
+            var markets: [[String: Any]] = []
+            var allRanks: [String: [StockRank]] = [:]
+            var times: [String: String] = [:]
+            for market in ["KR", "US"] {
+                let result: StockEnvelope<StockRanks> = try await request("/api/v1/rankings", [
+                    .init(name: "marketCountry", value: market),
+                    .init(name: "type", value: StockTopMetric.value.rawValue),
+                    .init(name: "duration", value: StockTopMetric.value.duration),
+                    .init(name: "count", value: "10")
+                ], bearer: bearer)
+                allRanks[market] = Array(result.result.rankings.prefix(10))
+                times[market] = result.result.rankedAt
+            }
+            var stockNames: [String: String] = [:]
+            let symbols = Array(Set(allRanks.values.flatMap { $0.map(\.symbol) })).sorted()
+            if !symbols.isEmpty, let master: StockEnvelope<[StockMaster]> = try? await request(
+                "/api/v1/stocks", [.init(name: "symbols", value: symbols.joined(separator: ","))], bearer: bearer) {
+                for item in master.result { stockNames[item.symbol] = item.name }
+            }
+            for market in ["KR", "US"] {
+                let rows: [[String: Any]] = (allRanks[market] ?? []).map { rank in
+                    ["rank": rank.rank, "symbol": rank.symbol, "name": stockNames[rank.symbol] ?? rank.symbol,
+                     "price": rank.price.lastPrice, "changeRate": rank.price.changeRate ?? "",
+                     "currency": rank.currency]
+                }
+                markets.append(["market": market, "rankedAt": times[market] ?? "", "rows": rows])
+            }
+            let body: [String: Any] = ["checkedAt": ISO8601DateFormatter().string(from: Date()),
+                                       "metric": StockTopMetric.value.label, "markets": markets]
+            Self.phoneCache = (Date(), body)
+            return reply.merging(body) { $1 }
+        } catch {
+            if case StockError.http(401) = error { token = nil; expires = .distantPast }
+            reply["problem"] = (error as? StockError)?.localizedDescription ?? "토스증권 조회 실패"
+            return reply
+        }
+    }
+}
