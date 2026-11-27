@@ -31,6 +31,8 @@ struct JARVISHomeView: View {
     @State private var prompt = ""
     @State private var messages: [JARVISChatLine] = []
     @State private var showingPairing = false
+    /// 마지막 입력이 마이크였을 때만 답을 소리 내어 읽는다.
+    @State private var speakReplies = false
     @State private var proposedEvent: JARVISCalendarDraft?
     @State private var showingCalendarManualEntry = false
     @State private var showingAlarmManualEntry = false
@@ -411,7 +413,7 @@ struct JARVISHomeView: View {
         if voice.isListening {
             Task {
                 if let text = await voice.finish() {
-                    dispatch(text)
+                    dispatch(text, spoken: true)
                 }
             }
         } else {
@@ -424,17 +426,19 @@ struct JARVISHomeView: View {
         guard !text.isEmpty else { return }
         prompt = ""
         inputFocused = false
-        dispatch(text)
+        dispatch(text, spoken: false)
     }
 
     /// 대화 기록에 남기고 말한다 (코어 탭 대화창).
+    /// 글자로 친 대화는 조용히, 마이크로 말한 대화만 소리 내어 답한다 (맥과 같은 규칙).
     private func reply(_ answer: String, for input: String) {
         messages.append(JARVISChatLine(fromOwner: false, text: answer))
         if messages.count > 40 { messages.removeFirst(messages.count - 40) }
-        voice.speak(answer, for: input)
+        if speakReplies { voice.speak(answer, for: input) }
     }
 
-    private func dispatch(_ input: String) {
+    private func dispatch(_ input: String, spoken: Bool) {
+        speakReplies = spoken
         messages.append(JARVISChatLine(fromOwner: true, text: input))
         let compact = input.lowercased().replacingOccurrences(of: " ", with: "")
         if (["알람", "모닝콜", "깨워"].contains { compact.contains($0) }) &&

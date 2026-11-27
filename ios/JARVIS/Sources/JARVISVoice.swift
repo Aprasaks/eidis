@@ -185,7 +185,11 @@ final class JARVISVoice: NSObject, ObservableObject {
         // DECHIVE는 언제나 "데카이브"로 읽는다. 유나 프리미엄이 설치돼 있으면 맥과 같은 목소리를 쓴다.
         let spoken = text.replacingOccurrences(of: "DECHIVE", with: "데카이브", options: .caseInsensitive)
         let utterance = AVSpeechUtterance(string: spoken)
-        utterance.voice = AVSpeechSynthesisVoice(identifier: "com.apple.voice.premium.ko-KR.Yuna")
+        // 유나만 쓴다: 프리미엄 → 향상됨 → 기본 유나 순서. ko-KR 기본값은 Siri 계열 목소리가 잡힐 수 있어 마지막에만.
+        utterance.voice = ["com.apple.voice.premium.ko-KR.Yuna",
+                           "com.apple.voice.enhanced.ko-KR.Yuna",
+                           "com.apple.voice.compact.ko-KR.Yuna"]
+            .lazy.compactMap { AVSpeechSynthesisVoice(identifier: $0) }.first
             ?? AVSpeechSynthesisVoice(language: "ko-KR")
         utterance.rate = 0.48
         synthesizer.speak(utterance)
