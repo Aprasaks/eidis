@@ -27,5 +27,18 @@ class Cinematics(unittest.TestCase):
             self.assertTrue((ROOT / "tools/blender" / f).is_file())
 
 
+class MosaicAssembly(unittest.TestCase):
+    def test_shards_fill_real_panel_frames(self):
+        shards = (MAC / "JarvisShardAssembly.swift").read_text(encoding="utf-8")
+        self.assertIn("struct JarvisShardTargetsKey: PreferenceKey", shards)
+        self.assertIn("accessibilityReduceMotion", shards)
+        draw = (MAC / "JarvisDrawIn.swift").read_text(encoding="utf-8")
+        self.assertIn('geo.frame(in: .named("jarvisDash"))', draw)
+        self.assertIn("JarvisShardTiming.melt(delay)", draw)
+        center = (MAC / "JarvisCommandCenterView.swift").read_text(encoding="utf-8")
+        self.assertIn('.coordinateSpace(name: "jarvisDash")', center)
+        self.assertIn("JarvisShardAssembly(targets: shardTargets", center)
+
+
 if __name__ == "__main__":
     unittest.main()

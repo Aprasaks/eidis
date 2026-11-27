@@ -1,60 +1,52 @@
 import SwiftUI
 
-/// 대시보드 패널이 "그려지듯" 나타나는 효과 (DESIGN / ENGINEER / ARCHIVE — 설계도가 실물이 되는 느낌).
-///  1) 테두리 선이 한 바퀴 그어지고
-///  2) 내용이 위에서 아래로 스캔되며 드러나고 (경계에 빛나는 선)
-///  3) 다 드러나면 임시 선은 사라지고 패널 원래 테두리만 남는다.
-/// 동작 줄이기(접근성)를 켠 경우 바로 나타난다.
+/// 대시보드 패널이 "코어 조각으로 조립되듯" 나타나는 효과 (A안 · 모자이크).
+///  1) 패널 위치를 JarvisShardAssembly 에 알려 준다 → 코어 조각이 이 자리로 날아와 타일처럼 채운다.
+///  2) 조각이 다 내려앉으면(JarvisShardTiming.melt) 패널이 반짝이며 유리처럼 나타난다.
+/// 동작 줄이기(접근성) 설정이면 바로 나타난다.
 struct JarvisDrawIn: ViewModifier {
     let delay: Double
     let accent: Color
     var corner: CGFloat = 8
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var stroke: CGFloat = 0
-    @State private var reveal: CGFloat = 0
+    @State private var shown = false
+    @State private var flash = 0.0
 
     func body(content: Content) -> some View {
         content
-            .mask(alignment: .top) {
-                GeometryReader { geo in
-                    Rectangle().frame(height: geo.size.height * reveal)
-                }
-            }
+            .opacity(shown ? 1 : 0)
+            .scaleEffect(shown ? 1 : 0.975)
             .overlay {
-                if reveal < 1 {
-                    GeometryReader { geo in
-                        ZStack(alignment: .topLeading) {
-                            RoundedRectangle(cornerRadius: corner)
-                                .trim(from: 0, to: stroke)
-                                .stroke(accent.opacity(0.95), lineWidth: 1.4)
-                                .shadow(color: accent.opacity(0.8), radius: 4)
-                            if reveal > 0 {
-                                // 스캔 경계선
-                                LinearGradient(colors: [.clear, accent.opacity(0.9), .clear],
-                                               startPoint: .leading, endPoint: .trailing)
-                                    .frame(height: 1.5)
-                                    .shadow(color: accent, radius: 6)
-                                    .offset(y: geo.size.height * reveal)
-                            }
-                        }
-                    }
+                // 조각이 녹아드는 순간의 반짝임
+                RoundedRectangle(cornerRadius: corner)
+                    .fill(accent.opacity(0.28 * flash))
+                    .overlay(RoundedRectangle(cornerRadius: corner).stroke(accent.opacity(0.9 * flash), lineWidth: 1.4))
+                    .shadow(color: accent.opacity(0.7 * flash), radius: 10)
                     .allowsHitTesting(false)
-                    .transition(.opacity)
+            }
+            .background {
+                GeometryReader { geo in
+                    Color.clear.preference(key: JarvisShardTargetsKey.self,
+                                           value: [JarvisShardTarget(delay: delay,
+                                                                     rect: geo.frame(in: .named("jarvisDash")),
+                                                                     accent: accent)])
                 }
             }
             .onAppear {
-                guard !reduceMotion else { stroke = 1; reveal = 1; return }
-                stroke = 0
-                reveal = 0
-                withAnimation(.easeInOut(duration: 0.55).delay(delay)) { stroke = 1 }
-                withAnimation(.easeOut(duration: 0.5).delay(delay + 0.4)) { reveal = 1 }
+                guard !reduceMotion else { shown = true; return }
+                shown = false
+                flash = 0
+                let melt = JarvisShardTiming.melt(delay)
+                withAnimation(.easeOut(duration: JarvisShardTiming.meltDuration).delay(melt)) { shown = true }
+                withAnimation(.easeOut(duration: 0.12).delay(melt)) { flash = 1 }
+                withAnimation(.easeIn(duration: 0.5).delay(melt + 0.12)) { flash = 0 }
             }
     }
 }
 
 extension View {
-    /// 패널을 그려지듯 나타나게 한다. delay: 대시보드가 열린 뒤 시작까지 초.
+    /// 패널을 코어 조각으로 조립되듯 나타나게 한다. delay: 대시보드가 열린 뒤 이 패널 차례(초).
     func jarvisDrawIn(delay: Double, accent: Color, corner: CGFloat = 8) -> some View {
         modifier(JarvisDrawIn(delay: delay, accent: accent, corner: corner))
     }
