@@ -36,7 +36,9 @@ class JARVISIOSVoiceOptionTests(unittest.TestCase):
         self.assertIn('크레딧', settings)
         self.assertIn('저장된 API 키 삭제', settings)
         home = (IOS / 'JARVISHomeView.swift').read_text()
-        self.assertIn('JARVISVoiceSettingsView(service: voice.elevenLabs)', home)
+        # 2026-11-28: 목소리 설정 화면 제거, 유나 하나만 사용
+        self.assertNotIn('JARVISVoiceSettingsView(', home)
+        self.assertNotIn('Image(systemName: "waveform")', home)
 
 
 if __name__ == '__main__':

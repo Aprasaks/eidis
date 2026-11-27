@@ -206,6 +206,9 @@ final class JarvisMacNearbyCalendar: NSObject, ObservableObject {
                 } else if kind == "registerPushToken" {
                     // SNS: 잠금화면 알림용 아이폰 기기 토큰 등록 (같은 인증 통로)
                     response = JarvisSocialRemote.registerPush(request, requestID: id)
+                } else if kind == JarvisPlanRemote.requestKind {
+                    // 기억 탭: 프로젝트 기획서 (읽기 전용)
+                    response = JarvisPlanRemote.docs(requestID: id)
                 } else {
                     response = self.makeProjectSnapshot(id)
                 }
@@ -428,6 +431,11 @@ final class JarvisMacNearbyCalendar: NSObject, ObservableObject {
         if kind == "registerPushToken" {
             guard let id = object["requestID"] as? String, UUID(uuidString: id) != nil else { return }
             send(JarvisSocialRemote.registerPush(object, requestID: id), to: [remote])
+            return
+        }
+        if kind == JarvisPlanRemote.requestKind {
+            guard let id = object["requestID"] as? String, UUID(uuidString: id) != nil else { return }
+            if authorized.contains(remote) { send(JarvisPlanRemote.docs(requestID: id), to: [remote]) }
             return
         }
         guard authorized.contains(remote), kind == "sync",

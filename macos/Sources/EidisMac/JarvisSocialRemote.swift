@@ -17,7 +17,7 @@ enum JarvisSocialRemote {
     private static let previewBudget = 330_000
     private static let captionLimit = 2_400
     /// 원격(Tailscale) 통로에서 추가로 허용하는 메시지 종류. 이 두 개뿐이다.
-    static let remoteKinds: Set<String> = ["socialSnapshotRequest", "approveSocialPost", "registerPushToken"]
+    static let remoteKinds: Set<String> = ["socialSnapshotRequest", "approveSocialPost", "registerPushToken", JarvisPlanRemote.requestKind]
 
     // MARK: Channel numbers (5분 캐시)
 

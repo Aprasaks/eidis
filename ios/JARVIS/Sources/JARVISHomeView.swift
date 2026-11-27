@@ -4,7 +4,16 @@ import SwiftUI
 /// The primary Mac golden core video is real; Mac remote control is not yet paired.
 struct JARVISHomeView: View {
     /// 아래 탭 막대에 있는 화면. 나머지는 상단 뒤로가기 버튼을 보여준다.
-    static let tabPages: Set<JARVISMobilePage> = [.core, .dashboard, .alarm, .calendar, .memory]
+    static let tabPages: Set<JARVISMobilePage> = [.alarm, .calendar, .core, .approval, .memory]
+    /// 하단 탭 순서: 알람 · 일정 · 코어(가운데, 앱을 켜면 항상 여기) · 승인 · 기억
+    static let tabOrder: [JARVISMobilePage] = [.alarm, .calendar, .core, .approval, .memory]
+    /// 코어 탭의 프로젝트 사이트 (맥 대시보드 사이트 카드와 같은 목록)
+    static let sites: [(title: String, domain: String, url: String, symbol: String)] = [
+        ("DECHIVE.DEV", "dechive.dev", "https://dechive.dev", "book.closed"),
+        ("DECHIVE.APP", "dechive.app", "https://dechive.app", "square.stack.3d.up"),
+        ("GUNSAN.COM", "군산.com", "https://xn--6e0b287a.com", "map"),
+        ("GUNSAN TABLE TENNIS", "gunsan-table-tennis-association.vercel.app", "https://gunsan-table-tennis-association.vercel.app", "figure.table.tennis")
+    ]
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var voice = JARVISVoice()
@@ -20,7 +29,7 @@ struct JARVISHomeView: View {
     }
     @State private var selectedPage: JARVISMobilePage = JARVISMobilePage.initialPageForVerification
     @State private var prompt = ""
-    @State private var showingVoiceSettings = false
+    @State private var messages: [JARVISChatLine] = []
     @State private var proposedEvent: JARVISCalendarDraft?
     @State private var showingCalendarManualEntry = false
     @State private var showingAlarmManualEntry = false
@@ -51,10 +60,13 @@ struct JARVISHomeView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 0) {
                         if selectedPage == .core {
-                            coreArea
                             greeting
-                            quickCommands
-                                .padding(.top, 25)
+                            sitesSection
+                                .padding(.top, 22)
+                            chatSection
+                                .padding(.top, 22)
+                        } else if selectedPage == .memory {
+                            JARVISMemoryTabView(calendar: calendar, nearby: nearby)
                         } else if selectedPage == .alarm {
                             JARVISAlarmView(store: alarms)
                         } else if selectedPage == .dashboard {
@@ -62,20 +74,20 @@ struct JARVISHomeView: View {
                                 selectedPage = destination
                             }
                         } else {
-                            // 아래 탭에 없는 화면(SNS·프로젝트·뉴스 등)은 돌아갈 곳이 안 보였다.
-                            // 상단 "‹ 전체 현황" 버튼과 왼쪽 가장자리 밀기로 전체 현황으로 돌아간다.
+                            // 아래 탭에 없는 화면(SNS·프로젝트·뉴스 등)은 상단 "‹ 코어" 버튼과
+                            // 왼쪽 가장자리 밀기로 코어 탭으로 돌아간다.
                             if !Self.tabPages.contains(selectedPage) {
-                                Button { selectedPage = .dashboard } label: {
+                                Button { selectedPage = .core } label: {
                                     HStack(spacing: 4) {
                                         Image(systemName: "chevron.left").font(.system(size: 15, weight: .semibold))
-                                        Text("전체 현황").font(.system(size: 15))
+                                        Text("코어").font(.system(size: 15))
                                     }
                                     .foregroundStyle(JARVISPalette.gold)
                                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                                     .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
-                                .accessibilityLabel("전체 현황으로 돌아가기")
+                                .accessibilityLabel("코어로 돌아가기")
                             }
                             JARVISMobileDataPageView(page: selectedPage, calendar: calendar, nearby: nearby)
                         }
@@ -93,21 +105,17 @@ struct JARVISHomeView: View {
                         .onEnded { value in
                             guard !Self.tabPages.contains(selectedPage), value.startLocation.x < 32,
                                   value.translation.width > 80, abs(value.translation.height) < 70 else { return }
-                            selectedPage = .dashboard
+                            selectedPage = .core
                         }
                 )
 
-                navigationBar
+                // 입력창은 코어 탭에서만, 탭바 바로 위에. 키보드가 올라오면 탭바는 숨긴다.
+                if selectedPage == .core { composer }
+                if !inputFocused { navigationBar }
             }
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            composer
         }
         .foregroundStyle(JARVISPalette.white)
         .preferredColorScheme(.dark)
-        .sheet(isPresented: $showingVoiceSettings) {
-            JARVISVoiceSettingsView(service: voice.elevenLabs)
-        }
         .sheet(item: $proposedEvent) { proposal in
             JARVISCalendarEditor(store: calendar, proposal: proposal, selectedDate: proposal.startAt)
         }
@@ -156,72 +164,38 @@ struct JARVISHomeView: View {
                 .font(.system(size: 22, weight: .semibold, design: .monospaced))
                 .tracking(4)
             Spacer()
-            Button {
-                showingVoiceSettings = true
-            } label: {
-                Image(systemName: "waveform")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(JARVISPalette.gold)
-                    .frame(width: 42, height: 42)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("목소리 설정")
+            // 돌아가는 금빛 코어는 코어 탭에서만, 오른쪽 위에 작게.
+            if selectedPage == .core { coreArea }
         }
+        .frame(height: 58)
     }
 
     private var coreArea: some View {
         ZStack {
             Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            JARVISPalette.gold.opacity(voice.isListening ? 0.18 : 0.095),
-                            JARVISPalette.gold.opacity(0.035),
-                            .clear
-                        ],
-                        center: .center,
-                        startRadius: 12,
-                        endRadius: 150
-                    )
-                )
-                .frame(width: 330, height: 330)
-                .blur(radius: 23)
-
-            // The same ORIGINAL golden Mac overlay animation, cropped only
-            // to remove its baked-in caption and fit this iPhone square.
-            // No reconstructed SceneKit lookalike.
+                .fill(RadialGradient(
+                    colors: [JARVISPalette.gold.opacity(voice.isListening ? 0.30 : 0.16), .clear],
+                    center: .center, startRadius: 4, endRadius: 40))
+                .frame(width: 78, height: 78)
+                .blur(radius: 8)
+            // 맥 이디스 원본 금빛 코어 영상 (작게)
             if let videoURL = Bundle.main.url(forResource: "DECHIVE_Core_Mobile", withExtension: "mp4") {
                 JarvisLoopingCoreMobile(videoURL: videoURL, active: active)
-                    .frame(width: 330, height: 330)
-                    // The Mac original has a subtle warm-black background.
-                    // Feather ONLY the square crop edges to blend naturally
-                    // into the phone backdrop without trimming the gold ring.
+                    .frame(width: 58, height: 58)
                     .mask {
                         RadialGradient(stops: [
                             .init(color: .white, location: 0),
                             .init(color: .white, location: 0.78),
                             .init(color: .clear, location: 1)
-                        ], center: .center, startRadius: 0, endRadius: 184)
+                        ], center: .center, startRadius: 0, endRadius: 32)
                     }
-                    .accessibilityLabel(active
-                        ? "맥 이디스 원본 금빛 코어 애니메이션 재생 중"
-                        : "맥 이디스 원본 금빛 코어 애니메이션 일시정지")
+                    .accessibilityLabel(voice.isListening ? "이디스 코어 · 듣는 중" : "이디스 코어")
                     .accessibilityAddTraits(.isImage)
             } else {
-                VStack(spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .foregroundStyle(JARVISPalette.gold)
-                    Text("원본 코어 리소스를 찾을 수 없어요")
-                        .font(.caption)
-                        .foregroundStyle(JARVISPalette.muted)
-                }
-                .frame(width: 330, height: 330)
+                Image(systemName: "circle.hexagongrid").foregroundStyle(JARVISPalette.gold)
             }
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: 326)
-        .padding(.top, 10)
+        .frame(width: 58, height: 58)
     }
 
     private var greeting: some View {
@@ -245,41 +219,86 @@ struct JARVISHomeView: View {
         .padding(.top, 2)
     }
 
-    private var quickCommands: some View {
-        VStack(alignment: .leading, spacing: 11) {
-            HStack(spacing: 10) {
-                quickAction(.dashboard)
-                quickAction(.alarm)
+    private var sitesSection: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text("내 프로젝트")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(JARVISPalette.muted)
+            ForEach(Self.sites, id: \.url) { site in
+                if let url = URL(string: site.url) {
+                    Link(destination: url) {
+                        HStack(spacing: 12) {
+                            Image(systemName: site.symbol)
+                                .font(.system(size: 16, weight: .light))
+                                .foregroundStyle(JARVISPalette.gold)
+                                .frame(width: 22)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(site.title)
+                                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                                    .foregroundStyle(JARVISPalette.white)
+                                Text(site.domain)
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(JARVISPalette.muted)
+                                    .lineLimit(1)
+                            }
+                            Spacer(minLength: 0)
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(size: 10))
+                                .foregroundStyle(JARVISPalette.muted)
+                        }
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 52)
+                        .background(JARVISPalette.panel, in: RoundedRectangle(cornerRadius: 13))
+                        .overlay(RoundedRectangle(cornerRadius: 13).stroke(JARVISPalette.panelEdge, lineWidth: 0.75))
+                    }
+                    .accessibilityHint("Safari에서 사이트를 엽니다")
+                }
             }
         }
     }
 
-    private func quickAction(_ page: JARVISMobilePage) -> some View {
-        Button { selectedPage = page } label: {
-            HStack(spacing: 10) {
-                Image(systemName: page.icon)
-                    .font(.system(size: 16, weight: .regular))
-                    .foregroundStyle(JARVISPalette.gold)
-                Text(page.title)
-                    .font(.system(size: 12, weight: .medium))
-                Spacer(minLength: 0)
-                Image(systemName: "arrow.up.right")
-                    .font(.system(size: 10))
+    private var chatSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("대화")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(JARVISPalette.muted)
+            if messages.isEmpty {
+                Text("이디스에게 말을 걸어 보세요. 알람·일정을 말로 잡거나 화면을 열 수 있어요.")
+                    .font(.system(size: 13))
                     .foregroundStyle(JARVISPalette.muted)
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(JARVISPalette.panel.opacity(0.6), in: RoundedRectangle(cornerRadius: 13))
             }
-            .padding(14)
-            .frame(maxWidth: .infinity)
-            .background(JARVISPalette.panel, in: RoundedRectangle(cornerRadius: 13))
-            .overlay(RoundedRectangle(cornerRadius: 13)
-                .stroke(JARVISPalette.panelEdge, lineWidth: 0.75))
+            ForEach(messages) { line in
+                HStack {
+                    if line.fromOwner { Spacer(minLength: 40) }
+                    VStack(alignment: line.fromOwner ? .trailing : .leading, spacing: 3) {
+                        Text(line.fromOwner ? "DECHIVE" : "EIDIS")
+                            .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(line.fromOwner ? JARVISPalette.muted : JARVISPalette.gold)
+                        Text(line.text)
+                            .font(.system(size: 14))
+                            .foregroundStyle(JARVISPalette.white)
+                            .padding(.horizontal, 13)
+                            .padding(.vertical, 9)
+                            .background(line.fromOwner ? JARVISPalette.gold.opacity(0.16) : JARVISPalette.panel,
+                                        in: RoundedRectangle(cornerRadius: 14))
+                    }
+                    if !line.fromOwner { Spacer(minLength: 40) }
+                }
+            }
+            if voice.isListening {
+                Text("듣고 있어요…")
+                    .font(.system(size: 12))
+                    .foregroundStyle(JARVISPalette.gold)
+            }
         }
-        .buttonStyle(.plain)
-        .accessibilityHint("해당 화면을 엽니다. Mac의 실제 데이터는 연결 전까지 표시하지 않습니다.")
     }
 
     private var navigationBar: some View {
         HStack(spacing: 0) {
-            ForEach([JARVISMobilePage.core, .dashboard, .alarm, .calendar, .memory]) { page in
+            ForEach(Self.tabOrder) { page in
                 Button {
                     selectedPage = page
                     inputFocused = false
@@ -373,35 +392,49 @@ struct JARVISHomeView: View {
         dispatch(text)
     }
 
+    /// 대화 기록에 남기고 말한다 (코어 탭 대화창).
+    private func reply(_ answer: String, for input: String) {
+        messages.append(JARVISChatLine(fromOwner: false, text: answer))
+        if messages.count > 40 { messages.removeFirst(messages.count - 40) }
+        voice.speak(answer, for: input)
+    }
+
     private func dispatch(_ input: String) {
+        messages.append(JARVISChatLine(fromOwner: true, text: input))
         let compact = input.lowercased().replacingOccurrences(of: " ", with: "")
         if (["알람", "모닝콜", "깨워"].contains { compact.contains($0) }) &&
            (["맞춰", "설정", "추가", "등록", "깨워"].contains { compact.contains($0) }) {
             selectedPage = .alarm
             showingAlarmManualEntry = true
-            voice.speak("DECHIVE, 이디스 알람 작성 화면을 열었어요. 시간을 확인하고 저장을 눌러 주세요.", for: input)
+            reply("DECHIVE, 이디스 알람 작성 화면을 열었어요. 시간을 확인하고 저장을 눌러 주세요.", for: input)
             return
         }
         if let proposal = JARVISCalendarSpeechParser.parse(input) {
             selectedPage = .calendar
             proposedEvent = proposal
-            voice.speak("DECHIVE, \(proposal.evidence)으로 이해했어요. 내용을 확인하고 저장을 눌러 주세요.", for: input)
+            reply("DECHIVE, \(proposal.evidence)으로 이해했어요. 내용을 확인하고 저장을 눌러 주세요.", for: input)
             return
         }
         if JARVISCalendarSpeechParser.requestsCreation(input) {
             selectedPage = .calendar
             showingCalendarManualEntry = true
-            voice.speak("DECHIVE, 날짜나 오전·오후가 불분명해요. 일정 확인 화면에서 정확한 시간을 지정해 주세요.", for: input)
+            reply("DECHIVE, 날짜나 오전·오후가 불분명해요. 일정 확인 화면에서 정확한 시간을 지정해 주세요.", for: input)
             return
         }
         if let page = JARVISMobilePage.requestedPage(for: input) {
             selectedPage = page
-            voice.speak(page.spokenStatus, for: input)
+            reply(page.spokenStatus, for: input)
         } else {
             let answer = JARVISCommand.response(to: input)
-            voice.speak(answer, for: input)
+            reply(answer, for: input)
         }
     }
+}
+
+struct JARVISChatLine: Identifiable {
+    let id = UUID()
+    let fromOwner: Bool
+    let text: String
 }
 
 #Preview {

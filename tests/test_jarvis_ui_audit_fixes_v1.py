@@ -31,8 +31,8 @@ class UiAuditFixes(unittest.TestCase):
 
     def test_iphone_back_and_connect(self):
         home = read(IOS / "JARVISHomeView.swift")
-        self.assertIn('static let tabPages: Set<JARVISMobilePage> = [.core, .dashboard, .alarm, .calendar, .memory]', home)
-        self.assertIn('accessibilityLabel("전체 현황으로 돌아가기")', home)
+        self.assertIn('static let tabPages: Set<JARVISMobilePage> = [.alarm, .calendar, .core, .approval, .memory]', home)
+        self.assertIn('accessibilityLabel("코어로 돌아가기")', home)
         self.assertIn("value.startLocation.x < 32", home)
         self.assertIn('Label("Mac 연결하기 · 12자리 코드", systemImage: "link")', read(IOS / "JARVISMobileSocialView.swift"))
 

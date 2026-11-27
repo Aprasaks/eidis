@@ -37,7 +37,7 @@ class JARVISWakeButtonTests(unittest.TestCase):
         self.assertIn('JARVISWakeConfirmationIntent.swift', xcode)
         self.assertIn('JARVISCalendarStore.swift', xcode)
         self.assertIn('DECHIVE_Core_Mobile', HOME)
-        self.assertIn('quickAction(.alarm)', HOME)
+        self.assertIn('static let tabOrder: [JARVISMobilePage] = [.alarm, .calendar, .core, .approval, .memory]', HOME)
         plist = plistlib.loads((ROOT/'ios/JARVIS/Info.plist').read_bytes())
         self.assertIn('NSAlarmKitUsageDescription', plist)
 

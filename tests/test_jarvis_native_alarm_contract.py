@@ -38,7 +38,7 @@ class AlarmContract(unittest.TestCase):
         self.assertIn('case .alarm: "알람"', PAGES)
         self.assertIn('case .alarm: "alarm"', PAGES)
         self.assertIn('JARVISAlarmView(store: alarms)', HOME)
-        self.assertIn('quickAction(.alarm)', HOME)
+        self.assertIn('static let tabOrder: [JARVISMobilePage] = [.alarm, .calendar, .core, .approval, .memory]', HOME)
         self.assertIn('JARVISAlarmEditor', VIEW)
         self.assertIn('3분 뒤 시험 알람', VIEW)
         self.assertIn('알람 삭제', VIEW)

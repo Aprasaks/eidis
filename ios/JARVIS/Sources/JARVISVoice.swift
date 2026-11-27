@@ -170,30 +170,8 @@ final class JARVISVoice: NSObject, ObservableObject {
         transcript = recognized
         reply = response
         stopSpeaking()
-        let currentRevision = speechRevision
-        guard elevenLabs.enabled && elevenLabs.isConfigured else {
-            speakSystemVoice(response)
-            return
-        }
-        status = "ElevenLabs 음성 요청 준비 중 · 크레딧 사용 가능"
-        speechTask = Task { [weak self] in
-            guard let self else { return }
-            let audioData = await self.elevenLabs.generateAudio(response)
-            guard !Task.isCancelled, self.speechRevision == currentRevision else { return }
-            if audioData != nil {
-                try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio,
-                                                                 options: [.duckOthers])
-                try? AVAudioSession.sharedInstance().setActive(true)
-            }
-            if let audioData, let player = try? AVAudioPlayer(data: audioData),
-               player.prepareToPlay(), player.play() {
-                self.elevenLabsPlayer = player
-                self.status = "ElevenLabs 목소리 재생 중"
-            } else {
-                self.status = "ElevenLabs 이용 불가 · 기본 iPhone 목소리로 대체"
-                self.speakSystemVoice(response)
-            }
-        }
+        // 2026-11-28 사용자 결정: 목소리 설정 없이 유나 하나만 쓴다 (ElevenLabs 사용 안 함).
+        speakSystemVoice(response)
     }
 
     private func speakSystemVoice(_ text: String) {

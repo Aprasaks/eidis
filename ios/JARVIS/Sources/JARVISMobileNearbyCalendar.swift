@@ -370,6 +370,30 @@ final class JARVISMobileNearbyCalendar: NSObject, ObservableObject {
         }
     }
 
+    // MARK: 기억 탭 · 프로젝트 기획서 (Mac: JarvisPlanRemote.swift · 읽기 전용)
+
+    @Published private(set) var planDocs: [JARVISPlanDoc] = []
+    @Published private(set) var planStatus = "Mac 기획서 확인 전"
+    @Published private(set) var planLoading = false
+
+    func refreshPlans() {
+        guard !planLoading else { return }
+        guard connected || remembered else { planStatus = "Mac 기기 등록 필요"; return }
+        let id = UUID().uuidString
+        planLoading = true
+        planStatus = "Mac 기획서 불러오는 중"
+        sendToMac(["kind": "planDocsRequest", "requestID": id], id: id, expect: "planDocs", timeout: 15) { [weak self] data in
+            guard let self else { return }
+            self.planLoading = false
+            guard let data, let reply = try? JSONDecoder().decode(JARVISPlanDocsReply.self, from: data) else {
+                self.planStatus = self.planDocs.isEmpty ? "Mac 응답 없음 · 맥이 켜져 있는지 확인하세요" : "Mac 응답 없음 · 마지막으로 받은 기획서"
+                return
+            }
+            self.planDocs = reply.docs
+            self.planStatus = reply.docs.isEmpty ? "Mac에 기획서가 없어요" : "Mac 기획서 \(reply.docs.count)개"
+        }
+    }
+
     /// 사용자가 미리보기로 본 바로 그 버전(digest)에 대한 승인/반려. 게시는 Mac에서 별도로 진행된다.
     func decideSocial(_ carousel: JARVISSocialCarousel, approve: Bool) {
         guard !socialDeciding, carousel.status == "review" else { return }
@@ -670,7 +694,7 @@ final class JARVISMobileNearbyCalendar: NSObject, ObservableObject {
         }
         guard connected, trustedPeer == peer else { return }
         // SNS 응답: 기다리던 requestID일 때만 전달한다.
-        if kind == "socialSnapshot" || kind == "socialApprovalResult" || kind == "pushRegistered" {
+        if kind == "socialSnapshot" || kind == "socialApprovalResult" || kind == "pushRegistered" || kind == "planDocs" {
             if let id = object["requestID"] as? String { deliverMacReply(id, data) }
             return
         }

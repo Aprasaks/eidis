@@ -12,9 +12,9 @@ class MobileDashboardContractTests(unittest.TestCase):
         self.assertIn('JARVISMobileDashboardView(calendar: calendar, nearby: nearby)', home)
         self.assertIn('JARVISMobileDataPageView(page: selectedPage, calendar: calendar, nearby: nearby)', home)
         self.assertIn('JARVISMobilePage.requestedPage(for: input)', home)
-        self.assertIn('ForEach([JARVISMobilePage.core, .dashboard, .alarm, .calendar, .memory])', home)
+        self.assertIn('ForEach(Self.tabOrder)', home)
         self.assertIn('JarvisLoopingCoreMobile(videoURL: videoURL, active: active)', home)
-        self.assertIn('voice.speak(page.spokenStatus, for: input)', home)
+        self.assertIn('reply(page.spokenStatus, for: input)', home)
 
     def test_mac_data_panels_are_labeled_disconnected(self):
         ui = (IOS / 'JARVISMobileDashboardView.swift').read_text()

@@ -3,7 +3,7 @@ import SwiftUI
 /// Touch and voice both navigate to the same real data surfaces.
 /// A view being available never implies that the Mac data is connected.
 enum JARVISMobilePage: String, CaseIterable, Identifiable {
-    case core, dashboard, alarm, calendar, memory, stocks, projects, knowledge, social, news, system
+    case core, dashboard, alarm, calendar, approval, memory, stocks, projects, knowledge, social, news, system
 
     var id: String { rawValue }
 
@@ -30,6 +30,7 @@ enum JARVISMobilePage: String, CaseIterable, Identifiable {
         case .dashboard: "전체 현황"
         case .calendar: "일정"
         case .alarm: "알람"
+        case .approval: "승인"
         case .memory: "기억"
         case .stocks: "주식"
         case .projects: "프로젝트"
@@ -46,6 +47,7 @@ enum JARVISMobilePage: String, CaseIterable, Identifiable {
         case .dashboard: "square.grid.2x2"
         case .calendar: "calendar"
         case .alarm: "alarm"
+        case .approval: "checkmark.seal"
         case .memory: "brain.head.profile"
         case .stocks: "chart.xyaxis.line"
         case .projects: "folder"
@@ -62,7 +64,8 @@ enum JARVISMobilePage: String, CaseIterable, Identifiable {
         case .dashboard: "전체 정보를 한눈에"
         case .calendar: "EIDIS 자체 일정"
         case .alarm: "이디스 기상 알람"
-        case .memory: "이디스가 기억한 정보"
+        case .approval: "승인 기다리는 게시물"
+        case .memory: "기획서와 주식"
         case .stocks: "국내·미국 주식 현황표"
         case .projects: "프로젝트와 작업 기록"
         case .knowledge: "보관한 지식과 자료"
@@ -78,7 +81,8 @@ enum JARVISMobilePage: String, CaseIterable, Identifiable {
         case .dashboard: "맥 데이터 연결 준비 중"
         case .calendar: "EIDIS 자체 일정 저장소 · 이 아이폰"
         case .alarm: "EIDIS 자체 알람 · iPhone 시스템"
-        case .memory: "맥 이디스의 개인 기억과 프로필 · 연결 전"
+        case .approval: "캐러셀 검토·승인 · 맥 이디스"
+        case .memory: "맥 이디스 기획서 · 주식"
         case .stocks: "맥 이디스 증권 데이터 · 연결 전"
         case .projects: "공개 지식 현황 및 연결된 Mac 작업 기록"
         case .knowledge: "맥 이디스 저장 자료 · 연결 전"
@@ -111,7 +115,10 @@ enum JARVISMobilePage: String, CaseIterable, Identifiable {
         if ["캘린더", "일정", "스케줄", "약속"].contains(where: text.contains) {
             return .calendar
         }
-        if ["내기억", "기억", "프로필"].contains(where: text.contains) {
+        if ["승인", "검토할", "결재"].contains(where: text.contains) {
+            return .approval
+        }
+        if ["내기억", "기억", "프로필", "기획서"].contains(where: text.contains) {
             return .memory
         }
         if ["주식", "증권", "코스피", "나스닥", "종목"].contains(where: text.contains) {
@@ -142,6 +149,7 @@ enum JARVISMobilePage: String, CaseIterable, Identifiable {
         case .projects: return "DECHIVE, 프로젝트 화면을 열었어요. 확인 가능한 기록을 불러올게요."
         case .calendar: return "DECHIVE, 이디스 캘린더를 열었어요. 저장된 일정과 새 일정을 확인할 수 있어요."
         case .alarm: return "DECHIVE, 이디스 알람을 열었어요. 원하는 시각을 설정하고 저장해 주세요."
+        case .approval: return "DECHIVE, 승인 화면을 열었어요. 맥 이디스가 만든 게시물을 확인할게요."
         case .social: return "DECHIVE, SNS 화면을 열었어요. 맥 이디스가 만든 캐러셀을 확인할게요."
         default: return "DECHIVE, \(title) 화면을 열었어요. 맥 이디스가 아직 연결되지 않아 실제 데이터는 표시하지 않았어요."
         }
@@ -235,7 +243,7 @@ struct JARVISMobileDataPageView: View {
                 JARVISCalendarView(store: calendar, nearby: nearby)
             } else if page == .projects {
                 JARVISMobileProjectsView(nearby: nearby)
-            } else if page == .social {
+            } else if page == .social || page == .approval {
                 // SNS: Mac 자비스 캐러셀 미리보기·승인 (JARVISMobileSocialView.swift)
                 JARVISMobileSocialView(nearby: nearby)
             } else {
