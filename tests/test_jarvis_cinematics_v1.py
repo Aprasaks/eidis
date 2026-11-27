@@ -12,7 +12,7 @@ class Cinematics(unittest.TestCase):
         for name in ("DECHIVE_Core_Form", "DECHIVE_Core_Dissolve", "DECHIVE_Debris_Loop"):
             self.assertIn(name, src)
             self.assertIn(name, (ROOT / "macos/scripts/package-app.sh").read_text(encoding="utf-8"))
-        self.assertIn(".blendMode(.screen)", src)
+        self.assertIn("screenBlendMode", src)
         self.assertIn("accessibilityReduceMotion", src)
         overlay = (MAC / "JarvisFullscreenOverlay.swift").read_text(encoding="utf-8")
         self.assertIn("JarvisDebrisBackdrop()", overlay)

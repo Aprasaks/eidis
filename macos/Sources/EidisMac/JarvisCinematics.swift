@@ -6,7 +6,7 @@ import AppKit
 /// - DECHIVE_Core_Form.mp4     : 설계도 선 → 금색 코어 (3초, 마지막 프레임이 코어 루프 첫 프레임과 이어짐)
 /// - DECHIVE_Core_Dissolve.mp4 : 코어가 금빛 조각으로 분해 (4초)
 /// - DECHIVE_Debris_Loop.mp4   : 분해된 조각이 떠다니는 배경 (8초 반복)
-/// 모두 검은 배경이라 .screen 합성으로 검정을 투명처럼 겹친다.
+/// 모두 검은 배경이라 스크린 합성(screenBlendMode)으로 검정을 투명처럼 겹친다.
 enum JarvisCinematics {
     static func url(_ name: String) -> URL? { Bundle.main.url(forResource: name, withExtension: "mp4") }
     static var form: URL? { url("DECHIVE_Core_Form") }
@@ -18,6 +18,7 @@ enum JarvisCinematics {
 struct JarvisCinematicClip: NSViewRepresentable {
     let url: URL
     var loop = false
+    var screenBlend = false
     var onFinish: (() -> Void)? = nil
 
     final class Coordinator {
@@ -46,22 +47,37 @@ struct JarvisCinematicClip: NSViewRepresentable {
 
     func makeCoordinator() -> Coordinator { Coordinator(url: url, loop: loop, onFinish: onFinish) }
 
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView(frame: .zero)
-        view.wantsLayer = true
-        let layer = AVPlayerLayer(player: context.coordinator.player)
-        layer.videoGravity = .resizeAspect
-        layer.backgroundColor = NSColor.clear.cgColor
-        view.layer = CALayer()
-        view.layer?.addSublayer(layer)
-        return view
+    /// 레이어 크기를 뷰 크기에 맞춰 계속 갱신하는 표면.
+    /// (처음 만들 때 크기가 0이라 한 번만 맞추면 영상이 보이지 않았다.)
+    final class Surface: NSView {
+        let playerLayer: AVPlayerLayer
+        init(player: AVPlayer, screenBlend: Bool) {
+            playerLayer = AVPlayerLayer(player: player)
+            super.init(frame: .zero)
+            wantsLayer = true
+            layer?.backgroundColor = NSColor.clear.cgColor
+            playerLayer.videoGravity = .resizeAspect
+            playerLayer.backgroundColor = NSColor.clear.cgColor
+            // 검은 배경을 투명처럼: 아래 화면과 '스크린' 합성 (Core Animation 필터)
+            if screenBlend { playerLayer.compositingFilter = "screenBlendMode" }
+            layer?.addSublayer(playerLayer)
+        }
+        required init?(coder: NSCoder) { nil }
+        override func layout() {
+            super.layout()
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            playerLayer.frame = bounds
+            CATransaction.commit()
+        }
     }
 
-    func updateNSView(_ view: NSView, context: Context) {
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        view.layer?.sublayers?.forEach { $0.frame = view.bounds }
-        CATransaction.commit()
+    func makeNSView(context: Context) -> Surface {
+        Surface(player: context.coordinator.player, screenBlend: screenBlend)
+    }
+
+    func updateNSView(_ view: Surface, context: Context) {
+        view.needsLayout = true
     }
 }
 
@@ -74,18 +90,17 @@ struct JarvisDebrisBackdrop: View {
     var body: some View {
         ZStack {
             if !reduceMotion, let debris = JarvisCinematics.debris, dissolved {
-                JarvisCinematicClip(url: debris, loop: true)
+                JarvisCinematicClip(url: debris, loop: true, screenBlend: true)
                     .opacity(0.38)
                     .transition(.opacity)
             }
             if !reduceMotion, !dissolved, let dissolve = JarvisCinematics.dissolve {
-                JarvisCinematicClip(url: dissolve) {
+                JarvisCinematicClip(url: dissolve, screenBlend: true) {
                     withAnimation(.easeInOut(duration: 0.6)) { dissolved = true }
                 }
                 .opacity(0.85)
             }
         }
-        .blendMode(.screen)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
         .onAppear { if JarvisCinematics.dissolve == nil { dissolved = true } }

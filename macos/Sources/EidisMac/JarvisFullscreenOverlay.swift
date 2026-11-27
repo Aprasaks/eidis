@@ -233,6 +233,8 @@ struct JarvisLoopingCore: NSViewRepresentable {
         view.layer?.backgroundColor = NSColor.clear.cgColor
         view.playerLayer?.backgroundColor = NSColor.clear.cgColor
         view.playerLayer?.isOpaque = false
+        // 코어 영상의 검은 배경이 뒤의 금빛 잔해 위에 네모로 보이지 않게 '스크린' 합성 (검정 = 투명)
+        view.playerLayer?.compositingFilter = "screenBlendMode"
         view.playerLayer?.videoGravity = compact ? .resizeAspectFill : .resizeAspect
         context.coordinator.playback.attach(surface: view)
         return view
