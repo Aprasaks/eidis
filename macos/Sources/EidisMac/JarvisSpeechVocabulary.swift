@@ -10,7 +10,6 @@ enum JarvisSpeechVocabulary {
         "자비스",
         "데카이브",
         "데카",
-        "데카이브",
         "DECHIVE",
         "깃허브",
         "GitHub",
