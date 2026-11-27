@@ -103,6 +103,8 @@ enum JarvisSocialRemote {
                 "previews": previews,
                 "digest": digest,
                 "visualChecked": visualChecked,
+                // Threads 글 (승인 범위에 포함) — 없으면 빈 문자열
+                "threadText": (try? String(contentsOf: dir.appendingPathComponent("threads.txt"), encoding: .utf8)) ?? "",
                 // 게시 완료면 인스타 링크 (JarvisInstagramPublisher가 publish.json에 기록)
                 "permalink": (JarvisInstagramPublisher.record(dir)?["permalink"] as? String) ?? ""
             ]

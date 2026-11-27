@@ -438,6 +438,13 @@ private struct JarvisSummonedView: View {
                     .zIndex(commandCenter ? 9 : 0)
                     .allowsHitTesting(false)
 
+                // 실제로 일하는 에이전트가 있으면 코어 주위가 그 색으로 맥동한다 (JarvisCoreAura).
+                if commandCenter && liveDashboard.workroomProject == nil && !liveDashboard.snsRoomOpen {
+                    JarvisCoreAura(agentBay: dialogue.agentBay, size: overviewCoreSize)
+                        .position(x: overviewFrame.midX, y: overviewFrame.midY)
+                        .zIndex(8)
+                }
+
                 // The glowing core is a direct, model-free way to open
                 // the same live workroom as the voice command. Clicking it
                 // again in the workroom returns to the clean central core.

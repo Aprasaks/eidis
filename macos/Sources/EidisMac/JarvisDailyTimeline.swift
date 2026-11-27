@@ -17,6 +17,8 @@ struct JarvisDailyTimeline {
 
     let items: [Item]
     let summary: String
+    /// 다음 정해진 작업까지 남은 시간 (예: "다음 · Threads 게시 2시간 13분 후")
+    var next: String = ""
 
     @MainActor
     static func build(agentBay: JarvisAgentTerminalBay, carousel: JarvisCarouselRunner,
@@ -54,6 +56,26 @@ struct JarvisDailyTimeline {
         items.append(Item(id: "carousel", time: "01:30", title: "인스타 캐러셀 제작", agent: "Claude",
                           state: carouselState.0, detail: carouselState.1))
 
+        // 2-1) 09:00 Threads 게시 (자비스 · 승인된 threads.txt만)
+        let threadRecord = JarvisInstagramPublisher.runs().lazy
+            .compactMap { JarvisThreadsPublisher.record($0) }
+            .first { ($0["day"] as? String) == Self.dayKey(now) }
+        let threads: (State, String)
+        switch threadRecord?["result"] as? String {
+        case "posted": threads = (.done, "게시 완료")
+        case "publishing": threads = (.running, "게시 중")
+        case .some(let result): threads = (.attention, "게시 안 됨 · " + ((threadRecord?["error"] as? String) ?? result))
+        case .none:
+            if JarvisThreadsPublisher.nextApproved() != nil {
+                threads = minutes < 9 * 60 ? (.waiting, "승인된 글 · 09시 게시 예정")
+                    : minutes < 11 * 60 ? (.running, "승인된 글 · 게시 대기") : (.waiting, "승인된 글 · 내일 09시 게시")
+            } else {
+                threads = (.idle, "승인된 Threads 글 없음")
+            }
+        }
+        items.append(Item(id: "threads", time: "09:00", title: "Threads 게시", agent: "자비스",
+                          state: threads.0, detail: threads.1))
+
         // 3) 22:00 인스타 게시 (자비스 · 승인된 것만)
         let record = JarvisInstagramPublisher.runs().lazy
             .compactMap { JarvisInstagramPublisher.record($0) }
@@ -88,7 +110,14 @@ struct JarvisDailyTimeline {
         if (record?["result"] as? String) == "posted" { parts.append("오늘 인스타 게시 완료") }
         if staged > 0 { parts.append("Knowledge \(staged)편") }
         if !pulses.isEmpty { parts.append(ok == pulses.count ? "사이트 모두 정상" : "사이트 확인 필요") }
-        return JarvisDailyTimeline(items: items, summary: parts.isEmpty ? "오늘 예정된 작업을 확인하는 중" : parts.joined(separator: "  ·  "))
+        // 다음 정해진 작업 (KST 고정 시각)
+        let fixed: [(Int, String)] = [(0, "Knowledge 야간 집필"), (90, "캐러셀 제작"), (540, "Threads 게시"), (1320, "인스타 게시")]
+        let upcoming = fixed.first { $0.0 > minutes } ?? (fixed[0].0 + 1440, fixed[0].1)
+        let left = upcoming.0 - minutes
+        let nextLabel = "다음 · \(upcoming.1) " + (left >= 60 ? "\(left / 60)시간 \(left % 60)분 후" : "\(left)분 후")
+        var timeline = JarvisDailyTimeline(items: items, summary: parts.isEmpty ? "오늘 예정된 작업을 확인하는 중" : parts.joined(separator: "  ·  "))
+        timeline.next = nextLabel
+        return timeline
     }
 
     static func dayKey(_ date: Date) -> String {
@@ -126,7 +155,8 @@ struct JarvisDailyTimelinePanel: View {
                     .font(.system(size: 13 * scale, weight: .semibold, design: .monospaced))
                     .foregroundStyle(amber)
                 Spacer()
-                Text("KST").font(.system(size: 10 * scale, design: .monospaced)).foregroundStyle(muted)
+                Text(timeline.next.isEmpty ? "KST" : timeline.next + " · KST")
+                    .font(.system(size: 11 * scale, design: .monospaced)).foregroundStyle(muted)
             }
             Rectangle().fill(amber.opacity(0.25)).frame(height: 1)
             // 행을 세로로 고르게 배치해 패널 아래가 비지 않게 한다.

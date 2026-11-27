@@ -40,6 +40,7 @@ final class JarvisCarouselRunner: ObservableObject {
     @Published private(set) var slides: [URL] = []
     @Published private(set) var expectedSlides = 0
     @Published private(set) var caption: String?
+    @Published private(set) var threadText: String?
     @Published private(set) var report: String?
     @Published private(set) var runDirectory: URL?
     @Published private(set) var meta: Meta?
@@ -88,6 +89,10 @@ final class JarvisCarouselRunner: ObservableObject {
         NSLog("JARVIS SNS carousel scheduler active (KST 01:30-02:30; review only)")
         // 승인된 캐러셀만 22:00~23:30 KST에 Instagram API로 게시 (JarvisInstagramPublisher).
         JarvisInstagramPublisher.shared.startSchedule()
+        // 채널 성장 기록 (1시간마다 실제 값, 하루 한 줄 · JarvisGrowthLog)
+        JarvisGrowthLog.shared.start()
+        // 승인된 Threads 글은 09:00~11:00 KST에 게시 (JarvisThreadsPublisher)
+        JarvisThreadsPublisher.shared.startSchedule()
     }
 
     private func todayKey(_ date: Date = Date()) -> String {
@@ -221,7 +226,7 @@ final class JarvisCarouselRunner: ObservableObject {
             stage = .writing
             append("Claude Code 시작 · 격리 폴더 읽기/쓰기만 허용 (명령 실행·웹·게시 차단)")
             task = "CLAUDE.md의 규칙대로 source.md의 위키 글로 DECHIVE.WIKI 인스타그램 캐러셀을 만드세요. " +
-                "reference/example-slides.html의 디자인을 따르고 slides.html, caption.txt, report.md 세 파일을 작성하세요."
+                "reference/example-slides.html의 디자인을 따르고 slides.html, caption.txt, threads.txt, report.md 네 파일을 작성하세요."
         case .check:
             stage = .checking
             append("Claude 시각 검수 시작 · 렌더링된 PNG를 한 장씩 직접 확인")
@@ -391,6 +396,7 @@ final class JarvisCarouselRunner: ObservableObject {
             fail("슬라이드 번호(data-n)를 확인할 수 없습니다."); return false
         }
         caption = try? String(contentsOf: dir.appendingPathComponent("caption.txt"), encoding: .utf8)
+        threadText = try? String(contentsOf: dir.appendingPathComponent("threads.txt"), encoding: .utf8)
         report = try? String(contentsOf: dir.appendingPathComponent("report.md"), encoding: .utf8)
         slides = []
         expectedSlides = count
@@ -491,6 +497,11 @@ final class JarvisCarouselRunner: ObservableObject {
         guard count > 0, let caption = try? Data(contentsOf: dir.appendingPathComponent("caption.txt")) else { return nil }
         hasher.update(data: Data("caption:".utf8))
         hasher.update(data: caption)
+        // Threads 글이 있으면 승인 범위에 포함한다 (없던 예전 실행의 digest는 그대로 유지).
+        if let thread = try? Data(contentsOf: dir.appendingPathComponent("threads.txt")) {
+            hasher.update(data: Data("threads:".utf8))
+            hasher.update(data: thread)
+        }
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
@@ -571,6 +582,8 @@ final class JarvisCarouselRunner: ObservableObject {
                 .filter { FileManager.default.fileExists(atPath: $0.path) }
             expectedSlides = slides.count
             caption = try? String(contentsOf: dir.appendingPathComponent("caption.txt"), encoding: .utf8)
+            threadText = try? String(contentsOf: dir.appendingPathComponent("threads.txt"), encoding: .utf8)
+        threadText = try? String(contentsOf: dir.appendingPathComponent("threads.txt"), encoding: .utf8)
             report = try? String(contentsOf: dir.appendingPathComponent("report.md"), encoding: .utf8)
             logs = ((try? String(contentsOf: dir.appendingPathComponent("run.log"), encoding: .utf8)) ?? "")
                 .split(separator: "\n").suffix(200).map(String.init)
@@ -665,6 +678,11 @@ final class JarvisCarouselRunner: ObservableObject {
     ## caption.txt (영어, 일반 텍스트)
     - 마크다운 금지(** 등). 훅 1줄, 본문 3~5문단, 질문 1개, Sources: …, 사진 출처(있다면), "Full article: link in bio, dechive.wiki",
       "DECHIVE.WIKI" / "One Archive. Infinite Connections.", 해시태그 5개 이내.
+
+    ## threads.txt (영어, 일반 텍스트 · Threads 글 1개)
+    - 480자 이내. 첫 줄은 호기심을 끄는 한 문장, 이어서 짧은 문단 2~3개, 마지막은 독자에게 묻는 질문 1개.
+    - 사실은 source.md에서만. 마크다운·해시태그·URL·이모지 금지 (링크는 프로필에 있음).
+    - 캡션을 그대로 복사하지 말고 Threads 대화체로 새로 쓴다.
 
     ## report.md (한국어)
     - 슬라이드별 핵심 주장과 그 근거가 된 source.md 문장을 짝지어 적는다.

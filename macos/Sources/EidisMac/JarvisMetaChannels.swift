@@ -66,6 +66,9 @@ enum JarvisMetaChannels {
         !token.contains(where: { $0.isWhitespace || $0.isNewline })
     }
 
+    /// Threads 게시용 토큰 (JarvisThreadsPublisher 전용 · 헤더로만 사용)
+    nonisolated static func threadsToken() -> String? { read(threadsService) }
+
     nonisolated private static func read(_ service: String) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,

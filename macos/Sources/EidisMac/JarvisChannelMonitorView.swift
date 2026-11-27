@@ -38,6 +38,8 @@ struct JarvisChannelMonitorView: View {
     @State private var carouselURL = ""
     @ObservedObject private var carousel = JarvisCarouselRunner.shared
     @ObservedObject private var publisher = JarvisInstagramPublisher.shared
+    @ObservedObject private var growth = JarvisGrowthLog.shared
+    @ObservedObject private var threadsPublisher = JarvisThreadsPublisher.shared
 
     private let amber = Color(red: 0.94, green: 0.67, blue: 0.30)
     private let muted = Color(red: 0.64, green: 0.66, blue: 0.68)
@@ -339,7 +341,36 @@ struct JarvisChannelMonitorView: View {
         return f.localizedString(for: date, relativeTo: Date())
     }
 
-    private func kpiTile(_ title: String, _ value: String, _ note: String, tint: Color, scale: CGFloat) -> some View {
+    /// 14일 성장 미니 그래프 (JarvisGrowthLog 실제 기록 · 기록 없는 날은 건너뜀)
+    private func sparkline(_ values: [Int?], tint: Color, scale: CGFloat) -> some View {
+        let points = values.enumerated().compactMap { index, value in value.map { (index, Double($0)) } }
+        let low = points.map(\.1).min() ?? 0, high = points.map(\.1).max() ?? 1
+        let change = points.count >= 2 ? Int(points.last!.1 - points.first!.1) : nil
+        return HStack(spacing: 6) {
+            GeometryReader { geo in
+                if points.count >= 2 {
+                    Path { path in
+                        for (n, point) in points.enumerated() {
+                            let x = geo.size.width * CGFloat(point.0) / CGFloat(max(1, values.count - 1))
+                            let y = geo.size.height * (1 - CGFloat((point.1 - low) / max(1, high - low)))
+                            n == 0 ? path.move(to: CGPoint(x: x, y: y)) : path.addLine(to: CGPoint(x: x, y: y))
+                        }
+                    }
+                    .stroke(tint, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
+                } else {
+                    Rectangle().fill(tint.opacity(0.25)).frame(height: 1).frame(maxHeight: .infinity)
+                }
+            }
+            .frame(height: 16 * scale)
+            Text(change.map { ($0 >= 0 ? "+" : "") + "\($0) · 14일" } ?? "기록 시작")
+                .font(.system(size: 9 * scale, design: .monospaced))
+                .foregroundStyle(change.map { $0 > 0 ? mint : muted } ?? muted)
+                .fixedSize()
+        }
+    }
+
+    private func kpiTile(_ title: String, _ value: String, _ note: String, tint: Color, scale: CGFloat,
+                         trend: [Int?]? = nil) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title).font(.system(size: 10 * scale, design: .monospaced)).foregroundStyle(muted)
             Text(value)
@@ -348,6 +379,7 @@ struct JarvisChannelMonitorView: View {
                 .contentTransition(.numericText())
                 .lineLimit(1).minimumScaleFactor(0.6)
             Text(note).font(.system(size: 9 * scale)).foregroundStyle(tint).lineLimit(1)
+            if let trend { sparkline(trend, tint: tint, scale: scale) }
         }
         .padding(.horizontal, 14).padding(.vertical, 11)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -371,14 +403,17 @@ struct JarvisChannelMonitorView: View {
         let yt = model.youtubeSummary?.connected == true ? model.youtubeSummary?.data : nil
         return HStack(spacing: 12) {
             kpiTile("GLOBAL 팔로워", knownFollowers.isEmpty ? "—" : knownFollowers.reduce(0, +).formatted(),
-                    "확인 \(knownFollowers.count)/3 채널 · IG+Threads+FB", tint: mint, scale: scale)
+                    "확인 \(knownFollowers.count)/3 채널 · IG+Threads+FB", tint: mint, scale: scale,
+                    trend: growth.combined(["igFollowers", "threadsFollowers", "facebookFollowers"]))
             kpiTile("GLOBAL 게시물", postParts.isEmpty ? "—" : postParts.reduce(0, +).formatted(),
-                    "Instagram + Threads", tint: amber, scale: scale)
+                    "Instagram + Threads", tint: amber, scale: scale,
+                    trend: growth.combined(["igPosts", "threadsPosts"]))
             kpiTile("최근 7일 게시", feedLoaded ? "\(lastWeek)" : "—",
                     "최근 게시물 API 기준", tint: claudeAccent, scale: scale)
             kpiTile("IG 반응", feedLoaded && !instagramPosts.isEmpty ? reactions.formatted() : "—",
                     "최근 \(instagramPosts.count)개 좋아요+댓글", tint: .pink, scale: scale)
-            kpiTile("YOUTUBE 구독자", yt?.subscriberCount ?? "—", "DECHIVE · 국내", tint: .red.opacity(0.85), scale: scale)
+            kpiTile("YOUTUBE 구독자", yt?.subscriberCount ?? "—", "DECHIVE · 국내", tint: .red.opacity(0.85), scale: scale,
+                    trend: growth.series("youtubeSubscribers"))
             kpiTile("YT 기간 조회수", yt?.analytics.map { $0.views.formatted() } ?? "—",
                     yt.map { $0.periodStart + " ~ " + $0.periodEnd } ?? "YouTube Analytics", tint: .red.opacity(0.85), scale: scale)
         }
@@ -723,6 +758,8 @@ struct JarvisChannelMonitorView: View {
             Image(systemName: "paperplane")
                 .foregroundStyle(publisher.permissionOK == false ? Color.orange : mint)
             Text(publisher.permissionStatus).foregroundStyle(publisher.permissionOK == false ? Color.orange : muted)
+            Text("· " + threadsPublisher.permissionStatus)
+                .foregroundStyle(threadsPublisher.permissionOK == false ? Color.orange : muted)
             Text("· 승인된 캐러셀은 22:00 자동 게시").foregroundStyle(muted)
             if let message = publisher.lastMessage {
                 Text("· " + message).foregroundStyle(message.hasPrefix("게시 실패") ? Color.orange : mint).lineLimit(1)
@@ -744,7 +781,10 @@ struct JarvisChannelMonitorView: View {
         }
         .font(.system(size: 11 * scale))
         .lineLimit(1)
-        .task { if publisher.permissionOK == nil { await publisher.checkPermission() } }
+        .task {
+            if publisher.permissionOK == nil { await publisher.checkPermission() }
+            if JarvisThreadsPublisher.shared.permissionOK == nil { await JarvisThreadsPublisher.shared.checkPermission() }
+        }
         .confirmationDialog("승인된 캐러셀을 지금 Instagram에 게시할까요?", isPresented: $confirmPublishNow) {
             Button("지금 게시") {
                 if let dir = carousel.runDirectory { Task { await publisher.publish(dir, trigger: "manual") } }
@@ -886,6 +926,15 @@ struct JarvisChannelMonitorView: View {
                             }
                         }
                         .animation(.spring(duration: 0.45), value: carousel.slides.count)
+                        if let thread = carousel.threadText, !thread.isEmpty {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("THREADS · 09:00").font(.system(size: 9 * scale, weight: .semibold, design: .monospaced))
+                                    .foregroundStyle(claudeAccent)
+                                Text(thread).font(.system(size: 10 * scale)).foregroundStyle(.white.opacity(0.85))
+                                    .textSelection(.enabled)
+                            }
+                            .padding(.top, 8)
+                        }
                         if let caption = carousel.caption {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("CAPTION").font(.system(size: 9 * scale, weight: .semibold, design: .monospaced))

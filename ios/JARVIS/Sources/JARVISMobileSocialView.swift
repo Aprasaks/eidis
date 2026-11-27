@@ -35,6 +35,8 @@ struct JARVISSocialCarousel: Decodable {
     let visualChecked: Bool
     /// 게시 완료 시 Instagram 게시물 주소 (이전 Mac 빌드에서는 없음)
     let permalink: String?
+    /// 같은 승인으로 09시에 올라갈 Threads 글 (없을 수 있음)
+    let threadText: String?
 }
 
 // MARK: - 화면
@@ -171,6 +173,15 @@ struct JARVISMobileSocialView: View {
                 }
                 .buttonStyle(.bordered).tint(.green)
             }
+            if let thread = carousel.threadText, !thread.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Threads · 09시 게시").font(.system(size: 11, weight: .semibold)).foregroundStyle(JARVISPalette.gold)
+                    Text(thread)
+                        .font(.system(size: 13))
+                        .foregroundStyle(JARVISPalette.white.opacity(0.9))
+                        .textSelection(.enabled)
+                }
+            }
             if let status = nearby.socialDecisionStatus {
                 Text(status).font(.system(size: 12)).foregroundStyle(JARVISPalette.gold)
             }
@@ -187,7 +198,7 @@ struct JARVISMobileSocialView: View {
                 }
                 .disabled(nearby.socialDeciding)
             }
-            Text("승인하면 Mac이 오늘 22시에 인스타에 자동 게시해요. 게시는 지금 본 이 버전으로만 진행되고, 바뀌면 다시 승인해야 해요.")
+            Text("승인하면 Mac이 22시에 인스타, 09시에 Threads(글이 있으면)를 자동 게시해요. 게시는 지금 본 이 버전으로만 진행되고, 바뀌면 다시 승인해야 해요.")
                 .font(.system(size: 10)).foregroundStyle(JARVISPalette.muted)
         }
         .padding(15)
