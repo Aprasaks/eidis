@@ -2,6 +2,9 @@ import SwiftUI
 
 @main
 struct JARVISApp: App {
+    // 잠금화면 알림(APNs) 토큰 수신과 알림 탭 처리
+    @UIApplicationDelegateAdaptor(JARVISPushAppDelegate.self) private var pushDelegate
+
     var body: some Scene {
         WindowGroup {
             JARVISHomeView()

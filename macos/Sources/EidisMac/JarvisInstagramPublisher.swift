@@ -89,6 +89,8 @@ final class JarvisInstagramPublisher: ObservableObject {
             extra.forEach { record[$0.key] = $0.value }
             Self.writeRecord(dir, record)
             lastMessage = result == "posted" ? "인스타 게시 완료" : "게시 실패 · " + (extra["error"] as? String ?? result)
+            JarvisPushNotifier.shared.send(title: result == "posted" ? "✅ 인스타 게시 완료" : "⚠️ 인스타 게시 안 됨",
+                                           body: result == "posted" ? "DECHIVE.WIKI 캐러셀이 올라갔어요" : (extra["error"] as? String ?? result))
             log(dir, lastMessage ?? "")
         }
 

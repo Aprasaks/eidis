@@ -82,6 +82,8 @@ final class JarvisThreadsPublisher: ObservableObject {
                 try? data.write(to: dir.appendingPathComponent("threads-publish.json"))
             }
             JarvisCarouselRunner.shared.noteExternal(dir, result == "posted" ? "🧵 Threads 게시 완료" : "🧵 Threads 게시 안 됨 · " + (extra["error"] as? String ?? result))
+            JarvisPushNotifier.shared.send(title: result == "posted" ? "🧵 Threads 게시 완료" : "⚠️ Threads 게시 안 됨",
+                                           body: result == "posted" ? "오늘의 영어 스레드가 올라갔어요" : (extra["error"] as? String ?? result))
         }
         guard ["approved", "posted"].contains(JarvisInstagramPublisher.status(of: dir) ?? ""),
               let approval = (try? Data(contentsOf: dir.appendingPathComponent("approval.json")))

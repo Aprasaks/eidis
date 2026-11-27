@@ -6,6 +6,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		BBAA0000000000000000B005 /* JARVISPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA0000000000000000A007 /* JARVISPush.swift */; };
 		BBAA0000000000000000B001 /* JARVISWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA0000000000000000A001 /* JARVISWidget.swift */; };
 		BBAA0000000000000000B002 /* JARVISWidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA0000000000000000A002 /* JARVISWidgetShared.swift */; };
 		BBAA0000000000000000B003 /* JARVISWidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA0000000000000000A002 /* JARVISWidgetShared.swift */; };
@@ -55,6 +56,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		BBAA0000000000000000A007 /* JARVISPush.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISPush.swift; sourceTree = "<group>"; };
 		BBAA0000000000000000A001 /* JARVISWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISWidget.swift; sourceTree = "<group>"; };
 		BBAA0000000000000000A002 /* JARVISWidgetShared.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISWidgetShared.swift; sourceTree = "<group>"; };
 		BBAA0000000000000000A003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -139,6 +141,7 @@
 				BBAA00000000000000000012 /* JARVISVoiceSettingsView.swift */,
 				BBAA00000000000000000011 /* JARVISMobileElevenLabs.swift */,
 				BBAA0000000000000000A002 /* JARVISWidgetShared.swift */,
+				BBAA0000000000000000A007 /* JARVISPush.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -245,6 +248,7 @@
 				BBAA00000000000000001012 /* JARVISVoiceSettingsView.swift in Sources */,
 				BBAA00000000000000001011 /* JARVISMobileElevenLabs.swift in Sources */,
 				BBAA0000000000000000B002 /* JARVISWidgetShared.swift in Sources */,
+				BBAA0000000000000000B005 /* JARVISPush.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

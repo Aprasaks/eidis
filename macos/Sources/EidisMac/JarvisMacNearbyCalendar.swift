@@ -203,6 +203,9 @@ final class JarvisMacNearbyCalendar: NSObject, ObservableObject {
                 } else if kind == "approveSocialPost" {
                     // SNS: 아이폰에서 본 버전(digest)과 같을 때만 승인/반려를 기록. 게시는 하지 않는다.
                     response = JarvisSocialRemote.decide(request, requestID: id)
+                } else if kind == "registerPushToken" {
+                    // SNS: 잠금화면 알림용 아이폰 기기 토큰 등록 (같은 인증 통로)
+                    response = JarvisSocialRemote.registerPush(request, requestID: id)
                 } else {
                     response = self.makeProjectSnapshot(id)
                 }
@@ -420,6 +423,11 @@ final class JarvisMacNearbyCalendar: NSObject, ObservableObject {
         if kind == "approveSocialPost" {
             guard let id = object["requestID"] as? String, UUID(uuidString: id) != nil else { return }
             send(JarvisSocialRemote.decide(object, requestID: id), to: [remote])
+            return
+        }
+        if kind == "registerPushToken" {
+            guard let id = object["requestID"] as? String, UUID(uuidString: id) != nil else { return }
+            send(JarvisSocialRemote.registerPush(object, requestID: id), to: [remote])
             return
         }
         guard authorized.contains(remote), kind == "sync",

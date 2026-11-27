@@ -766,6 +766,11 @@ struct JarvisChannelMonitorView: View {
             }
             Spacer()
             if publisher.publishing { ProgressView().controlSize(.small) }
+            Button("📱 테스트 알림") {
+                JarvisPushNotifier.shared.send(title: "JARVIS", body: "아이폰 알림 연결 확인 · SNS 작업실에서 보냄")
+            }
+            .buttonStyle(.plain).foregroundStyle(claudeAccent)
+            .help("등록된 아이폰으로 테스트 알림을 보냅니다")
             Button("권한 확인") { Task { await publisher.checkPermission() } }
                 .buttonStyle(.plain).foregroundStyle(claudeAccent)
             if status == "posted", let permalink {

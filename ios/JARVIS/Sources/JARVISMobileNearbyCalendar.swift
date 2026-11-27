@@ -366,6 +366,7 @@ final class JARVISMobileNearbyCalendar: NSObject, ObservableObject {
             // 홈·잠금화면 위젯 갱신 (App Group에 요약 저장 → 위젯 다시 그리기)
             snapshot.widgetSummary.save()
             WidgetCenter.shared.reloadAllTimelines()
+            self.registerPushIfNeeded()
         }
     }
 
@@ -392,6 +393,24 @@ final class JARVISMobileNearbyCalendar: NSObject, ObservableObject {
             default: self.socialDecisionStatus = "응답 없음 · 새로고침해 실제 상태를 확인하세요."
             }
             self.refreshSocial()
+        }
+    }
+
+    /// 잠금화면 알림용 기기 토큰을 Mac에 한 번 등록한다 (토큰이 바뀌면 다시 등록).
+    func registerPushIfNeeded() {
+        let defaults = UserDefaults.standard
+        guard let token = defaults.string(forKey: JARVISPushAppDelegate.tokenKey),
+              defaults.string(forKey: "jarvis.push.registeredToken") != token else { return }
+        let id = UUID().uuidString
+        #if DEBUG
+        let environment = "sandbox"
+        #else
+        let environment = "production"
+        #endif
+        let object: [String: Any] = ["kind": "registerPushToken", "requestID": id, "token": token, "environment": environment]
+        sendToMac(object, id: id, expect: "pushRegistered", timeout: 15) { data in
+            let reply = data.flatMap { (try? JSONSerialization.jsonObject(with: $0)) as? [String: Any] }
+            if reply?["status"] as? String == "registered" { defaults.set(token, forKey: "jarvis.push.registeredToken") }
         }
     }
 
@@ -651,7 +670,7 @@ final class JARVISMobileNearbyCalendar: NSObject, ObservableObject {
         }
         guard connected, trustedPeer == peer else { return }
         // SNS 응답: 기다리던 requestID일 때만 전달한다.
-        if kind == "socialSnapshot" || kind == "socialApprovalResult" {
+        if kind == "socialSnapshot" || kind == "socialApprovalResult" || kind == "pushRegistered" {
             if let id = object["requestID"] as? String { deliverMacReply(id, data) }
             return
         }

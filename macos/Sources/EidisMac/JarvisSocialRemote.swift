@@ -17,7 +17,7 @@ enum JarvisSocialRemote {
     private static let previewBudget = 330_000
     private static let captionLimit = 2_400
     /// 원격(Tailscale) 통로에서 추가로 허용하는 메시지 종류. 이 두 개뿐이다.
-    static let remoteKinds: Set<String> = ["socialSnapshotRequest", "approveSocialPost"]
+    static let remoteKinds: Set<String> = ["socialSnapshotRequest", "approveSocialPost", "registerPushToken"]
 
     // MARK: Channel numbers (5분 캐시)
 
@@ -141,6 +141,14 @@ enum JarvisSocialRemote {
         if let subs = JarvisGrowthLog.shared.days[today]?["youtubeSubscribers"] { summary["youtubeSubscribers"] = subs }
         reply["summary"] = summary
         return reply
+    }
+
+    /// kind "registerPushToken" → "pushRegistered" (아이폰 잠금화면 알림용 기기 토큰 등록)
+    static func registerPush(_ object: [String: Any], requestID: String) -> [String: Any] {
+        let ok = (object["token"] as? String).map {
+            JarvisPushNotifier.shared.register(token: $0, environment: object["environment"] as? String ?? "sandbox")
+        } ?? false
+        return ["kind": "pushRegistered", "requestID": requestID, "status": ok ? "registered" : "invalid"]
     }
 
     /// kind "approveSocialPost" → "socialApprovalResult"

@@ -380,6 +380,8 @@ final class JarvisCarouselRunner: ObservableObject {
             }
             stage = .review
             meta?.status = "review"
+            // 아이폰 잠금화면 알림: 검토할 캐러셀이 생겼다
+            JarvisPushNotifier.shared.send(title: "🎨 새 캐러셀 완성", body: (meta?.title ?? "위키 글") + " · 확인하고 승인해 주세요")
             saveMeta()
             append("검토 대기 · 게시는 승인 후에만 진행됩니다.")
         }
