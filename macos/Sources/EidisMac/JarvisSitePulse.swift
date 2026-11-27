@@ -45,31 +45,44 @@ final class JarvisSitePulse: ObservableObject {
     }
 
     func refresh() async {
-        for project in JarvisWorkroomProject.allCases {
-            var pulse = pulses[project] ?? Pulse()
-            let (url, repo) = Self.site(project)
-            let (ok, label) = await Self.checkSite(url)
-            pulse.siteOK = ok
-            pulse.siteLabel = label
-            pulse.commitLabel = await Self.latestCommit(repo)
-            switch project {
-            case .app:
-                // dechive.app 구독 팝업은 letter.dechive.app 폼을 그대로 쓰므로 구독자 명단은 하나다.
-                pulse.detail = await Self.subscribers() ?? "뉴스레터 구독자 수 확인 실패"
-                pulse.note = await Self.latestPost() ?? "최신 글 확인 실패"
-            case .gunsan:
-                // 사용자 확인(2026-11-27): 리빌드 1~4단계 반영 후 새 작업 대기 중.
-                pulse.detail = "새 작업 대기 중 · 지도·맛집·리뷰·QR 예정"
-            case .tableTennis:
-                let crawl = await Self.lastCrawl()
-                pulse.detail = crawl.label
-                pulse.detailWarning = crawl.warning
-            case .dev:
-                pulse.detail = nil
+        // 카드마다 동시에 확인한다: 한 사이트가 느리거나 막혀도 나머지 카드는 바로 채워진다.
+        await withTaskGroup(of: (JarvisWorkroomProject, Pulse).self) { group in
+            for project in JarvisWorkroomProject.allCases {
+                let previous = pulses[project] ?? Pulse()
+                group.addTask { (project, await Self.check(project, previous)) }
             }
-            pulse.checkedAt = Date()
-            pulses[project] = pulse
+            for await (project, pulse) in group { pulses[project] = pulse }
         }
+    }
+
+    nonisolated private static func check(_ project: JarvisWorkroomProject, _ previous: Pulse) async -> Pulse {
+        var pulse = previous
+        let (url, repo) = site(project)
+        async let siteCheck = checkSite(url)
+        async let commit = latestCommit(repo)
+        switch project {
+        case .app:
+            // dechive.app 구독 팝업은 letter.dechive.app 폼을 그대로 쓰므로 구독자 명단은 하나다.
+            async let subs = subscribers()
+            async let post = latestPost()
+            pulse.detail = await subs ?? "뉴스레터 구독자 수 확인 실패"
+            pulse.note = await post ?? "최신 글 확인 실패"
+        case .gunsan:
+            // 사용자 확인(2026-11-27): 리빌드 1~4단계 반영 후 새 작업 대기 중.
+            pulse.detail = "새 작업 대기 중 · 지도·맛집·리뷰·QR 예정"
+        case .tableTennis:
+            let crawl = await lastCrawl()
+            pulse.detail = crawl.label
+            pulse.detailWarning = crawl.warning
+        case .dev:
+            pulse.detail = nil
+        }
+        let (ok, label) = await siteCheck
+        pulse.siteOK = ok
+        pulse.siteLabel = label
+        pulse.commitLabel = await commit
+        pulse.checkedAt = Date()
+        return pulse
     }
 
     // MARK: Fetchers
@@ -108,18 +121,41 @@ final class JarvisSitePulse: ObservableObject {
         return relative(date) + " · " + String(title.prefix(48))
     }
 
+    nonisolated private static let statsService = "dev.dechive.eidis.letter.stats.v2"
+    nonisolated private static let statsAccount = "letter-stats-secret"
+    nonisolated static let statsImportFile = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent(".jarvis-lab/secrets/letter-stats-secret")
+
+    /// 집계 비밀 값: 자비스가 만든 Keychain 항목에서만 읽는다 (확인 팝업 없이, 없으면 nil).
+    /// 처음 한 번은 설치 때 둔 0600 파일을 Keychain으로 옮기고 파일을 지운다.
+    nonisolated private static func statsSecret() -> String? {
+        let base: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: statsService,
+            kSecAttrAccount as String: statsAccount
+        ]
+        var query = base
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        query[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail   // 팝업으로 멈추지 않게
+        var output: CFTypeRef?
+        if SecItemCopyMatching(query as CFDictionary, &output) == errSecSuccess,
+           let data = output as? Data, let value = String(data: data, encoding: .utf8) { return value }
+        guard let raw = try? String(contentsOf: statsImportFile, encoding: .utf8) else { return nil }
+        let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard value.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil else { return nil }
+        var insert = base
+        insert[kSecValueData as String] = Data(value.utf8)
+        insert[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        if SecItemAdd(insert as CFDictionary, nil) == errSecSuccess {
+            try? FileManager.default.removeItem(at: statsImportFile)
+        }
+        return value
+    }
+
     /// 뉴스레터 구독자 수 (letter.dechive.app/api/letter-stats · 숫자만 · 비밀 값은 Keychain에만)
     nonisolated private static func subscribers() async -> String? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: "dev.dechive.eidis.letter.stats",
-            kSecAttrAccount as String: "letter-stats-secret",
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-        var output: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &output) == errSecSuccess,
-              let data = output as? Data, let secret = String(data: data, encoding: .utf8),
+        guard let secret = statsSecret(),
               let url = URL(string: "https://letter.dechive.app/api/letter-stats") else { return nil }
         var req = URLRequest(url: url)
         req.timeoutInterval = 12
