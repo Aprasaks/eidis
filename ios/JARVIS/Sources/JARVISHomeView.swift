@@ -314,7 +314,7 @@ struct JARVISHomeView: View {
                             .foregroundStyle(line.fromOwner ? JARVISPalette.muted : JARVISPalette.gold)
                         Text(line.text)
                             .font(.system(size: 14))
-                            .foregroundStyle(JARVISPalette.white)
+                            .foregroundStyle(line.pending ? JARVISPalette.muted : JARVISPalette.white)
                             .padding(.horizontal, 13)
                             .padding(.vertical, 9)
                             .background(line.fromOwner ? JARVISPalette.gold.opacity(0.16) : JARVISPalette.panel,
@@ -459,9 +459,32 @@ struct JARVISHomeView: View {
         if let page = JARVISMobilePage.requestedPage(for: input) {
             selectedPage = page
             reply(page.spokenStatus, for: input)
-        } else {
-            let answer = JARVISCommand.response(to: input)
-            reply(answer, for: input)
+            return
+        }
+        askQwen(input)
+    }
+
+    /// 화면 이동·알람·일정이 아닌 말은 맥에 상주 중인 Qwen에게 보낸다 (기획서 P7 M1).
+    /// 맥이 연결되지 않았으면 폰 안의 간단한 응답으로 대신한다.
+    private func askQwen(_ input: String) {
+        guard nearby.macLink != .unpaired else {
+            reply(JARVISCommand.response(to: input), for: input)
+            return
+        }
+        // 이번 질문 앞까지의 대화만 맥에 함께 보낸다 (최근 8개).
+        let history: [[String: String]] = messages.dropLast().filter { !$0.pending }.suffix(8).map {
+            ["role": $0.fromOwner ? "user" : "assistant", "content": $0.text]
+        }
+        let pendingID = UUID()
+        messages.append(JARVISChatLine(id: pendingID, fromOwner: false, text: "생각 중…", pending: true))
+        nearby.sendChat(input, history: history) { answer, _ in
+            messages.removeAll { $0.id == pendingID }
+            if let answer {
+                reply(answer, for: input)
+            } else {
+                reply("맥북이 지금 답하지 않아요. 맥이 자고 있거나 꺼져 있을 수 있어요. " +
+                      JARVISCommand.response(to: input), for: input)
+            }
         }
     }
 }
@@ -485,9 +508,11 @@ enum JARVISMacLink {
 }
 
 struct JARVISChatLine: Identifiable {
-    let id = UUID()
+    var id = UUID()
     let fromOwner: Bool
     let text: String
+    /// 맥 Qwen의 답을 기다리는 동안 보여주는 임시 말풍선
+    var pending = false
 }
 
 #Preview {

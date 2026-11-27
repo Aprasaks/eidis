@@ -209,6 +209,9 @@ final class JarvisMacNearbyCalendar: NSObject, ObservableObject {
                 } else if kind == JarvisPlanRemote.requestKind {
                     // 기억 탭: 프로젝트 기획서 (읽기 전용)
                     response = JarvisPlanRemote.docs(requestID: id)
+                } else if kind == JarvisPhoneChat.requestKind {
+                    // 코어 탭 대화창: 맥에 상주 중인 Qwen 답변 (도구 실행 없음)
+                    response = await JarvisPhoneChat.reply(request, requestID: id)
                 } else {
                     response = self.makeProjectSnapshot(id)
                 }
@@ -436,6 +439,12 @@ final class JarvisMacNearbyCalendar: NSObject, ObservableObject {
         if kind == JarvisPlanRemote.requestKind {
             guard let id = object["requestID"] as? String, UUID(uuidString: id) != nil else { return }
             if authorized.contains(remote) { send(JarvisPlanRemote.docs(requestID: id), to: [remote]) }
+            return
+        }
+        if kind == JarvisPhoneChat.requestKind {
+            guard let id = object["requestID"] as? String, UUID(uuidString: id) != nil else { return }
+            let response = await JarvisPhoneChat.reply(object, requestID: id)
+            if authorized.contains(remote) { send(response, to: [remote]) }
             return
         }
         guard authorized.contains(remote), kind == "sync",

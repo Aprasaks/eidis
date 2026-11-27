@@ -384,6 +384,23 @@ final class JARVISMobileNearbyCalendar: NSObject, ObservableObject {
         }
     }
 
+    // MARK: 코어 탭 대화창 → 맥에 상주 중인 Qwen (Mac: JarvisPhoneChat.swift)
+
+    /// 답을 받으면 (text, true), 맥이 답하지 못했으면 (안내 문구, false), 연결 실패면 (nil, false).
+    func sendChat(_ text: String, history: [[String: String]],
+                  completion: @escaping (String?, Bool) -> Void) {
+        guard connected || remembered else { completion(nil, false); return }
+        let id = UUID().uuidString
+        let object: [String: Any] = ["kind": "chatRequest", "requestID": id,
+                                     "text": String(text.prefix(1500)), "history": Array(history.suffix(8))]
+        sendToMac(object, id: id, expect: "chatReply", timeout: 60) { data in
+            guard let data,
+                  let reply = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+                  let answer = reply["text"] as? String else { completion(nil, false); return }
+            completion(answer, reply["ok"] as? Bool ?? false)
+        }
+    }
+
     // MARK: 기억 탭 · 프로젝트 기획서 (Mac: JarvisPlanRemote.swift · 읽기 전용)
 
     @Published private(set) var planDocs: [JARVISPlanDoc] = []
@@ -720,7 +737,7 @@ final class JARVISMobileNearbyCalendar: NSObject, ObservableObject {
         }
         guard connected, trustedPeer == peer else { return }
         // SNS 응답: 기다리던 requestID일 때만 전달한다.
-        if kind == "socialSnapshot" || kind == "socialApprovalResult" || kind == "pushRegistered" || kind == "planDocs" {
+        if kind == "socialSnapshot" || kind == "socialApprovalResult" || kind == "pushRegistered" || kind == "planDocs" || kind == "chatReply" {
             if let id = object["requestID"] as? String { deliverMacReply(id, data) }
             return
         }
