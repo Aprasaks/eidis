@@ -133,6 +133,13 @@ enum JarvisSocialRemote {
             "channels": await channels()
         ]
         if let carousel = latestCarousel() { reply["carousel"] = carousel }
+        // 아이폰 위젯용 요약: 승인 대기 수, 22시 게시 예정 제목, YouTube 구독자 (성장 기록의 오늘 값)
+        let queue = JarvisCarouselRunner.shared.approvalQueue()
+        var summary: [String: Any] = ["waitingApprovals": queue.waiting]
+        if let title = queue.approvedTitle { summary["approvedTitle"] = title }
+        let today = JarvisGrowthLog.formatter().string(from: Date())
+        if let subs = JarvisGrowthLog.shared.days[today]?["youtubeSubscribers"] { summary["youtubeSubscribers"] = subs }
+        reply["summary"] = summary
         return reply
     }
 

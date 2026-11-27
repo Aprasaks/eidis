@@ -3,6 +3,7 @@ import MultipeerConnectivity
 import CryptoKit
 import Security
 import Network
+import WidgetKit
 
 /// Nearby, owner-approved calendar sync. No API key, public IP or open LAN
 /// listener. MCSession *requires* encryption; Mac only accepts an invitation
@@ -362,6 +363,9 @@ final class JARVISMobileNearbyCalendar: NSObject, ObservableObject {
             }
             self.socialSnapshot = snapshot
             self.socialStatus = self.connected ? "근거리 Mac SNS 현황" : "Tailscale 원격 SNS 현황"
+            // 홈·잠금화면 위젯 갱신 (App Group에 요약 저장 → 위젯 다시 그리기)
+            snapshot.widgetSummary.save()
+            WidgetCenter.shared.reloadAllTimelines()
         }
     }
 

@@ -14,6 +14,11 @@
     <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
     <key>JARVISRemoteMac</key><string>$(JARVIS_REMOTE_MAC)</string>
     <key>JARVISRemotePhone</key><string>$(JARVIS_REMOTE_PHONE)</string>
+    <key>CFBundleURLTypes</key>
+    <array><dict>
+        <key>CFBundleURLName</key><string>dev.dechive.jarvis.mobile</string>
+        <key>CFBundleURLSchemes</key><array><string>jarvis</string></array>
+    </dict></array>
     <key>LSRequiresIPhoneOS</key><true/>
     <key>NSMicrophoneUsageDescription</key><string>사용자가 음성 버튼을 누르면 한국어 음성 명령을 듣기 위해 마이크를 사용합니다.</string>
     <key>NSSpeechRecognitionUsageDescription</key><string>JARVIS에서 한국어 음성 명령을 기기 내에서 인식합니다.</string>

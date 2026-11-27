@@ -135,8 +135,14 @@ struct JARVISHomeView: View {
         .onChange(of: calendar.localRevision) { _, _ in
             nearby.sync()
         }
+        .onOpenURL { url in
+            // 위젯을 누르면 SNS 화면으로 (jarvis://social)
+            if url.scheme == "jarvis", url.host == "social" { selectedPage = .social }
+        }
         .onChange(of: scenePhase) { _, phase in
             nearby.setForeground(phase == .active)
+            // 앱을 열 때마다 SNS 요약을 받아 위젯도 최신으로 맞춘다 (연결된 Mac이 있을 때만).
+            if phase == .active { Task { try? await Task.sleep(for: .seconds(2)); nearby.refreshSocial() } }
             if phase == .active {
                 nearby.sync()
                 alarms.refresh()

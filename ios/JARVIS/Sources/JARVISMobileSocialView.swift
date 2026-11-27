@@ -7,6 +7,25 @@ struct JARVISSocialSnapshot: Decodable {
     let checkedAt: String
     let channels: [JARVISSocialChannel]
     let carousel: JARVISSocialCarousel?
+    let summary: Summary?          // 위젯용 (이전 Mac 빌드에서는 없음)
+
+    struct Summary: Decodable {
+        let waitingApprovals: Int?
+        let approvedTitle: String?
+        let youtubeSubscribers: Int?
+    }
+
+    /// 위젯에 보낼 요약 (실제로 받은 값만)
+    var widgetSummary: JARVISWidgetSummary {
+        func followers(_ name: String) -> Int? {
+            channels.first { $0.name == name && $0.connected }?.followers
+        }
+        return JARVISWidgetSummary(
+            igFollowers: followers("Instagram"), threadsFollowers: followers("Threads"),
+            facebookFollowers: followers("Facebook"), youtubeSubscribers: summary?.youtubeSubscribers,
+            waitingApprovals: summary?.waitingApprovals ?? (carousel?.status == "review" ? 1 : 0),
+            nextPostTitle: summary?.approvedTitle, latestStatus: carousel?.status, updatedAt: Date())
+    }
 }
 
 struct JARVISSocialChannel: Decodable, Identifiable {
