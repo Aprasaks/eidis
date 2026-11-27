@@ -13,9 +13,8 @@ class Cinematics(unittest.TestCase):
             self.assertIn(name, src)
             self.assertIn(name, (ROOT / "macos/scripts/package-app.sh").read_text(encoding="utf-8"))
         self.assertIn("screenBlendMode", src)
-        self.assertIn("accessibilityReduceMotion", src)
         overlay = (MAC / "JarvisFullscreenOverlay.swift").read_text(encoding="utf-8")
-        self.assertIn("JarvisDebrisBackdrop()", overlay)
+        self.assertNotIn("JarvisDebrisBackdrop()", overlay)   # 분해·잔해 연출은 뺐다
         self.assertIn("corePlayback.player.seek(to: .zero)", overlay)
 
     def test_core_has_no_caption_cut(self):
@@ -27,17 +26,15 @@ class Cinematics(unittest.TestCase):
             self.assertTrue((ROOT / "tools/blender" / f).is_file())
 
 
-class MosaicAssembly(unittest.TestCase):
-    def test_shards_fill_real_panel_frames(self):
-        shards = (MAC / "JarvisShardAssembly.swift").read_text(encoding="utf-8")
-        self.assertIn("struct JarvisShardTargetsKey: PreferenceKey", shards)
-        self.assertIn("accessibilityReduceMotion", shards)
-        draw = (MAC / "JarvisDrawIn.swift").read_text(encoding="utf-8")
-        self.assertIn('geo.frame(in: .named("jarvisDash"))', draw)
-        self.assertIn("JarvisShardTiming.melt(delay)", draw)
+class NoShatterOnDashboard(unittest.TestCase):
+    """코어→대시보드 전환 때 깨지는(모자이크) 연출은 산만해서 뺐다 (2026-11-27)."""
+    def test_mosaic_removed(self):
+        self.assertFalse((MAC / "JarvisShardAssembly.swift").exists())
         center = (MAC / "JarvisCommandCenterView.swift").read_text(encoding="utf-8")
-        self.assertIn('.coordinateSpace(name: "jarvisDash")', center)
-        self.assertIn("JarvisShardAssembly(targets: shardTargets", center)
+        self.assertNotIn("JarvisShardAssembly", center)
+        draw = (MAC / "JarvisDrawIn.swift").read_text(encoding="utf-8")
+        self.assertNotIn("JarvisShardTiming", draw)
+        self.assertIn("accessibilityReduceMotion", draw)
 
 
 if __name__ == "__main__":

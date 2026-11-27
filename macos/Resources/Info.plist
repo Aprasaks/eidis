@@ -26,11 +26,13 @@
 			<key>CFBundleURLName</key>
 			<string>dev.dechive.eidis.wake</string>
 			<key>CFBundleURLSchemes</key>
-			<array><string>jarvis-mac</string></array>
+			<array>
+				<string>jarvis-mac</string>
+			</array>
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>166</string>
+	<string>167</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>15.0</string>
 	<key>NSAppTransportSecurity</key>

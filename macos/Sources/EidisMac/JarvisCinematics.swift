@@ -80,29 +80,3 @@ struct JarvisCinematicClip: NSViewRepresentable {
         view.needsLayout = true
     }
 }
-
-/// 대시보드 배경: 코어가 금빛 조각으로 분해(1회) → 조각이 은은하게 떠다님(반복).
-/// 패널 글씨가 잘 읽히도록 어둡게(.screen, 낮은 불투명도) 깔린다.
-struct JarvisDebrisBackdrop: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var dissolved = false
-
-    var body: some View {
-        ZStack {
-            if !reduceMotion, let debris = JarvisCinematics.debris, dissolved {
-                JarvisCinematicClip(url: debris, loop: true, screenBlend: true)
-                    .opacity(0.38)
-                    .transition(.opacity)
-            }
-            if !reduceMotion, !dissolved, let dissolve = JarvisCinematics.dissolve {
-                JarvisCinematicClip(url: dissolve, screenBlend: true) {
-                    withAnimation(.easeInOut(duration: 0.6)) { dissolved = true }
-                }
-                .opacity(0.85)
-            }
-        }
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-        .onAppear { if JarvisCinematics.dissolve == nil { dissolved = true } }
-    }
-}

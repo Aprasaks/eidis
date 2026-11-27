@@ -16,7 +16,6 @@ struct JarvisCommandCenterView: View {
     @StateObject private var telemetry = JarvisMacSampler()
     @ObservedObject private var sitePulse = JarvisSitePulse.shared
     @ObservedObject private var carousel = JarvisCarouselRunner.shared
-    @State private var shardTargets: [JarvisShardTarget] = []
     /// SNS 작업실 열림 상태는 모델(JarvisLiveDashboard.snsRoomOpen)에 둔다.
     /// Esc 한 단계 뒤로 가기와 코어 버튼이 이 상태를 함께 본다.
     private var showChannelOverview: Bool {
@@ -92,14 +91,6 @@ struct JarvisCommandCenterView: View {
             .padding(.top, topInset)
             .frame(width: width, height: height, alignment: .top)
             .clipped()
-            // A안 · 모자이크: 코어 조각이 각 패널 자리로 날아가 면을 채운 뒤 패널이 된다
-            .coordinateSpace(name: "jarvisDash")
-            .onPreferenceChange(JarvisShardTargetsKey.self) { shardTargets = $0 }
-            .overlay(alignment: .topLeading) {
-                let core = JarvisOverviewGeometry.coreFrame(width: width, height: height)
-                JarvisShardAssembly(targets: shardTargets, origin: CGPoint(x: core.midX, y: core.midY))
-                    .frame(width: width, height: height)
-            }
             .accessibilityIdentifier("jarvis-command-center")
             .allowsHitTesting(model.workroomProject == nil && !showChannelOverview)
             // 작업실이 열리면 뒤 대시보드 버튼을 접근성 트리에서도 숨긴다.

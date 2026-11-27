@@ -395,12 +395,6 @@ private struct JarvisSummonedView: View {
                 // chroma-key artifacts or a visibly scaled transparency matte.
                 Color.black.opacity(appeared ? 1 : 0)
                     .ignoresSafeArea()
-                // 대시보드: 코어가 금빛 조각으로 분해 → 조각이 배경에 은은하게 떠다님 (패널 뒤)
-                if commandCenter {
-                    JarvisDebrisBackdrop()
-                        .ignoresSafeArea()
-                        .transition(.opacity)
-                }
                 // 소환 연출: 코어 루프 자리에 생성 영상을 먼저 틀고, 끝나면 루프를 처음부터 이어 튼다
                 if formPlaying && !commandCenter && !workspaceActive, let form = JarvisCinematics.form {
                     JarvisCinematicClip(url: form) {
