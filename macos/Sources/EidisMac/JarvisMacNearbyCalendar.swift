@@ -173,7 +173,10 @@ final class JarvisMacNearbyCalendar: NSObject, ObservableObject {
                       let clear = try? JARVISRemoteWire.decode(data, secret: secret, response: false),
                       let request = (try? JSONSerialization.jsonObject(with: clear)) as? [String: Any],
                       let kind = request["kind"] as? String,
-                      ["projectSnapshotRequest", "publishKnowledge"].contains(kind),
+                      // 기존 Knowledge 허용 목록은 그대로 두고, SNS 두 종류만 별도 목록으로 추가한다
+                      // (JarvisSocialRemote.remoteKinds · 같은 기기 인증·암호화를 그대로 사용).
+                      (["projectSnapshotRequest", "publishKnowledge"].contains(kind)
+                       || JarvisSocialRemote.remoteKinds.contains(kind)),
                       let id = request["requestID"] as? String, UUID(uuidString: id) != nil,
                       let sent = request["sentAt"] as? Double, abs(Date().timeIntervalSince1970 - sent) <= 60
                 else { self?.remoteConnections.removeValue(forKey: token)?.cancel(); return }
@@ -194,6 +197,12 @@ final class JarvisMacNearbyCalendar: NSObject, ObservableObject {
                 if kind == "publishKnowledge" {
                     // Only authenticated owner requests reach the same revision-bound publisher.
                     response = await self.publishApproved(request, id: id)
+                } else if kind == "socialSnapshotRequest" {
+                    // SNS: 채널 수치 + 검토 대기 캐러셀 미리보기 (토큰·원본 파일 없음).
+                    response = await JarvisSocialRemote.snapshot(requestID: id)
+                } else if kind == "approveSocialPost" {
+                    // SNS: 아이폰에서 본 버전(digest)과 같을 때만 승인/반려를 기록. 게시는 하지 않는다.
+                    response = JarvisSocialRemote.decide(request, requestID: id)
                 } else {
                     response = self.makeProjectSnapshot(id)
                 }
@@ -399,6 +408,18 @@ final class JarvisMacNearbyCalendar: NSObject, ObservableObject {
         if kind == "projectSnapshotRequest" {
             guard let id = object["requestID"] as? String, UUID(uuidString: id) != nil else { return }
             send(makeProjectSnapshot(id), to: [remote])
+            return
+        }
+        // SNS (근거리 연결): 원격 통로와 같은 JarvisSocialRemote 처리를 사용한다.
+        if kind == "socialSnapshotRequest" {
+            guard let id = object["requestID"] as? String, UUID(uuidString: id) != nil else { return }
+            let response = await JarvisSocialRemote.snapshot(requestID: id)
+            if authorized.contains(remote) { send(response, to: [remote]) }
+            return
+        }
+        if kind == "approveSocialPost" {
+            guard let id = object["requestID"] as? String, UUID(uuidString: id) != nil else { return }
+            send(JarvisSocialRemote.decide(object, requestID: id), to: [remote])
             return
         }
         guard authorized.contains(remote), kind == "sync",

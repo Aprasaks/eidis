@@ -20,6 +20,7 @@
 		BBAA00000000000000001016 /* JARVISCalendarStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000000016 /* JARVISCalendarStore.swift */; };
 		BBAA00000000000000001017 /* JARVISCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000000017 /* JARVISCalendarView.swift */; };
 		BBAA00000000000000001018 /* JARVISMobileNearbyCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000000018 /* JARVISMobileNearbyCalendar.swift */; };
+		BBAA00000000000000001030 /* JARVISMobileSocialView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000000030 /* JARVISMobileSocialView.swift */; };
 		BBAA00000000000000001019 /* JARVISCalendarPairingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000000019 /* JARVISCalendarPairingView.swift */; };
 		BBAA00000000000000001020 /* JARVISAlarmDomain.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000000020 /* JARVISAlarmDomain.swift */; };
 		BBAA00000000000000001021 /* JARVISAlarmStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAA00000000000000000021 /* JARVISAlarmStore.swift */; };
@@ -43,6 +44,7 @@
 		BBAA00000000000000000016 /* JARVISCalendarStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISCalendarStore.swift; sourceTree = "<group>"; };
 		BBAA00000000000000000017 /* JARVISCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISCalendarView.swift; sourceTree = "<group>"; };
 		BBAA00000000000000000018 /* JARVISMobileNearbyCalendar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISMobileNearbyCalendar.swift; sourceTree = "<group>"; };
+		BBAA00000000000000000030 /* JARVISMobileSocialView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISMobileSocialView.swift; sourceTree = "<group>"; };
 		BBAA00000000000000000019 /* JARVISCalendarPairingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISCalendarPairingView.swift; sourceTree = "<group>"; };
 		BBAA00000000000000000020 /* JARVISAlarmDomain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISAlarmDomain.swift; sourceTree = "<group>"; };
 		BBAA00000000000000000021 /* JARVISAlarmStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JARVISAlarmStore.swift; sourceTree = "<group>"; };
@@ -87,6 +89,7 @@
 				BBAA00000000000000000021 /* JARVISAlarmStore.swift */,
 				BBAA00000000000000000020 /* JARVISAlarmDomain.swift */,
 				BBAA00000000000000000018 /* JARVISMobileNearbyCalendar.swift */,
+				BBAA00000000000000000030 /* JARVISMobileSocialView.swift */,
 				BBAA00000000000000000016 /* JARVISCalendarStore.swift */,
 				BBAA00000000000000000015 /* JARVISCalendarDomain.swift */,
 				BBAA00000000000000000012 /* JARVISVoiceSettingsView.swift */,
@@ -168,6 +171,7 @@
 				BBAA00000000000000001021 /* JARVISAlarmStore.swift in Sources */,
 				BBAA00000000000000001020 /* JARVISAlarmDomain.swift in Sources */,
 				BBAA00000000000000001018 /* JARVISMobileNearbyCalendar.swift in Sources */,
+				BBAA00000000000000001030 /* JARVISMobileSocialView.swift in Sources */,
 				BBAA00000000000000001016 /* JARVISCalendarStore.swift in Sources */,
 				BBAA00000000000000001015 /* JARVISCalendarDomain.swift in Sources */,
 				BBAA00000000000000001012 /* JARVISVoiceSettingsView.swift in Sources */,

@@ -332,6 +332,123 @@ final class JARVISMobileNearbyCalendar: NSObject, ObservableObject {
         }
     }
 
+    // MARK: - SNS (아이폰 SNS 화면) -------------------------------------------
+    // Knowledge와 같은 기기 인증·암호화 통로를 그대로 쓰고, 메시지 종류만 다르다.
+    //   socialSnapshotRequest → socialSnapshot        (채널 수치 + 검토 대기 캐러셀 미리보기)
+    //   approveSocialPost     → socialApprovalResult  (본 버전 digest와 같을 때만 승인/반려 기록)
+    // Mac 쪽 처리: macos/Sources/EidisMac/JarvisSocialRemote.swift
+
+    @Published private(set) var socialSnapshot: JARVISSocialSnapshot?
+    @Published private(set) var socialStatus = "Mac SNS 현황 확인 전"
+    @Published private(set) var socialLoading = false
+    @Published private(set) var socialDeciding = false
+    @Published private(set) var socialDecisionStatus: String?
+    /// 응답을 기다리는 요청들 (requestID → 완료 처리). 근거리 응답은 receive()에서 여기로 전달된다.
+    private var macReplies: [String: (Data?) -> Void] = [:]
+
+    func refreshSocial() {
+        guard !socialLoading else { return }
+        guard connected || remembered else { socialStatus = "Mac 기기 등록 필요 · 프로젝트 화면에서 12자리 연결"; return }
+        let id = UUID().uuidString
+        socialLoading = true
+        socialStatus = "Mac SNS 현황 확인 중"
+        let object: [String: Any] = ["kind": "socialSnapshotRequest", "requestID": id]
+        sendToMac(object, id: id, expect: "socialSnapshot", timeout: 15) { [weak self] data in
+            guard let self else { return }
+            self.socialLoading = false
+            guard let data, let snapshot = try? JSONDecoder().decode(JARVISSocialSnapshot.self, from: data) else {
+                self.socialStatus = "Mac SNS 응답 없음 · 마지막 확인값"
+                return
+            }
+            self.socialSnapshot = snapshot
+            self.socialStatus = self.connected ? "근거리 Mac SNS 현황" : "Tailscale 원격 SNS 현황"
+        }
+    }
+
+    /// 사용자가 미리보기로 본 바로 그 버전(digest)에 대한 승인/반려. 게시는 Mac에서 별도로 진행된다.
+    func decideSocial(_ carousel: JARVISSocialCarousel, approve: Bool) {
+        guard !socialDeciding, carousel.status == "review" else { return }
+        let id = UUID().uuidString
+        socialDeciding = true
+        socialDecisionStatus = approve ? "승인 전송 중" : "반려 전송 중"
+        let object: [String: Any] = ["kind": "approveSocialPost", "requestID": id,
+                                     "runID": carousel.runID, "digest": carousel.digest,
+                                     "decision": approve ? "approve" : "reject", "ownerApproved": true]
+        sendToMac(object, id: id, expect: "socialApprovalResult", timeout: 20) { [weak self] data in
+            guard let self else { return }
+            self.socialDeciding = false
+            let reply = data.flatMap { (try? JSONSerialization.jsonObject(with: $0)) as? [String: Any] }
+            switch reply?["status"] as? String {
+            case "approved": self.socialDecisionStatus = "승인 완료 · Mac에 게시 대기로 기록됨"
+            case "rejected": self.socialDecisionStatus = "반려 완료 · 게시하지 않음"
+            case "changed": self.socialDecisionStatus = "미리보기 이후 결과물이 바뀌었어요. 새로 불러온 뒤 다시 확인하세요."
+            case "notReviewable": self.socialDecisionStatus = "이미 처리된 캐러셀이에요."
+            case "notFound": self.socialDecisionStatus = "Mac에서 캐러셀을 찾지 못했어요."
+            case "invalid": self.socialDecisionStatus = "승인 정보가 올바르지 않아요."
+            default: self.socialDecisionStatus = "응답 없음 · 새로고침해 실제 상태를 확인하세요."
+            }
+            self.refreshSocial()
+        }
+    }
+
+    private func deliverMacReply(_ id: String, _ data: Data?) {
+        macReplies.removeValue(forKey: id)?(data)
+    }
+
+    /// 근거리 연결이 살아 있으면 근거리로, 아니면 등록된 키로 Tailscale 원격 요청을 보낸다.
+    /// completion은 정확히 한 번, 메인 스레드에서 호출된다 (응답 또는 nil = 실패/시간 초과).
+    private func sendToMac(_ object: [String: Any], id: String, expect: String, timeout: Double,
+                           completion: @escaping (Data?) -> Void) {
+        macReplies[id] = completion
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(timeout))
+            self?.deliverMacReply(id, nil)
+        }
+        if connected, let peer = trustedPeer, session.connectedPeers.contains(peer) {
+            guard let data = try? JSONSerialization.data(withJSONObject: object) else { deliverMacReply(id, nil); return }
+            do { try session.send(data, toPeers: [peer], with: .reliable) } catch { deliverMacReply(id, nil) }
+            return
+        }
+        var remote = object
+        remote["sentAt"] = Date().timeIntervalSince1970   // Mac은 60초 이내 요청만 받는다
+        guard foreground, remembered, let secret = savedSecret, let mac = JARVISRemoteWire.mac,
+              let frame = try? JARVISRemoteWire.encode(remote, secret: secret, response: false) else {
+            deliverMacReply(id, nil); return
+        }
+        let c = NWConnection(host: NWEndpoint.Host(mac), port: JARVISRemoteWire.port, using: .tcp)
+        c.stateUpdateHandler = { [weak self, weak c] state in
+            guard let c else { return }
+            Task { @MainActor in
+                guard let self else { c.cancel(); return }
+                if case .ready = state {
+                    c.stateUpdateHandler = nil
+                    c.send(content: frame, completion: .contentProcessed { error in
+                        guard error == nil else {
+                            c.cancel()
+                            Task { @MainActor in self.deliverMacReply(id, nil) }
+                            return
+                        }
+                        JARVISRemoteWire.read(c) { data in
+                            c.cancel()
+                            Task { @MainActor in
+                                guard let data, let clear = try? JARVISRemoteWire.decode(data, secret: secret, response: true),
+                                      let reply = (try? JSONSerialization.jsonObject(with: clear)) as? [String: Any],
+                                      reply["kind"] as? String == expect, reply["requestID"] as? String == id else {
+                                    self.deliverMacReply(id, nil); return
+                                }
+                                self.deliverMacReply(id, clear)
+                            }
+                        }
+                    })
+                } else if case .failed = state {
+                    c.cancel()
+                    self.deliverMacReply(id, nil)
+                }
+            }
+        }
+        c.start(queue: .main)
+    }
+
     init(calendar: JARVISCalendarStore) {
         self.calendar = calendar
         super.init()
@@ -529,6 +646,11 @@ final class JARVISMobileNearbyCalendar: NSObject, ObservableObject {
             return
         }
         guard connected, trustedPeer == peer else { return }
+        // SNS 응답: 기다리던 requestID일 때만 전달한다.
+        if kind == "socialSnapshot" || kind == "socialApprovalResult" {
+            if let id = object["requestID"] as? String { deliverMacReply(id, data) }
+            return
+        }
         if kind == "publishResult" {
             guard let id = publishRequestID, object["requestID"] as? String == id else { return }
             finishPublish(id, state: object["status"] as? String ?? "unconfirmed")

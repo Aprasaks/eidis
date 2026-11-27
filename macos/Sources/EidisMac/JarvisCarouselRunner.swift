@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import CryptoKit
 
 /// DECHIVE.WIKI Instagram carousel studio.
 ///
@@ -118,7 +119,8 @@ final class JarvisCarouselRunner: ObservableObject {
         guard let home = URL(string: "https://dechive.wiki/"),
               let html = await fetchText(home) else { return nil }
         let section = html.range(of: "id=\"verified\"").map { String(html[$0.lowerBound...].prefix(20_000)) } ?? html
-        let done = Set(allMetas().filter { $0.status == "review" }.map(\.articleURL))
+        // 검토 대기뿐 아니라 승인·반려·게시된 글도 "이미 만든 글"로 본다.
+        let done = Set(allMetas().filter { Self.finishedStatuses.contains($0.status) }.map(\.articleURL))
         for path in Self.matches(#"/knowledge/[0-9a-f-]{36}"#, in: section) {
             let full = "https://dechive.wiki" + path
             if !done.contains(full) { return URL(string: full) }
@@ -457,6 +459,65 @@ final class JarvisCarouselRunner: ObservableObject {
         try? data.write(to: dir.appendingPathComponent("meta.json"))
     }
 
+    // MARK: - Owner decision from the iPhone (아이폰 승인)
+
+    /// 결과물이 나온 실행 상태들. 이 상태의 글은 다시 자동 제작하지 않는다.
+    static let finishedStatuses: Set<String> = ["review", "approved", "rejected", "posted"]
+
+    /// 실행 폴더 이름 형식: yyyyMMdd-HHmmss-<글 ID 앞 8자리>. 경로 조작을 막기 위해 이 형식만 받는다.
+    static func runDirectory(named runID: String) -> URL? {
+        guard runID.range(of: "^[0-9]{8}-[0-9]{6}-[0-9a-f]{8}$", options: .regularExpression) != nil else { return nil }
+        let dir = root.appendingPathComponent(runID, isDirectory: true)
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: dir.path, isDirectory: &isDir), isDir.boolValue else { return nil }
+        return dir
+    }
+
+    /// 슬라이드 PNG와 캡션 전체의 SHA-256. 아이폰은 자기가 본 버전의 digest를 함께 보내고,
+    /// Mac은 승인 직전에 다시 계산해 같을 때만 승인한다. 미리보기 이후 바뀐 결과물이
+    /// 승인되는 일을 막는다 (Knowledge 발행의 revision 고정과 같은 원리).
+    nonisolated static func contentDigest(of dir: URL) -> String? {
+        var hasher = SHA256()
+        var count = 0
+        for index in 1...12 {
+            let file = dir.appendingPathComponent(String(format: "slide-%02d.png", index))
+            guard let data = try? Data(contentsOf: file) else { break }
+            hasher.update(data: Data("slide-\(index):".utf8))
+            hasher.update(data: data)
+            count += 1
+        }
+        guard count > 0, let caption = try? Data(contentsOf: dir.appendingPathComponent("caption.txt")) else { return nil }
+        hasher.update(data: Data("caption:".utf8))
+        hasher.update(data: caption)
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
+    enum OwnerDecisionResult: String { case approved, rejected, changed, notFound, notReviewable }
+
+    /// 아이폰에서 온 승인/반려를 기록한다. 게시는 하지 않는다 — 승인된 결과물은
+    /// "게시 대기"가 되고, 실제 게시는 사용자가 승인한 그 버전으로만 진행된다.
+    func recordOwnerDecision(runID: String, digest: String, approve: Bool) -> OwnerDecisionResult {
+        guard let dir = Self.runDirectory(named: runID),
+              let data = try? Data(contentsOf: dir.appendingPathComponent("meta.json")),
+              var saved = try? JSONDecoder().decode(Meta.self, from: data) else { return .notFound }
+        guard saved.status == "review" else { return .notReviewable }
+        guard let current = Self.contentDigest(of: dir), current == digest else { return .changed }
+        saved.status = approve ? "approved" : "rejected"
+        guard let encoded = try? JSONEncoder().encode(saved) else { return .notFound }
+        try? encoded.write(to: dir.appendingPathComponent("meta.json"))
+        let record: [String: Any] = ["decision": saved.status, "digest": digest, "via": "iPhone",
+                                     "decidedAt": ISO8601DateFormatter().string(from: Date())]
+        if let json = try? JSONSerialization.data(withJSONObject: record, options: [.prettyPrinted, .sortedKeys]) {
+            try? json.write(to: dir.appendingPathComponent("approval.json"))
+        }
+        // 지금 화면에 보이는 실행이면 Mac 작업실 표시도 바로 바꾼다.
+        if runDirectory?.standardizedFileURL == dir.standardizedFileURL {
+            meta = saved
+            append(approve ? "📱 아이폰에서 승인됨 · 게시 대기" : "📱 아이폰에서 반려됨 · 게시하지 않음")
+        }
+        return approve ? .approved : .rejected
+    }
+
     private func allMetas() -> [Meta] {
         let dirs = (try? FileManager.default.contentsOfDirectory(at: Self.root, includingPropertiesForKeys: nil)) ?? []
         return dirs.compactMap { dir in
@@ -470,7 +531,7 @@ final class JarvisCarouselRunner: ObservableObject {
             .sorted { $0.lastPathComponent > $1.lastPathComponent }
         for dir in dirs {
             guard let data = try? Data(contentsOf: dir.appendingPathComponent("meta.json")),
-                  let saved = try? JSONDecoder().decode(Meta.self, from: data), saved.status == "review" else { continue }
+                  let saved = try? JSONDecoder().decode(Meta.self, from: data), ["review", "approved"].contains(saved.status) else { continue }
             runDirectory = dir
             meta = saved
             slides = (1...12).map { dir.appendingPathComponent(String(format: "slide-%02d.png", $0)) }

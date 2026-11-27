@@ -724,8 +724,12 @@ struct JarvisChannelMonitorView: View {
                 Spacer()
                 Circle().fill(running ? Color.green : (carousel.stage == .failed ? .orange : claudeAccent))
                     .frame(width: 7, height: 7)
-                Text(carousel.stage.label).font(.system(size: 12 * scale, design: .monospaced))
-                    .foregroundStyle(running ? .green : muted)
+                // 아이폰에서 승인/반려되면 meta.status가 바뀐다 (JarvisSocialRemote → recordOwnerDecision).
+                let ownerStatus: String? = carousel.meta?.status == "approved" ? "📱 아이폰 승인됨 · 게시 대기"
+                    : carousel.meta?.status == "rejected" ? "📱 아이폰에서 반려됨" : nil
+                Text(running ? carousel.stage.label : (ownerStatus ?? carousel.stage.label))
+                    .font(.system(size: 12 * scale, design: .monospaced))
+                    .foregroundStyle(running ? .green : (ownerStatus != nil ? mint : muted))
             }
             Rectangle().fill(claudeAccent.opacity(0.25)).frame(height: 1)
             pipeline(scale)
@@ -901,6 +905,10 @@ struct JarvisChannelMonitorView: View {
     private func channelState(connected: Bool, error: String?, checkedAt: Date?) -> ChannelState {
         let time = checkedAt.map { " · " + $0.formatted(date: .omitted, time: .shortened) + " 확인" } ?? ""
         if connected { return .init(label: "● 연결됨" + time, color: mint, detail: nil) }
+        // 첫 조회가 끝나기 전에는 "미연결"로 오해하지 않도록 확인 중으로 표시한다.
+        if checkedAt == nil, error == nil, metaRefreshing {
+            return .init(label: "확인 중…", color: muted, detail: nil)
+        }
         guard let error, checkedAt != nil else {
             return .init(label: "미연결 · 토큰 연결 필요", color: muted, detail: error)
         }

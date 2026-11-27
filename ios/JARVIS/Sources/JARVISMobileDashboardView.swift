@@ -82,7 +82,7 @@ enum JARVISMobilePage: String, CaseIterable, Identifiable {
         case .stocks: "맥 자비스 증권 데이터 · 연결 전"
         case .projects: "공개 지식 현황 및 연결된 Mac 작업 기록"
         case .knowledge: "맥 자비스 저장 자료 · 연결 전"
-        case .social: "맥 자비스 SNS 연동 · 연결 전"
+        case .social: "캐러셀 검토·승인 · 채널 현황"
         case .news: "맥 자비스 뉴스 브리핑 · 연결 전"
         case .system: "맥 자비스 시스템 정보 · 연결 전"
         }
@@ -142,6 +142,7 @@ enum JARVISMobilePage: String, CaseIterable, Identifiable {
         case .projects: return "오라버니, 프로젝트 화면을 열었어요. 확인 가능한 기록을 불러올게요."
         case .calendar: return "오라버니, 자비스 캘린더를 열었어요. 저장된 일정과 새 일정을 확인할 수 있어요."
         case .alarm: return "오라버니, 자비스 알람을 열었어요. 원하는 시각을 설정하고 저장해 주세요."
+        case .social: return "오라버니, SNS 화면을 열었어요. 맥 자비스가 만든 캐러셀을 확인할게요."
         default: return "오라버니, \(title) 화면을 열었어요. 맥 자비스가 아직 연결되지 않아 실제 데이터는 표시하지 않았어요."
         }
     }
@@ -234,6 +235,9 @@ struct JARVISMobileDataPageView: View {
                 JARVISCalendarView(store: calendar, nearby: nearby)
             } else if page == .projects {
                 JARVISMobileProjectsView(nearby: nearby)
+            } else if page == .social {
+                // SNS: Mac 자비스 캐러셀 미리보기·승인 (JARVISMobileSocialView.swift)
+                JARVISMobileSocialView(nearby: nearby)
             } else {
                 macDisconnectedBody
             }
