@@ -86,6 +86,8 @@ final class JarvisCarouselRunner: ObservableObject {
             }
         }
         NSLog("JARVIS SNS carousel scheduler active (KST 01:30-02:30; review only)")
+        // 승인된 캐러셀만 22:00~23:30 KST에 Instagram API로 게시 (JarvisInstagramPublisher).
+        JarvisInstagramPublisher.shared.startSchedule()
     }
 
     private func todayKey(_ date: Date = Date()) -> String {
@@ -492,6 +494,23 @@ final class JarvisCarouselRunner: ObservableObject {
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
+    /// 게시 완료 기록 (JarvisInstagramPublisher가 호출). 같은 글을 다시 만들거나 게시하지 않도록 상태를 바꾼다.
+    func markPosted(_ dir: URL) {
+        guard let data = try? Data(contentsOf: dir.appendingPathComponent("meta.json")),
+              var saved = try? JSONDecoder().decode(Meta.self, from: data) else { return }
+        saved.status = "posted"
+        if let encoded = try? JSONEncoder().encode(saved) { try? encoded.write(to: dir.appendingPathComponent("meta.json")) }
+        if runDirectory?.standardizedFileURL == dir.standardizedFileURL { meta = saved }
+    }
+
+    /// 게시 진행 상황을 지금 보이는 작업실 로그에도 표시한다 (파일 로그는 게시기가 직접 남긴다).
+    func noteExternal(_ dir: URL, _ line: String) {
+        guard runDirectory?.standardizedFileURL == dir.standardizedFileURL else { return }
+        logs.append(Date().formatted(date: .omitted, time: .standard) + "  " + line)
+        if logs.count > 200 { logs.removeFirst(logs.count - 200) }
+        updatedAt = Date()
+    }
+
     enum OwnerDecisionResult: String { case approved, rejected, changed, notFound, notReviewable }
 
     /// 아이폰에서 온 승인/반려를 기록한다. 게시는 하지 않는다 — 승인된 결과물은
@@ -531,7 +550,7 @@ final class JarvisCarouselRunner: ObservableObject {
             .sorted { $0.lastPathComponent > $1.lastPathComponent }
         for dir in dirs {
             guard let data = try? Data(contentsOf: dir.appendingPathComponent("meta.json")),
-                  let saved = try? JSONDecoder().decode(Meta.self, from: data), ["review", "approved"].contains(saved.status) else { continue }
+                  let saved = try? JSONDecoder().decode(Meta.self, from: data), ["review", "approved", "posted"].contains(saved.status) else { continue }
             runDirectory = dir
             meta = saved
             slides = (1...12).map { dir.appendingPathComponent(String(format: "slide-%02d.png", $0)) }

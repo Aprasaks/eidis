@@ -71,7 +71,7 @@ enum JarvisSocialRemote {
             guard JarvisCarouselRunner.runDirectory(named: dir.lastPathComponent) != nil,
                   let data = try? Data(contentsOf: dir.appendingPathComponent("meta.json")),
                   let meta = try? JSONDecoder().decode(JarvisCarouselRunner.Meta.self, from: data),
-                  ["review", "approved"].contains(meta.status),
+                  ["review", "approved", "posted"].contains(meta.status),
                   let digest = JarvisCarouselRunner.contentDigest(of: dir),
                   let caption = try? String(contentsOf: dir.appendingPathComponent("caption.txt"), encoding: .utf8)
             else { continue }
@@ -102,7 +102,9 @@ enum JarvisSocialRemote {
                 "slideCount": total,
                 "previews": previews,
                 "digest": digest,
-                "visualChecked": visualChecked
+                "visualChecked": visualChecked,
+                // 게시 완료면 인스타 링크 (JarvisInstagramPublisher가 publish.json에 기록)
+                "permalink": (JarvisInstagramPublisher.record(dir)?["permalink"] as? String) ?? ""
             ]
         }
         return nil

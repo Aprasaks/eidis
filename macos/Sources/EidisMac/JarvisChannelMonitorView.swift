@@ -34,8 +34,10 @@ struct JarvisChannelMonitorView: View {
     @State private var showRawLog = false
     @State private var lastClaudeTitle: String?
     @State private var studioMode = 0
+    @State private var confirmPublishNow = false
     @State private var carouselURL = ""
     @ObservedObject private var carousel = JarvisCarouselRunner.shared
+    @ObservedObject private var publisher = JarvisInstagramPublisher.shared
 
     private let amber = Color(red: 0.94, green: 0.67, blue: 0.30)
     private let muted = Color(red: 0.64, green: 0.66, blue: 0.68)
@@ -712,6 +714,47 @@ struct JarvisChannelMonitorView: View {
         .accessibilityIdentifier("jarvis-sns-carousel-pipeline")
     }
 
+    /// 게시 줄: 권한 상태, 22시 자동 게시 안내, 승인된 결과물만 누를 수 있는 "지금 게시", 게시 링크.
+    private func publishRow(_ scale: CGFloat) -> some View {
+        let status = carousel.meta?.status
+        let permalink = carousel.runDirectory.flatMap { JarvisInstagramPublisher.record($0)?["permalink"] as? String }
+            .flatMap { $0.isEmpty ? nil : URL(string: $0) }
+        return HStack(spacing: 10) {
+            Image(systemName: "paperplane")
+                .foregroundStyle(publisher.permissionOK == false ? Color.orange : mint)
+            Text(publisher.permissionStatus).foregroundStyle(publisher.permissionOK == false ? Color.orange : muted)
+            Text("· 승인된 캐러셀은 22:00 자동 게시").foregroundStyle(muted)
+            if let message = publisher.lastMessage {
+                Text("· " + message).foregroundStyle(message.hasPrefix("게시 실패") ? Color.orange : mint).lineLimit(1)
+            }
+            Spacer()
+            if publisher.publishing { ProgressView().controlSize(.small) }
+            Button("권한 확인") { Task { await publisher.checkPermission() } }
+                .buttonStyle(.plain).foregroundStyle(claudeAccent)
+            if status == "posted", let permalink {
+                Button("인스타에서 보기") { NSWorkspace.shared.open(permalink) }
+                    .buttonStyle(.bordered)
+            } else {
+                Button("지금 게시") { confirmPublishNow = true }
+                    .buttonStyle(.borderedProminent).tint(mint.opacity(0.8))
+                    .disabled(publisher.publishing || status != "approved" || publisher.permissionOK != true)
+                    .help("승인된 캐러셀만 게시할 수 있습니다.")
+                    .accessibilityIdentifier("jarvis-sns-publish-now")
+            }
+        }
+        .font(.system(size: 11 * scale))
+        .lineLimit(1)
+        .task { if publisher.permissionOK == nil { await publisher.checkPermission() } }
+        .confirmationDialog("승인된 캐러셀을 지금 Instagram에 게시할까요?", isPresented: $confirmPublishNow) {
+            Button("지금 게시") {
+                if let dir = carousel.runDirectory { Task { await publisher.publish(dir, trigger: "manual") } }
+            }
+            Button("취소", role: .cancel) {}
+        } message: {
+            Text((carousel.meta?.title ?? "") + " · 22시 자동 게시를 기다리지 않고 바로 올립니다.")
+        }
+    }
+
     private func carouselStudio(_ scale: CGFloat) -> some View {
         let running = carousel.isRunning
         let blocked = running || agentBay.nightShiftRunning
@@ -725,8 +768,9 @@ struct JarvisChannelMonitorView: View {
                 Circle().fill(running ? Color.green : (carousel.stage == .failed ? .orange : claudeAccent))
                     .frame(width: 7, height: 7)
                 // 아이폰에서 승인/반려되면 meta.status가 바뀐다 (JarvisSocialRemote → recordOwnerDecision).
-                let ownerStatus: String? = carousel.meta?.status == "approved" ? "📱 아이폰 승인됨 · 게시 대기"
-                    : carousel.meta?.status == "rejected" ? "📱 아이폰에서 반려됨" : nil
+                let ownerStatus: String? = carousel.meta?.status == "approved" ? "📱 승인됨 · 22시 게시 대기"
+                    : carousel.meta?.status == "rejected" ? "📱 아이폰에서 반려됨"
+                    : carousel.meta?.status == "posted" ? "✅ 인스타 게시 완료" : nil
                 Text(running ? carousel.stage.label : (ownerStatus ?? carousel.stage.label))
                     .font(.system(size: 12 * scale, design: .monospaced))
                     .foregroundStyle(running ? .green : (ownerStatus != nil ? mint : muted))
@@ -768,6 +812,7 @@ struct JarvisChannelMonitorView: View {
             }
             .font(.system(size: 10 * scale))
             .foregroundStyle(muted)
+            publishRow(scale)
             HStack(alignment: .top, spacing: 12) {
                 // Live Claude stream
                 VStack(alignment: .leading, spacing: 6) {

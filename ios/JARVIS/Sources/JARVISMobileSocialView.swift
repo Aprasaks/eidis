@@ -33,6 +33,8 @@ struct JARVISSocialCarousel: Decodable {
     /// 슬라이드 PNG + 캡션의 SHA-256. 승인할 때 그대로 돌려보내 "본 버전만" 승인되게 한다.
     let digest: String
     let visualChecked: Bool
+    /// 게시 완료 시 Instagram 게시물 주소 (이전 Mac 빌드에서는 없음)
+    let permalink: String?
 }
 
 // MARK: - 화면
@@ -120,10 +122,11 @@ struct JARVISMobileSocialView: View {
 
     private func carouselCard(_ carousel: JARVISSocialCarousel) -> some View {
         let reviewing = carousel.status == "review"
+        let posted = carousel.status == "posted"
         let images = carousel.previews.compactMap { Data(base64Encoded: $0).flatMap(UIImage.init(data:)) }
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 6) {
-                Text(reviewing ? "검토 대기" : "승인됨 · 게시 대기")
+                Text(reviewing ? "검토 대기" : posted ? "게시 완료" : "승인됨 · 22시 게시 대기")
                     .font(.system(size: 11, weight: .semibold))
                     .padding(.horizontal, 8).padding(.vertical, 3)
                     .background((reviewing ? JARVISPalette.gold : Color.green).opacity(0.18), in: Capsule())
@@ -161,6 +164,13 @@ struct JARVISMobileSocialView: View {
                     .font(.system(size: 12)).foregroundStyle(JARVISPalette.gold)
             }
 
+            if posted, let link = carousel.permalink, let url = URL(string: link), !link.isEmpty {
+                Link(destination: url) {
+                    Label("인스타에서 보기", systemImage: "arrow.up.right.square")
+                        .frame(maxWidth: .infinity).padding(.vertical, 6)
+                }
+                .buttonStyle(.bordered).tint(.green)
+            }
             if let status = nearby.socialDecisionStatus {
                 Text(status).font(.system(size: 12)).foregroundStyle(JARVISPalette.gold)
             }
@@ -177,7 +187,7 @@ struct JARVISMobileSocialView: View {
                 }
                 .disabled(nearby.socialDeciding)
             }
-            Text("승인하면 Mac에 '게시 대기'로 기록돼요. 게시는 지금 본 이 버전으로만 진행되고, 바뀌면 다시 승인해야 해요.")
+            Text("승인하면 Mac이 오늘 22시에 인스타에 자동 게시해요. 게시는 지금 본 이 버전으로만 진행되고, 바뀌면 다시 승인해야 해요.")
                 .font(.system(size: 10)).foregroundStyle(JARVISPalette.muted)
         }
         .padding(15)
