@@ -426,12 +426,15 @@ struct JarvisCommandCenterView: View {
         let spacing: CGFloat = 9
         let controlHeight: CGFloat = min(116, height * 0.15)
         let eventHeight: CGFloat = min(96, height * 0.12)
-        let timelineHeight: CGFloat = min(260, max(190, height * 0.32))
+        let timelineHeight: CGFloat = min(320, max(275, height * 0.36))   // 행 5개가 작은 화면에서도 잘리지 않게
         let compactHeight: CGFloat = 40 * scale
         let lanes = JarvisAgentID.allCases
         let expanded = lanes.filter { id in
             let lane = agentBay.lane(id)
-            return lane.state == .running || lane.state == .failed || !lane.logs.isEmpty
+            // 실행 파일 확인("CLI --version") 로그는 일이 아니므로 칸을 펼치지 않는다.
+            // 실제 작업 출력이 있을 때만 펼친다 (출력 없는 "실행 중인 작업 없음" 칸은 접는다).
+            return lane.state == .running || lane.state == .failed
+                || (lane.state != .checking && lane.lastRun != nil && !lane.logs.isEmpty)
         }
         let laneSpace = max(0, height - controlHeight - eventHeight - timelineHeight - spacing * 5)
         let compactCount = CGFloat(lanes.count - expanded.count)
@@ -444,6 +447,8 @@ struct JarvisCommandCenterView: View {
                     scale: scale)
             }
             .frame(minHeight: timelineHeight, maxHeight: .infinity)   // 쉬는 칸이 접히면 남는 공간은 시간표가 쓴다
+            .clipped()
+            .layoutPriority(1)
             ForEach(lanes) { id in
                 let open = expanded.contains(id)
                 agentTerminalCard(id, scale: scale, compact: !open)

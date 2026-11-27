@@ -161,7 +161,7 @@ struct JarvisDailyTimelinePanel: View {
             Rectangle().fill(amber.opacity(0.25)).frame(height: 1)
             // 행을 세로로 고르게 배치해 패널 아래가 비지 않게 한다.
             ForEach(timeline.items) { item in
-                Spacer(minLength: 4)
+                Spacer(minLength: 2)
                 HStack(alignment: .top, spacing: 10) {
                     Text(item.time)
                         .font(.system(size: 13 * scale, weight: .semibold, design: .monospaced))
