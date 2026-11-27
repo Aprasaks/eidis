@@ -545,8 +545,8 @@ final class JarvisStudyRunner {
         call.setValue("application/json",forHTTPHeaderField:"Content-Type")
         call.httpBody = try JSONSerialization.data(withJSONObject:[
             "model":JarvisLocalModelConfiguration.selectedModel,"messages":[["role":"system","content":system],["role":"user","content":prompt]],
-            "think":false,"stream":false,"keep_alive":"10m",
-            "options":["num_ctx":6144,"num_predict":360,"temperature":0.2]])
+            "think":false,"stream":false,"keep_alive": JarvisLocalModelConfiguration.keepAlive,
+            "options":["num_ctx": JarvisLocalModelConfiguration.contextLength,"num_predict":360,"temperature":0.2]])
         let (data,response) = try await ollama.data(for:call)
         guard !Task.isCancelled,(response as? HTTPURLResponse)?.statusCode == 200,data.count < 256_000,
               let object = try JSONSerialization.jsonObject(with:data) as? [String:Any],

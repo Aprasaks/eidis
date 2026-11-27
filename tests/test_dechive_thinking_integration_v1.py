@@ -18,7 +18,7 @@ class ThinkingIntegrationV1(unittest.TestCase):
         for needle in ('JarvisThinkingRoute.mode(for: prompt)',
                        'thinkingCore.context(for: prompt, mode: thinkingMode)',
                        'let profileContext = await personalProfile.contextForQwen()',
-                       'recalledContext.isEmpty', 'thinkingMode == .fast ? 4096 : 6144',
+                       'recalledContext.isEmpty', '"num_ctx": JarvisLocalModelConfiguration.contextLength',
                        '"think": false'):
             self.assertIn(needle, CHAT)
         for needle in ('if mode == .fast && ["안녕"',

@@ -285,8 +285,8 @@ final class JarvisLearningMemory: ObservableObject {
                     ["role":"system","content":policy],
                     ["role":"user","content":String(utterance.prefix(500))]
                 ],
-                "format":schema, "think":false, "stream":false,
-                "options":["num_ctx":2048,"num_predict":160,"temperature":0]
+                "format":schema, "think":false, "stream":false, "keep_alive":JarvisLocalModelConfiguration.keepAlive,
+                "options":["num_ctx": JarvisLocalModelConfiguration.contextLength,"num_predict":160,"temperature":0]
             ]
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
             let (data, response) = try await qwen.data(for: request)

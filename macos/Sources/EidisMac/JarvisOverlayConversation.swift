@@ -885,8 +885,8 @@ final class JarvisOverlayConversation: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: [
             "model": JarvisLocalModelConfiguration.selectedModel, "messages": messages,
-            "stream": true, "think": false, "keep_alive": "2m",
-            "options": ["num_ctx": 4096, "num_predict": 350, "temperature": 0.3]
+            "stream": true, "think": false, "keep_alive": JarvisLocalModelConfiguration.keepAlive,
+            "options": ["num_ctx": JarvisLocalModelConfiguration.contextLength, "num_predict": 350, "temperature": 0.3]
         ] as [String: Any])
         status = "일상 채팅 · 자비스가 답장 중…"
         let result = try await JarvisOllamaTextStream.receive(
@@ -1321,8 +1321,8 @@ final class JarvisOverlayConversation: ObservableObject {
             // Keep usable answers until a larger-budget mode is benchmarked.
             "think": false,
             "stream": false,
-            "keep_alive": "2m",
-            "options": ["num_ctx": thinkingMode == .fast ? 4096 : 6144,
+            "keep_alive": JarvisLocalModelConfiguration.keepAlive,
+            "options": ["num_ctx": JarvisLocalModelConfiguration.contextLength,
                         "num_predict": thinkingMode == .deliberate ? 380 : 260,
                         "temperature": 0.1]
         ]
@@ -1332,7 +1332,7 @@ final class JarvisOverlayConversation: ObservableObject {
             body.removeValue(forKey: "tools")
             body["stream"] = true
             body["options"] = [
-                "num_ctx": thinkingMode == .fast ? 2048 : 4096,
+                "num_ctx": JarvisLocalModelConfiguration.contextLength,
                 "num_predict": thinkingMode == .deliberate ? 280 : 160,
                 "temperature": 0.1
             ]
@@ -1562,8 +1562,8 @@ final class JarvisOverlayConversation: ObservableObject {
                 ["role": "system", "content": policy],
                 ["role": "user", "content": source]
             ],
-            "think": false, "stream": false, "keep_alive": "2m",
-            "options": ["num_ctx": 4096, "num_predict": 320, "temperature": 0.1]
+            "think": false, "stream": false, "keep_alive": JarvisLocalModelConfiguration.keepAlive,
+            "options": ["num_ctx": JarvisLocalModelConfiguration.contextLength, "num_predict": 320, "temperature": 0.1]
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         let (data, response) = try await session.data(for: request)

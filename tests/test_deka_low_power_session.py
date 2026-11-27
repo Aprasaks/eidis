@@ -27,5 +27,6 @@ class LowPowerSession(unittest.TestCase):
         self.assertIn("wakeSessionLimit = 600.0",CHAT)
     def test_presence_and_residency(self):
         self.assertIn("JarvisDialogueInput.presenceOrEnd(command)",CHAT)
-        self.assertIn('"keep_alive": "2m"',CHAT)
+        self.assertIn('"keep_alive": JarvisLocalModelConfiguration.keepAlive',CHAT)
+        self.assertNotRegex(CHAT,r'"num_ctx":\s*\d')
 if __name__=="__main__":unittest.main()

@@ -294,8 +294,8 @@ final class JarvisVerificationRunner {
         req.httpBody=try JSONSerialization.data(withJSONObject:[
             "model":JarvisLocalModelConfiguration.selectedModel,
             "messages":[["role":"system","content":system],["role":"user","content":prompt]],
-            "think":false,"format":"json","stream":false,"keep_alive":"10m",
-            "options":["num_ctx":6144,"num_predict":1050,"temperature":0.1]
+            "think":false,"format":"json","stream":false,"keep_alive": JarvisLocalModelConfiguration.keepAlive,
+            "options":["num_ctx": JarvisLocalModelConfiguration.contextLength,"num_predict":1050,"temperature":0.1]
         ])
         let (data,response)=try await ollama.data(for:req)
         guard !Task.isCancelled,(response as? HTTPURLResponse)?.statusCode == 200,

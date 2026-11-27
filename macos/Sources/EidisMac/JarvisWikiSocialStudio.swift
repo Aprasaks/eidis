@@ -127,7 +127,8 @@ struct JarvisWikiSocialDraft: Codable, Identifiable {
         ]
         let requestData: [String: Any] = [
             "model":JarvisLocalModelConfiguration.selectedModel, "stream":false, "format":schema,
-            "think":false, "options":["temperature":0.15,"num_predict":2100],
+            "think":false, "keep_alive":JarvisLocalModelConfiguration.keepAlive,
+            "options":["num_ctx":JarvisLocalModelConfiguration.contextLength,"temperature":0.15,"num_predict":2100],
             "messages":[
                 ["role":"system","content":instruction],
                 ["role":"user","content": """
