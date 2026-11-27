@@ -33,7 +33,7 @@ class DekaStandby(unittest.TestCase):
         self.assertIn("guard miniSingleTurn || wakeStandbyEnabled else { return }",CHAT)
         self.assertIn("if wakeCaptureBusy {",CHAT)
         self.assertIn("interruptCurrentReply()",CHAT)
-        self.assertIn('answer = "네 오빠"', CHAT)
+        self.assertIn('answer = "네, DECHIVE."', CHAT)
         self.assertIn("if self.singleTurnCapture {",CHAT)
         self.assertIn("if singleTurnCapture {",CHAT)
         self.assertIn("if wakeStandbyEnabled {",CHAT)

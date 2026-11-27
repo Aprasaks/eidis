@@ -6,7 +6,9 @@ import Foundation
 /// Apple recommends short phrases and at most 100 entries.
 enum JarvisSpeechVocabulary {
     static let phrases: [String] = [
+        "이디스",
         "자비스",
+        "데카이브",
         "데카",
         "데카이브",
         "DECHIVE",

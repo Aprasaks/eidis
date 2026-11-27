@@ -13,7 +13,7 @@ enum JarvisBrowserControlIntent: Equatable {
 
     static func parse(_ phrase: String) -> Self? {
         let spoken = phrase.trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: #"^(자비스|jarvis)[,，.!\s]*"#,
+            .replacingOccurrences(of: #"^(이디스|자비스|jarvis|eidis)[,，.!\s]*"#,
                                   with: "", options: [.regularExpression, .caseInsensitive])
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let normalized = spoken.replacingOccurrences(of: " ", with: "")

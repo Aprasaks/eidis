@@ -16,7 +16,7 @@ class VoiceEnglish(unittest.TestCase):
         self.assertIn('static let voice = "af_heart"', kokoro)
         self.assertIn('env["HF_HUB_OFFLINE"] = "1"', kokoro)
         voice = read("JarvisVoiceService.swift")
-        self.assertIn("if JarvisKokoroVoice.shared.isPrimary {", voice)
+        self.assertIn("if JarvisKokoroVoice.shared.isPrimary && JarvisConversationLanguage.english {", voice)
         self.assertIn("JarvisKokoroVoice.shared.isPlaying", voice)
         eleven = read("ElevenLabsVoiceService.swift")
         self.assertIn("if JarvisKokoroVoice.shared.isPrimary && !explicitlyPreviewed {", eleven)

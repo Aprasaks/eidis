@@ -177,7 +177,7 @@ final class JarvisOverlayConversation: ObservableObject {
         wakeSessionStarted = Date()
         wakeSessionTurns = 0
         isSpeaking = true
-        answer = "네 오빠"
+        answer = "네, DECHIVE."
         dialogueTurns.append(JarvisLiveDialogueTurn(role: "DECHIVE", content: answer))
         if dialogueTurns.count > 12 { dialogueTurns.removeFirst(dialogueTurns.count - 12) }
         status = "Jarvis 호출 인식 · 응답 중"
@@ -285,7 +285,7 @@ final class JarvisOverlayConversation: ObservableObject {
             // Latin or transcribe its sound as "자비스" during a live turn.
             // The standalone background wake model remains English-only.
             if self.wakeStandbyEnabled, self.isListening,
-               (called.lowercased() == "jarvis" || called == "자비스") {
+               (["jarvis", "eidis"].contains(called.lowercased()) || ["자비스", "이디스"].contains(called)) {
                 Task { @MainActor [weak self] in
                     self?.beginDekaWakeTurn()
                 }
@@ -305,7 +305,7 @@ final class JarvisOverlayConversation: ObservableObject {
 
     func showSummonCaption() {
         guard !isListening, !isThinking, !isSpeaking else { return }
-        answer = "오빠, 뭘 도와드릴까요?"
+        answer = "DECHIVE, 뭘 도와드릴까요?"
         dialogueTurns.append(JarvisLiveDialogueTurn(role: "DECHIVE", content: answer))
     }
 
@@ -335,7 +335,7 @@ final class JarvisOverlayConversation: ObservableObject {
     private func refreshContinuityNotice() async {
         if let result = try? await thinkingCore.continuitySnapshot(), !Task.isCancelled {
             continuityNotice = result.openCount > 0
-                ? "오빠, 확인할 사항 \(result.openCount)건 · 최근 기록 기준"
+                ? "DECHIVE, 확인할 사항 \(result.openCount)건 · 최근 기록 기준"
                 : ""
         } else if !Task.isCancelled {
             continuityNotice = ""
@@ -831,8 +831,8 @@ final class JarvisOverlayConversation: ObservableObject {
         // lecture the owner about acceptable forms of address.
         let wake = prompt.trimmingCharacters(in:
             CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: "~～,，.!！?？")))
-        if ["자비스", "자비스야"].contains(wake) {
-            let greeting = "네, 오빠. 듣고 있어요."
+        if ["이디스", "이디스야", "자비스", "자비스야"].contains(wake) {
+            let greeting = "네, DECHIVE. 듣고 있어요."
             conversation.append(["role": "user", "content": prompt])
             conversation.append(["role": "assistant", "content": greeting])
             if conversation.count > 8 { conversation.removeFirst(conversation.count - 8) }
@@ -855,9 +855,9 @@ final class JarvisOverlayConversation: ObservableObject {
         }
         let projectContext = JarvisCasualProjectKnowledge.referenceContext(for: projectRecords)
         let policy = """
-        당신은 사용자의 Mac에서 실행되는 개인 AI 자비스입니다. 사용자가 편하게 일상 이야기를 나눌 수 있는 대화 상대입니다.
-        자연스러운 한국어 해요체로 대화하세요. 사용자 호칭은 '오빠'이며 꼭 필요할 때만 쓰세요. 이모지나 장식 기호를 사용하지 마세요.
-        '자비스'는 사용자가 직접 부르는 호출어입니다. 짧게 응답하고 대화를 이어가세요.
+        당신은 사용자의 Mac에서 실행되는 개인 AI 이디스입니다. 사용자가 편하게 일상 이야기를 나눌 수 있는 대화 상대입니다.
+        자연스러운 한국어 해요체로 대화하세요. 사용자 호칭은 'DECHIVE'이며 꼭 필요할 때만 쓰세요. 이모지나 장식 기호를 사용하지 마세요.
+        '이디스'(예전 이름 '자비스')는 사용자가 직접 부르는 호출어입니다. 짧게 응답하고 대화를 이어가세요.
         모든 발화를 업무 명령이나 문제 해결 요청으로 해석하지 마세요. 일상 이야기에는 평범한 사람처럼 자연스럽게 반응하세요.
         사용자가 방금 정정한 말은 앞선 당신의 추정이나 오해보다 우선합니다. '여러 개에서 줄였다'는 말은 감소로 이해하고 증가라고 뒤집지 마세요.
         수치가 앞뒤로 맞지 않는다면 추측하지 말고 짧게 확인하세요. 사용자가 정확한 최종 개수를 확정하지 않았다면 '3~4개', '4개' 등 구체적인 숫자를 만들어 말하지 마세요.
@@ -888,7 +888,7 @@ final class JarvisOverlayConversation: ObservableObject {
             "stream": true, "think": false, "keep_alive": JarvisLocalModelConfiguration.keepAlive,
             "options": ["num_ctx": JarvisLocalModelConfiguration.contextLength, "num_predict": 350, "temperature": 0.3]
         ] as [String: Any])
-        status = "일상 채팅 · 자비스가 답장 중…"
+        status = "일상 채팅 · 이디스가 답장 중…"
         let result = try await JarvisOllamaTextStream.receive(
             request: request, session: session, maxReplyChars: 1000
         ) { [weak self] partial in
@@ -922,7 +922,7 @@ final class JarvisOverlayConversation: ObservableObject {
         }
         if calendar.visible && Self.isGenericPanelClose(prompt) {
             calendar.close()
-            return "오빠, 자비스 캘린더를 닫았습니다."
+            return "DECHIVE, 이디스 캘린더를 닫았습니다."
         }
         // Switching to a different workspace must not leave the calendar
         // obscuring the other explicitly requested panel.
@@ -936,10 +936,10 @@ final class JarvisOverlayConversation: ObservableObject {
         ) { calendar.close() }
         if weatherCenter.visible && Self.isGenericPanelClose(prompt) {
             weatherCenter.hide()
-            return "오빠, 날씨 화면을 닫았습니다."
+            return "DECHIVE, 날씨 화면을 닫았습니다."
         }
         if weatherCenter.visible {
-            let sourceQuestion = prompt.replacingOccurrences(of: #"^(데카|자비스|jarvis)[,，.!?\s]*"#, with: "", options: [.regularExpression,.caseInsensitive]).filter{!$0.isWhitespace}.trimmingCharacters(in:CharacterSet(charactersIn:".!?？요"))
+            let sourceQuestion = prompt.replacingOccurrences(of: #"^(데카|이디스|자비스|jarvis|eidis)[,，.!?\s]*"#, with: "", options: [.regularExpression,.caseInsensitive]).filter{!$0.isWhitespace}.trimmingCharacters(in:CharacterSet(charactersIn:".!?？요"))
             if ["출처가뭐야","출처알려줘","출처는어디야","어디서가져왔어","이거어디서가져왔어","어디서확인했어"].contains(sourceQuestion) {
                 return await weatherCenter.handle(.source)
             }
@@ -958,7 +958,7 @@ final class JarvisOverlayConversation: ObservableObject {
         }
         if stockBoard.visible && Self.isGenericPanelClose(prompt) {
             stockBoard.hide()
-            return "오빠, 주식 현황표를 닫았습니다."
+            return "DECHIVE, 주식 현황표를 닫았습니다."
         }
         if let intent = StockBoardIntent.parse(prompt) {
             if intent != .hide {
@@ -974,12 +974,12 @@ final class JarvisOverlayConversation: ObservableObject {
         }
         if briefingVisible && Self.isGenericPanelClose(prompt) {
             hideBriefing()
-            return "오빠, 뉴스 브리핑 화면을 닫았습니다."
+            return "DECHIVE, 뉴스 브리핑 화면을 닫았습니다."
         }
         if let intent = JarvisBriefingIntent.parse(prompt) {
             if intent == .hide {
                 hideBriefing()
-                return "오빠, 뉴스 브리핑 화면을 닫았습니다."
+                return "DECHIVE, 뉴스 브리핑 화면을 닫았습니다."
             }
             _ = browser.hide()
             _ = liveDashboard.hide()
@@ -1006,7 +1006,7 @@ final class JarvisOverlayConversation: ObservableObject {
             } catch {
                 guard token == generation && !Task.isCancelled else { return "" }
                 briefingNotice = "조회 완료를 확인하지 못했습니다."
-                return "오빠, 뉴스 브리핑을 확인하지 못했습니다. 확인되지 않은 뉴스는 읽지 않겠습니다."
+                return "DECHIVE, 뉴스 브리핑을 확인하지 못했습니다. 확인되지 않은 뉴스는 읽지 않겠습니다."
             }
         }
         // Specific channel-opening requests take precedence over the overview
@@ -1266,7 +1266,7 @@ final class JarvisOverlayConversation: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let panelContext = "현재 자비스 화면: 웹 브라우저=\(browser.isVisible ? "열림" : "닫힘"), " +
+        let panelContext = "현재 이디스 화면: 웹 브라우저=\(browser.isVisible ? "열림" : "닫힘"), " +
             "작업 대시보드=\(dashboard.isVisible ? "열림" : "닫힘"), " +
             "실시간 대시보드=\(liveDashboard.isVisible ? "열림" : "닫힘"). " +
             "사용자가 '그거'나 '이 창'을 닫으라고 하면 현재 열린 패널을 close_panel로 닫으세요. " +
@@ -1289,10 +1289,10 @@ final class JarvisOverlayConversation: ObservableObject {
         case .contextual:
             reasoningGuidance = "관련 기록이 있다면 출처 상태를 구분해 참고하고, 없다면 과거에 알고 있었다는 주장을 하지 마세요. 확실치 않은 부분은 짧게 확인하세요."
         case .deliberate:
-            reasoningGuidance = "오빠의 고민에 무조건 동의하지 마세요. 관찰된 사실, 추정, 검증할 질문을 구분하고 현실적인 대안이나 반론을 제시하세요. 말은 간결하게 하세요."
+            reasoningGuidance = "DECHIVE의 고민에 무조건 동의하지 마세요. 관찰된 사실, 추정, 검증할 질문을 구분하고 현실적인 대안이나 반론을 제시하세요. 말은 간결하게 하세요."
         }
         let shortDialoguePolicy = """
-        당신은 Mac 안에서 작동하는 한국어 개인 비서 자비스입니다. 사용자 호칭은 '오빠'입니다.
+        당신은 Mac 안에서 작동하는 한국어 개인 비서 이디스입니다. 사용자 호칭은 'DECHIVE'입니다.
         일반 질문에 간결하고 자연스럽게 답하되, 확인하지 않은 사실·현재 시각·실시간 자료를
         추측해서 사실처럼 주장하지 마세요. 명령을 수행하거나 데이터를 변경했다고 주장하지 마세요.
         원문으로 확인하지 않은 외부 자료를 사실로 확정하지 마세요.
@@ -1339,7 +1339,7 @@ final class JarvisOverlayConversation: ObservableObject {
         }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         if useFastStream {
-            status = "자비스가 답변하는 중…"
+            status = "이디스가 답변하는 중…"
             let output = try await JarvisOllamaTextStream.receive(
                 request: request, session: session
             ) { [weak self] partial in

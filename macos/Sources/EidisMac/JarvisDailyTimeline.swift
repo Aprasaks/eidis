@@ -87,7 +87,7 @@ struct JarvisDailyTimeline {
                 threads = (.idle, "승인된 Threads 글 없음")
             }
         }
-        items.append(Item(id: "threads", time: "09:00", title: "Threads 게시", agent: "자비스",
+        items.append(Item(id: "threads", time: "09:00", title: "Threads 게시", agent: "이디스",
                           state: threads.0, detail: threads.1))
 
         // 3) 22:00 인스타 게시 (자비스 · 승인된 것만)
@@ -106,7 +106,7 @@ struct JarvisDailyTimeline {
                 publish = (.idle, "승인된 캐러셀 없음")
             }
         }
-        items.append(Item(id: "publish", time: "22:00", title: "인스타 게시", agent: "자비스",
+        items.append(Item(id: "publish", time: "22:00", title: "인스타 게시", agent: "이디스",
                           state: publish.0, detail: publish.1))
 
         // 4) 사이트 점검 (15분마다)
@@ -114,7 +114,7 @@ struct JarvisDailyTimeline {
         let ok = pulses.filter { $0.siteOK == true }.count
         let site: (State, String) = pulses.isEmpty ? (.waiting, "확인 중")
             : ok == pulses.count ? (.done, "사이트 \(ok)/\(pulses.count) 정상") : (.attention, "사이트 \(ok)/\(pulses.count) 정상 · 확인 필요")
-        items.append(Item(id: "sites", time: "15분", title: "사이트 점검", agent: "자비스",
+        items.append(Item(id: "sites", time: "15분", title: "사이트 점검", agent: "이디스",
                           state: site.0, detail: site.1))
 
         // 한 줄 요약 (코어 아래)

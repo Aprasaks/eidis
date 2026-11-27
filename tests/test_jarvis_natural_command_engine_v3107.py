@@ -37,7 +37,7 @@ class NaturalCommandEngine(unittest.TestCase):
         self.assertIn('session.invalidateAndCancel()', CHAT)
         self.assertIn('notYetConnectedResponse(for:', CHAT)
         self.assertIn('contextualPanelFallback(for: prompt)', CHAT)
-        self.assertIn('현재 자비스 화면:', CHAT)
+        self.assertIn('현재 이디스 화면:', CHAT)
         self.assertIn('if dashboard.isVisible && !browser.isVisible', CHAT)
         self.assertIn('if browser.isVisible && !dashboard.isVisible', CHAT)
     def test_browser_home_stays_inside_fullscreen(self):

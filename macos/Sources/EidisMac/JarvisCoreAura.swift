@@ -17,8 +17,8 @@ struct JarvisCoreAura: View {
         }
         if agentBay.nightShiftRunning { return (JarvisAgentID.codex.workroomAccent, "CODEX · Knowledge 야간 집필") }
         if carousel.isRunning { return (JarvisAgentID.claude.workroomAccent, "CLAUDE · 캐러셀 " + carousel.stage.label) }
-        if instagram.publishing { return (Color(red: 0.46, green: 0.84, blue: 0.69), "JARVIS · 인스타 게시 중") }
-        if threads.publishing { return (Color(red: 0.46, green: 0.84, blue: 0.69), "JARVIS · Threads 게시 중") }
+        if instagram.publishing { return (Color(red: 0.46, green: 0.84, blue: 0.69), "EIDIS · 인스타 게시 중") }
+        if threads.publishing { return (Color(red: 0.46, green: 0.84, blue: 0.69), "EIDIS · Threads 게시 중") }
         return nil
     }
 

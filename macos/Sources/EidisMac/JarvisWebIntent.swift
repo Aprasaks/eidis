@@ -49,7 +49,7 @@ enum JarvisWebIntent: Equatable {
         guard searchVerbs.contains(where: { compact.contains($0) }) else { return nil }
         let engine: SearchEngine = compact.contains("구글") || compact.contains("google") ? .google : .naver
         var query = value
-        let prefixes = ["자비스,", "자비스", "인터넷에서", "웹에서", "네이버에서", "구글에서", "네이버로", "구글로", "인터넷으로", "인터넷 검색으로"]
+        let prefixes = ["이디스,", "이디스", "자비스,", "자비스", "인터넷에서", "웹에서", "네이버에서", "구글에서", "네이버로", "구글로", "인터넷으로", "인터넷 검색으로"]
         // Strip only command prefixes. A search query may itself contain
         // the word '자비스', which must not be deleted from the search terms.
         for _ in 0..<3 {

@@ -13,7 +13,7 @@ struct JarvisDetachedCasualChatView: View {
             HStack(spacing: 9) {
                 Image(systemName: "bubble.left.and.bubble.right.fill")
                     .foregroundStyle(.orange)
-                Text("JARVIS / 일상 채팅")
+                Text("EIDIS / 일상 채팅")
                     .font(.system(size: 13, weight: .semibold, design: .monospaced))
                     .foregroundStyle(.white)
                 Spacer()
@@ -59,7 +59,7 @@ struct JarvisDetachedCasualChatView: View {
                     LazyVStack(alignment: .leading, spacing: 16) {
                         ForEach(dialogue.dialogueTurns) { turn in
                             VStack(alignment: .leading, spacing: 5) {
-                                Text(turn.role == "YOU" ? "YOU" : "JARVIS")
+                                Text(turn.role == "YOU" ? "DECHIVE" : "EIDIS")
                                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
                                     .foregroundStyle(turn.role == "YOU" ? .orange : .green)
                                 Text(turn.content)
@@ -73,7 +73,7 @@ struct JarvisDetachedCasualChatView: View {
                         }
                         if dialogue.isThinking {
                             VStack(alignment: .leading, spacing: 5) {
-                                Text("JARVIS / 생각 중")
+                                Text("EIDIS / 생각 중")
                                     .font(.system(size: 10, weight: .medium, design: .monospaced))
                                     .foregroundStyle(.orange)
                                 Text(dialogue.streamingAnswer.isEmpty

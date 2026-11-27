@@ -39,7 +39,7 @@ struct EidisMacApp: App {
         .defaultLaunchBehavior(.suppressed)
         .handlesExternalEvents(matching: [])   // Hey JARVIS 호출로 이 창이 열리지 않게
 
-        Window("JARVIS Calendar", id: "jarvis-calendar") {
+        Window("EIDIS Calendar", id: "jarvis-calendar") {
             JarvisMacCalendarView(model: JarvisMacCalendarStore.shared, onClose: nil)
         }
         .defaultSize(width: 1000, height: 760)
@@ -79,7 +79,7 @@ private struct JarvisMenuCommands: View {
             NSApp.activate(ignoringOtherApps: true)
         }
         Divider()
-        Button("JARVIS Calendar · 일정 관리") {
+        Button("EIDIS Calendar · 일정 관리") {
             fullscreen.dismiss()
             openWindow(id: "jarvis-calendar")
             NSApp.activate(ignoringOtherApps: true)

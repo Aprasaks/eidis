@@ -12,11 +12,11 @@ WINDOW = (SOURCES / "JarvisFullscreenOverlay.swift").read_text()
 
 class UnifiedPersonaContract(unittest.TestCase):
     def test_one_persona_policy_in_both_model_paths(self):
-        self.assertIn('static let preferredAddress = "오빠"', PERSONA)
+        self.assertIn('static let preferredAddress = "DECHIVE"', PERSONA)
         self.assertIn('static let systemGuidance', PERSONA)
         self.assertIn("정확하고 간결하게", PERSONA)
         self.assertGreaterEqual(CHAT.count("JarvisPersona.systemGuidance"), 2)
-        self.assertIn("예외 없이 '오빠'라는 호칭", COMMAND)
+        self.assertIn("'DECHIVE'(데카이브)라는 호칭", COMMAND)
         for source in SOURCES.glob("*.swift"):
             if source.name == "JarvisPersona.swift":
                 continue  # Contains a deliberate prohibition of the old address.

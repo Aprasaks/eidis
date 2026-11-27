@@ -330,7 +330,7 @@ struct JarvisCommandCenterView: View {
                         .foregroundStyle(dialogue.isListening ? mint : amber)
                         .symbolEffect(.variableColor.iterative, options: .repeating,
                                       isActive: dialogue.isListening)
-                    Text("JARVIS / VOICE LINK")
+                    Text("EIDIS / VOICE LINK")
                         .font(.system(size: 10 * scale, weight: .medium, design: .monospaced))
                         .tracking(1.2)
                         .foregroundStyle(amber)

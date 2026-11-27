@@ -70,7 +70,7 @@ final class JarvisPersonalProfile {
     func contextForQwen() async -> String {
         guard let facts = try? await read(), !facts.isEmpty else { return "" }
         // A previously saved display name is factual profile data, not
-        // permission to override the user's fixed spoken address "오빠".
+        // permission to override the user's fixed spoken address "DECHIVE".
         let ordered = Self.displayOrder.filter { $0 != "display_name" }.compactMap { key -> String? in
             guard let value = facts.first(where: { $0.key == key })?.value else { return nil }
             return "\(Self.labels[key] ?? key): \(value.replacingOccurrences(of: "\\n", with: " "))"
@@ -100,7 +100,7 @@ final class JarvisPersonalProfile {
     func address() async -> String {
         // Fixed user instruction: the spoken honorific is not inferred from
         // older saved name/profile facts and requires no network lookup.
-        "오빠라고 부르겠습니다."
+        "DECHIVE라고 부를게요."
     }
 
     func set(_ key: String, value: String) async -> String {
@@ -136,8 +136,8 @@ final class JarvisPersonalProfile {
     /// Never infer and persist private preferences from casual conversation.
     static func parse(_ phrase: String) -> Intent? {
         var s = phrase.trimmingCharacters(in: .whitespacesAndNewlines)
-        if s.hasPrefix("자비스,") { s = String(s.dropFirst(4)).trimmingCharacters(in: .whitespaces) }
-        else if s.hasPrefix("자비스") { s = String(s.dropFirst(3)).trimmingCharacters(in: .whitespaces) }
+        if s.hasPrefix("이디스,") || s.hasPrefix("자비스,") { s = String(s.dropFirst(4)).trimmingCharacters(in: .whitespaces) }
+        else if s.hasPrefix("이디스") || s.hasPrefix("자비스") { s = String(s.dropFirst(3)).trimmingCharacters(in: .whitespaces) }
         let compact = s.replacingOccurrences(of: " ", with: "")
         let explicitAddress = ["나를뭐라고불러", "나를어떻게불러", "내호칭뭐야",
                                "내이름뭐야", "나를뭐라고불러야", "내호칭알려줘"].contains {

@@ -20,7 +20,7 @@ struct WeatherTown: Equatable, Identifiable {
 enum WeatherIntent:Equatable {
     case show(WeatherTown?,Bool), refresh, hide, unsupported, source
     static func parse(_ raw:String)->Self? {
-        let s=raw.lowercased().replacingOccurrences(of:#"^(자비스|jarvis)[,，.!！\s]*"#,with:"",options:.regularExpression).filter{!$0.isWhitespace}.trimmingCharacters(in:CharacterSet(charactersIn:".!?！요"))
+        let s=raw.lowercased().replacingOccurrences(of:#"^(이디스|자비스|jarvis|eidis)[,，.!！\s]*"#,with:"",options:.regularExpression).filter{!$0.isWhitespace}.trimmingCharacters(in:CharacterSet(charactersIn:".!?！요"))
         if ["날씨출처","날씨출처알려줘","날씨출처가뭐야","날씨어디서가져와","날씨데이터출처"].contains(s){return .source}
         if ["날씨닫아","날씨화면닫아","날씨보드닫아","웨더센터닫아","날씨화면닫아줘"].contains(s){return .hide}
         if ["날씨갱신해","날씨새로고침","날씨다시조회해줘","날씨갱신해줘"].contains(s){return .refresh}
@@ -151,8 +151,8 @@ final class WeatherClient {
             guard let snapshot else {return "날씨는 오픈메테오에서 가져와요. 아직 확인된 날씨 자료는 없어요."}
             return "화면에 있는 "+snapshot.town.name+" 날씨는 오픈메테오의 기상 모델 자료예요. 실제 관측값은 아니고, 정확한 기준 시각은 화면에 표시해 뒀어요."
         }
-        if intent == .hide{hide();return "오빠, 날씨 화면을 닫았습니다."}
-        if intent == .unsupported{return "오빠, 현재 지원하는 지역은 군산, 서울, 고양, 전주, 부산, 인천, 대전, 대구, 광주, 제주입니다. 지역을 먼저 말씀해 주세요."}
+        if intent == .hide{hide();return "DECHIVE, 날씨 화면을 닫았습니다."}
+        if intent == .unsupported{return "DECHIVE, 현재 지원하는 지역은 군산, 서울, 고양, 전주, 부산, 인천, 대전, 대구, 광주, 제주입니다. 지역을 먼저 말씀해 주세요."}
         if case .show(let town,let next)=intent {if let town{selected=town}else{selected=WeatherTown.towns.first{$0.name==UserDefaults.standard.string(forKey:"jarvis.weather.defaultTown")} ?? WeatherTown.towns[0]};tomorrow=next}
         visible=true
         let run=UUID();revision=run;busy=true
@@ -171,7 +171,7 @@ final class WeatherClient {
         }catch{
             guard revision==run,visible,!Task.isCancelled else{return ""}
             notice=snapshot==nil ? "날씨 조회 실패 · 확인된 데이터 없음":"날씨 조회 실패 · 이전 자료 유지"
-            return "오빠, \(town.name) 날씨를 새로 확인하지 못했습니다. \(notice)."
+            return "DECHIVE, \(town.name) 날씨를 새로 확인하지 못했습니다. \(notice)."
         }
     }
     private func summary(_ result:WeatherSnapshot)->String {
@@ -207,9 +207,9 @@ enum WeatherConversation {
         }
         if tomorrow {
             guard d.valid,d.daily.time.count>1,d.daily.time.first==today,d.daily.time[1]==next else {
-                return "오빠, "+town+"의 내일 예보 날짜를 확인하지 못했습니다."
+                return "DECHIVE, "+town+"의 내일 예보 날짜를 확인하지 못했습니다."
             }
-            var sentences=["오빠, 내일 "+town+"은"]
+            var sentences=["DECHIVE, 내일 "+town+"은"]
             switch WeatherPayload.description(d.daily.weather_code[1]) {
             case "맑음": sentences[0] += " 맑을 것 같아요."
             case "대체로 맑음": sentences[0] += " 대체로 맑을 것 같아요."
@@ -229,13 +229,13 @@ enum WeatherConversation {
             return sentences.joined(separator:" ")
         }
         guard d.daily.time.first==today,d.current.time.hasPrefix(today+"T") else {
-            return "오빠, "+town+"의 오늘 날씨를 확인하지 못했습니다. 화면에 자료의 기준 시각을 표시했습니다."
+            return "DECHIVE, "+town+"의 오늘 날씨를 확인하지 못했습니다. 화면에 자료의 기준 시각을 표시했습니다."
         }
         var sentences:[String]=[]
         if let condition=sky(d.current.weather_code) {
-            sentences.append("오빠, 지금 "+town+"은 "+condition)
+            sentences.append("DECHIVE, 지금 "+town+"은 "+condition)
         } else {
-            sentences.append("오빠, 지금 "+town+"의 날씨 정보입니다.")
+            sentences.append("DECHIVE, 지금 "+town+"의 날씨 정보입니다.")
         }
         let actual=temp(d.current.temperature_2m), feels=temp(d.current.apparent_temperature)
         if let actual,let feels {sentences.append("기온은 "+actual+"인데, 체감온도는 "+feels+"로 나와요.")}

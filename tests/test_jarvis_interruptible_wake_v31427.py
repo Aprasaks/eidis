@@ -52,7 +52,7 @@ class InterruptibleWake(unittest.TestCase):
         path = CHAT.split('func beginDekaWakeTurn() {',1)[1].split('func prepareMiniStandby()',1)[0]
         self.assertIn('if wakeCaptureBusy {',path)
         self.assertIn('interruptCurrentReply()',path)
-        self.assertIn('answer = "네 오빠"',path)
+        self.assertIn('answer = "네, DECHIVE."',path)
         self.assertIn('await self.elevenLabs.speakWakeAcknowledgment(fallback: self.macVoice)',path)
         self.assertIn('await self.elevenLabs.waitForOutputToFinish(fallback: self.macVoice)',path)
         self.assertLess(path.index('speakWakeAcknowledgment(fallback:'),
@@ -69,15 +69,15 @@ class InterruptibleWake(unittest.TestCase):
 
     def test_already_listening_uses_live_transcript_without_second_engine(self):
         self.assertIn('self.wakeStandbyEnabled, self.isListening,',CHAT)
-        self.assertIn('called.lowercased() == "jarvis" || called == "자비스"',CHAT)
+        self.assertIn('["jarvis", "eidis"].contains(called.lowercased()) || ["자비스", "이디스"].contains(called)',CHAT)
         self.assertIn('self?.beginDekaWakeTurn()',CHAT)
         self.assertIn('var microphoneCaptureBusy: Bool',CHAT)
-        self.assertIn('guard ["자비스", "자비스야"].contains(compact)',CLOCK)
+        self.assertIn('guard ["이디스", "이디스야", "자비스", "자비스야"].contains(compact)',CLOCK)
 
     def test_persona_is_one_user_requested_address(self):
-        self.assertIn('static let preferredAddress = "오빠"',PERSONA)
-        self.assertIn("사용자 호칭은 '오빠'입니다",PERSONA)
-        self.assertIn('answer = "네 오빠"',CHAT)
+        self.assertIn('static let preferredAddress = "DECHIVE"',PERSONA)
+        self.assertIn("사용자 호칭은 'DECHIVE'입니다",PERSONA)
+        self.assertIn('answer = "네, DECHIVE."',CHAT)
 
     def test_synthetic_model_is_not_misrepresented_as_verified_human_mic(self):
         report = Path.home()/'.jarvis-lab/wakeword/jarvis_ko_experimental_report.json'

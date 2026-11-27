@@ -5,7 +5,7 @@ enum JarvisBriefingIntent: Equatable {
     case show, hide
     static func parse(_ text: String) -> Self? {
         let compact=text.trimmingCharacters(in:.whitespacesAndNewlines)
-            .replacingOccurrences(of:#"^(자비스|jarvis)[,，.!！\s]*"#,with:"",
+            .replacingOccurrences(of:#"^(이디스|자비스|jarvis|eidis)[,，.!！\s]*"#,with:"",
                                   options:[.regularExpression,.caseInsensitive])
             .filter{ !$0.isWhitespace }
             .trimmingCharacters(in:CharacterSet(charactersIn:".!！"))
@@ -61,10 +61,10 @@ struct JarvisBriefingJob: Decodable {
     static let categories=["국내·종합","국제","경제","AI·기술"]
 
     var summary: String {
-        if pending {return "오빠, 뉴스 브리핑 \(id)번이 접수됐습니다. 아직 수집 완료를 확인하지 못했습니다. 다시 요청하면 이어서 확인할 수 있습니다."}
-        if state=="failed" {return "오빠, 현재 뉴스 수집에 실패했습니다. 확인하지 못한 뉴스를 만들어 읽지 않겠습니다."}
+        if pending {return "DECHIVE, 뉴스 브리핑 \(id)번이 접수됐습니다. 아직 수집 완료를 확인하지 못했습니다. 다시 요청하면 이어서 확인할 수 있습니다."}
+        if state=="failed" {return "DECHIVE, 현재 뉴스 수집에 실패했습니다. 확인하지 못한 뉴스를 만들어 읽지 않겠습니다."}
         let read=feeds.filter{$0.state=="read"}.count
-        var lines=["오빠, 최근 24시간 뉴스 브리핑입니다. 등록된 피드 \(feeds.count)개 중 \(read)개를 읽었습니다."]
+        var lines=["DECHIVE, 최근 24시간 뉴스 브리핑입니다. 등록된 피드 \(feeds.count)개 중 \(read)개를 읽었습니다."]
         if state=="partial" {lines.append("일부 출처는 조회에 실패했습니다.")}
         for cat in Self.categories {
             let items=articles.filter{$0.category==cat}

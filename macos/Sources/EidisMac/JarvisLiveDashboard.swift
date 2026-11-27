@@ -20,7 +20,7 @@ enum JarvisLiveDashboardMode: String, CaseIterable, Equatable {
         case .overview: "전체 현황"
         case .projects: "프로젝트 현황"
         case .knowledge: "저장 자료 분석"
-        case .system: "자비스 시스템 상태"
+        case .system: "이디스 시스템 상태"
         }
     }
 }
@@ -60,7 +60,7 @@ enum JarvisLiveDashboardIntent: Equatable {
         if dashboard && ["turnon", "open", "show", "launch", "bringup"].contains(where: { text.contains($0) }) {
             return .show(.overview)
         }
-        // Primary spoken command: "자비스" → "네 오빠" →
+        // Primary spoken command: "자비스" → "네, DECHIVE." →
         // "실시간 대시보드 열어봐". Resolve before generic search/Qwen.
         // Speech recognition occasionally writes 대쉬보드/데시보드.
         let liveBoard = ["실시간대시보드", "실시간대쉬보드", "실시간데시보드"]
@@ -131,7 +131,7 @@ enum JarvisLiveDashboardIntent: Equatable {
             if localProjectList { return .show(.projects) }
             if localArchive { return .show(.knowledge) }
         }
-        if system && (dashboard || text.contains("자비스") || text.contains("시스템") || text.contains("서버") || text.contains("ollama")) {
+        if system && (dashboard || text.contains("자비스") || text.contains("이디스") || text.contains("시스템") || text.contains("서버") || text.contains("ollama")) {
             return .show(.system)
         }
         if knowledge && (dashboard || text.contains("분석") || text.contains("통계") || text.contains("현황")) {

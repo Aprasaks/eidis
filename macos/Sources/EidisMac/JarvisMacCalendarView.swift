@@ -63,7 +63,7 @@ struct JarvisMacCalendarView: View {
                     .font(.system(size: 25, weight: .light))
                     .foregroundStyle(.orange)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("JARVIS / CALENDAR")
+                    Text("EIDIS / CALENDAR")
                         .font(.system(size: 11, weight: .semibold, design: .monospaced))
                         .tracking(1.6)
                         .foregroundStyle(.orange)
@@ -259,7 +259,7 @@ struct JarvisMacCalendarView: View {
             Button("일정 삭제", role: .destructive) { Task { await remove() } }
             Button("취소", role: .cancel) {}
         } message: {
-            Text("자비스 캘린더에서 삭제합니다. 다른 앱의 일정은 건드리지 않습니다.")
+            Text("이디스 캘린더에서 삭제합니다. 다른 앱의 일정은 건드리지 않습니다.")
         }
         .accessibilityIdentifier("jarvis-calendar-panel")
     }

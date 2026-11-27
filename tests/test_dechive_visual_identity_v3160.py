@@ -21,8 +21,8 @@ class DechiveIdentityContract(unittest.TestCase):
     def test_all_primary_mac_surface_branding_is_dechive(self):
         self.assertIn('MenuBarExtra("DECHIVE"', APP)
         self.assertIn('WindowGroup("DECHIVE"', APP)
-        self.assertIn('<key>CFBundleDisplayName</key>\n\t<string>DECHIVE</string>', PLIST)
-        self.assertIn('<key>CFBundleName</key>\n\t<string>DECHIVE</string>', PLIST)
+        self.assertIn('<key>CFBundleDisplayName</key>\n\t<string>EIDIS</string>', PLIST)
+        self.assertIn('<key>CFBundleName</key>\n\t<string>EIDIS</string>', PLIST)
         self.assertIn('<string>dev.dechive.eidis</string>', PLIST)
         self.assertIn('Text("DECHIVE / LIVE DIALOGUE")', PANEL)
         self.assertNotIn('Text("DECHIVE / LIVE WORKROOM")', ROOM)
@@ -50,10 +50,10 @@ class DechiveIdentityContract(unittest.TestCase):
 
     def test_spoken_name_owner_address_and_existing_voice_command(self):
         self.assertIn('private static var summonGreeting: String { JarvisConversationLanguage.summonGreeting }', VOICE)
-        self.assertIn("예외 없이 '오빠'라는 호칭을 사용하세요", MODEL)
-        self.assertIn("사용자는 당신을 '자비스'라고 부릅니다", MODEL)
+        self.assertIn("'DECHIVE'(데카이브)라는 호칭을 쓰세요", MODEL)
+        self.assertIn("사용자는 당신을 '이디스'라고 부릅니다", MODEL)
         self.assertIn('s.hasPrefix("자비스")', PROFILE)
-        self.assertIn('"오빠라고 부르겠습니다."', PROFILE)
+        self.assertIn('"DECHIVE라고 부를게요."', PROFILE)
         self.assertIn('filter { $0 != "display_name" }', PROFILE)
         self.assertIn('JarvisLiveDialogueTurn(role: "DECHIVE"', CHAT)
         self.assertIn('DECHIVE / DESIGN LABORATORY', WEB)

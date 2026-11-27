@@ -4,7 +4,8 @@ import SwiftUI
 /// Native Korean TTS. Nothing is uploaded; preferences are held by macOS UserDefaults.
 @MainActor
 final class JarvisVoiceService: ObservableObject {
-    private static let voiceKey = "jarvis.voice.selectedIdentifier"
+    // v2: 2026-11-28 한국어 전환 때 기본 목소리를 유나 프리미엄으로 새로 잡는다 (예전 v1 선택은 무시).
+    private static let voiceKey = "jarvis.voice.selectedIdentifier.v2"
     private static let speedKey = "jarvis.voice.speechRate"
     private static let pitchKey = "jarvis.voice.pitchMultiplier"
 
@@ -37,6 +38,8 @@ final class JarvisVoiceService: ObservableObject {
         // Readily available on the user's Mac; fall back to a real local voice.
         let preferred = [
             saved,
+            "com.apple.voice.premium.ko-KR.Yuna",
+            "com.apple.voice.enhanced.ko-KR.Yuna",
             "com.apple.eloquence.ko-KR.Reed",
             "com.apple.voice.compact.ko-KR.Yuna"
         ].compactMap { $0 }.first(where: { id in
@@ -50,8 +53,8 @@ final class JarvisVoiceService: ObservableObject {
     }
 
     func speak(_ text: String, rateOverride: Double? = nil) {
-        // 모든 화면 공통 목소리: Kokoro "Heart" (무료·로컬). 서버를 쓸 수 없을 때만 아래 Mac 음성.
-        if JarvisKokoroVoice.shared.isPrimary {
+        // 영어 모드: Kokoro "Heart" (무료·로컬). Kokoro는 한국어를 못 하므로 한국어 모드는 Mac 음성(유나 프리미엄).
+        if JarvisKokoroVoice.shared.isPrimary && JarvisConversationLanguage.english {
             let raw = text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !raw.isEmpty else { return }
             synthesizer.stopSpeaking(at: .immediate)
@@ -77,7 +80,8 @@ final class JarvisVoiceService: ObservableObject {
             synthesizer.speak(utterance)
             return
         }
-        let phrase = KoreanSpeechText.normalize(text).trimmingCharacters(in: .whitespacesAndNewlines)
+        let phrase = KoreanSpeechText.normalize(JarvisConversationLanguage.spoken(text))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !phrase.isEmpty else { return }
         synthesizer.stopSpeaking(at: .immediate)
         let utterance = AVSpeechUtterance(string: phrase)

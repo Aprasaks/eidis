@@ -23,10 +23,10 @@ class OwnerAddressContract(unittest.TestCase):
         profile = (sources / 'JarvisPersonalProfile.swift').read_text()
         panel = (sources / 'JarvisLiveDialoguePanel.swift').read_text()
         self.assertIn('JarvisConversationLanguage.summonGreeting', eleven)
-        self.assertIn('answer = "네 오빠"', dialogue)
-        self.assertIn('answer = "오빠, 뭘 도와드릴까요?"', dialogue)
-        self.assertIn("예외 없이 '오빠'라는 호칭", command)
-        self.assertIn('"오빠라고 부르겠습니다."', profile)
+        self.assertIn('answer = "네, DECHIVE."', dialogue)
+        self.assertIn('answer = "DECHIVE, 뭘 도와드릴까요?"', dialogue)
+        self.assertIn("'DECHIVE'(데카이브)라는 호칭", command)
+        self.assertIn('"DECHIVE라고 부를게요."', profile)
         self.assertIn('"LIVE · 음성 받아쓰기"', panel)
 
 

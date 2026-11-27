@@ -17,7 +17,7 @@ class LiveDashboardVoiceCommand(unittest.TestCase):
         self.assertIn('return .show(.overview)', ROUTER)
 
     def test_wake_acknowledges_then_listens_again(self):
-        self.assertIn('answer = "네 오빠"', DIALOGUE)
+        self.assertIn('answer = "네, DECHIVE."', DIALOGUE)
         self.assertIn('private static var wakeAcknowledgment: String { JarvisConversationLanguage.wakeAcknowledgment }', VOICE)
         wake = DIALOGUE.split('func beginDekaWakeTurn()', 1)[1].split('func prepareMiniStandby()',1)[0]
         self.assertIn('self.activateListening()',wake)

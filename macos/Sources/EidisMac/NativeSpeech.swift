@@ -331,7 +331,7 @@ final class LocalCommandClient: ObservableObject {
         guard !busy else { return }
         busy = true
         defer { busy = false }
-        lastResponse = "로컬 자비스에 명령을 전달하고 있습니다…"
+        lastResponse = "로컬 이디스에 명령을 전달하고 있습니다…"
         do {
             let url = URL(string: "http://127.0.0.1:8765/api/chat")!
             var request = URLRequest(url: url)
@@ -421,7 +421,7 @@ struct NativeSpeechPanel: View {
             Text("사용자가 누르는 동안만 마이크를 엽니다. 지원되는 Mac에서는 한국어 온디바이스 음성 인식만 사용합니다. 항상 듣기·화면 분석·외부 AI 연결은 아직 없습니다.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
-            GroupBox("Ollama · 자비스 로컬 AI") {
+            GroupBox("Ollama · 이디스 로컬 AI") {
                 Text("Qwen 3.5 9B · Mac 24GB 기본 모델. Qwen 3.8 27B는 메모리 압박으로 제거했습니다.")
                     .font(.caption).foregroundStyle(.secondary)
                     .padding(.vertical, 4)
@@ -493,7 +493,7 @@ struct NativeSpeechPanel: View {
                         Button("키 삭제") { elevenLabs.removeKey() }
                             .disabled(!elevenLabs.keyPresent)
                     }
-                    Toggle("이후 자비스 답변을 ElevenLabs로 음성 생성 (텍스트 외부 전송·크레딧 사용)",
+                    Toggle("이후 이디스 답변을 ElevenLabs로 음성 생성 (텍스트 외부 전송·크레딧 사용)",
                            isOn: $elevenLabs.enabled)
                         .disabled(!elevenLabs.keyPresent)
                         .font(.caption)

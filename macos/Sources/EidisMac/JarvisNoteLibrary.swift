@@ -22,7 +22,7 @@ enum JarvisNoteLibraryError: LocalizedError {
         case .invalidFolder:
             "연결한 Git 폴더 또는 메모 경로가 안전하지 않습니다."
         case .invalidName:
-            "선택한 작업의 자비스 메모 이름이 아닙니다."
+            "선택한 작업의 이디스 메모 이름이 아닙니다."
         case .unreadable:
             "메모를 읽을 수 없습니다. 파일이 변경되었을 수 있습니다."
         case .tooLarge:

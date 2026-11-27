@@ -44,7 +44,7 @@ enum JarvisMacCalendarIntent: Equatable {
 
     static func parse(_ text: String) -> Self? {
         let compact = text.lowercased()
-            .replacingOccurrences(of: #"^(자비스|데카|jarvis)[,\s.!?]*"#,
+            .replacingOccurrences(of: #"^(이디스|자비스|데카|jarvis|eidis)[,\s.!?]*"#,
                                    with: "", options: .regularExpression)
             .filter { !$0.isWhitespace && !$0.isPunctuation }
         let context = ["캘린더", "달력", "내일정", "일정", "스케줄", "약속", "회의", "미팅", "촬영", "병원"]
@@ -136,7 +136,7 @@ enum JarvisMacCalendarDraft {
         remainder.removeSubrange(timeRange)
         if let found = remainder.range(of: dateEvidence) { remainder.removeSubrange(found) }
         remainder = remainder.replacingOccurrences(
-            of: #"(자비스|내|일정|캘린더|스케줄|잡아\s*줘|등록해\s*줘|추가해\s*줘|만들어\s*줘|넣어\s*줘|잡아줘|등록해|추가해|만들어|넣어)"#,
+            of: #"(이디스|자비스|내|일정|캘린더|스케줄|잡아\s*줘|등록해\s*줘|추가해\s*줘|만들어\s*줘|넣어\s*줘|잡아줘|등록해|추가해|만들어|넣어)"#,
             with: " ", options: .regularExpression)
         remainder = remainder.replacingOccurrences(of: #"(?<=\s)(에|을|를|좀)(?=\s|$)"#,
                                                    with: " ", options: .regularExpression)
@@ -158,7 +158,7 @@ final class JarvisMacCalendarStore: ObservableObject {
     @Published private(set) var entries: [JarvisMacCalendarEvent] = []
     @Published private(set) var loading = false
     @Published private(set) var saving = false
-    @Published private(set) var status = "JARVIS 일정 로컬 서버 확인 전"
+    @Published private(set) var status = "EIDIS 일정 로컬 서버 확인 전"
     @Published private(set) var lastLoadedAt: Date?
 
     private let session: URLSession
@@ -186,7 +186,7 @@ final class JarvisMacCalendarStore: ObservableObject {
         case .hide:
             visible = false
             presentingNew = false
-            return "오빠, 자비스 캘린더를 닫았습니다."
+            return "DECHIVE, 이디스 캘린더를 닫았습니다."
         case .new:
             visible = true
             if let draft = JarvisMacCalendarDraft.extract(phrase) {
@@ -200,12 +200,12 @@ final class JarvisMacCalendarStore: ObservableObject {
             }
             presentingNew = true
             await refresh()
-            return "오빠, 새 일정 작성 화면을 열었습니다. 날짜, 시작시간, 종료시간 미정 여부, 제목, 장소, 상세내용을 확인하고 저장을 눌러 주세요."
+            return "DECHIVE, 새 일정 작성 화면을 열었습니다. 날짜, 시작시간, 종료시간 미정 여부, 제목, 장소, 상세내용을 확인하고 저장을 눌러 주세요."
         case .show:
             visible = true
             await refresh()
-            if lastLoadedAt == nil { return "오빠, 자비스 캘린더 서버에 연결하지 못했습니다. 일정 화면의 연결 상태를 확인해 주세요." }
-            return "오빠, 자비스 캘린더를 열었어요. 현재 실제 저장된 일정은 \(entries.count)건입니다."
+            if lastLoadedAt == nil { return "DECHIVE, 이디스 캘린더 서버에 연결하지 못했습니다. 일정 화면의 연결 상태를 확인해 주세요." }
+            return "DECHIVE, 이디스 캘린더를 열었어요. 현재 실제 저장된 일정은 \(entries.count)건입니다."
         }
     }
 
@@ -218,7 +218,7 @@ final class JarvisMacCalendarStore: ObservableObject {
             guard http == 200 else { throw serviceError(http, data: data) }
             let fetched = try JSONDecoder().decode(Listing.self, from: data)
             entries = fetched.items.sorted { ($0.startDate ?? .distantFuture) < ($1.startDate ?? .distantFuture) }
-            status = "JARVIS 자체 일정 \(entries.count)건 · Mac SQLite · iPhone 동기화 미연결"
+            status = "EIDIS 자체 일정 \(entries.count)건 · Mac SQLite · iPhone 동기화 미연결"
             lastLoadedAt = Date()
         } catch {
             entries = []

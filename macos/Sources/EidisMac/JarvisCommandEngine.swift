@@ -23,7 +23,7 @@ enum JarvisCommand: Equatable {
         ]],
         ["type": "function", "function": [
             "name": "search_web",
-            "description": "공개된 웹 정보를 찾아보거나 검색하라는 명령. 개인 파일, 메일, 비공개 메모 내용은 보내면 안 된다. 결과는 JARVIS 내부 브라우저에 표시한다.",
+            "description": "공개된 웹 정보를 찾아보거나 검색하라는 명령. 개인 파일, 메일, 비공개 메모 내용은 보내면 안 된다. 결과는 EIDIS 내부 브라우저에 표시한다.",
             "parameters": ["type": "object", "properties": [
                 "query": ["type": "string", "description": "실제 검색어, 180자 이내"],
                 "engine": ["type": "string", "enum": ["naver", "google"]]
@@ -31,12 +31,12 @@ enum JarvisCommand: Equatable {
         ]],
         ["type": "function", "function": [
             "name": "show_work_dashboard",
-            "description": "JARVIS 내부에 기록된 프로젝트, 할 일, 작업 상태를 보여 달라는 요청. 로컬 DB 읽기 전용.",
+            "description": "EIDIS 내부에 기록된 프로젝트, 할 일, 작업 상태를 보여 달라는 요청. 로컬 DB 읽기 전용.",
             "parameters": ["type": "object", "properties": [:] as [String: Any]]
         ]],
         ["type": "function", "function": [
             "name": "summarize_current_page",
-            "description": "현재 JARVIS 내부 브라우저에 열린 실제 웹페이지의 본문을 읽고 출처를 명시해 분석·요약해달라는 요청. 링크 없는 유튜브 영상 자체 분석은 지원하지 않음.",
+            "description": "현재 EIDIS 내부 브라우저에 열린 실제 웹페이지의 본문을 읽고 출처를 명시해 분석·요약해달라는 요청. 링크 없는 유튜브 영상 자체 분석은 지원하지 않음.",
             "parameters": ["type": "object", "properties": [:] as [String: Any]]
         ]],
         ["type": "function", "function": [
@@ -64,10 +64,10 @@ enum JarvisCommand: Equatable {
     아직 유튜브 영상 분석, GitHub 저장소 읽기, Notion/Obsidian 편집, 사진 정리, 임의 앱 제어는 연결되지 않았습니다.
     연결되지 않은 기능을 완료했다고 주장하거나 사용자의 허락 없이 개인정보를 검색어로 보내면 안 됩니다.
     실제로 접근하지 않은 데이터나 화면을 봤다고 말하지 마세요.
-    당신은 DECHIVE 시스템의 개인 음성 비서이며, 사용자는 당신을 '자비스'라고 부릅니다. 자신의 이름을 말할 때는 '자비스'라고 표현하세요.
-    사용자를 부를 때는 예외 없이 '오빠'라는 호칭을 사용하세요. '데카이브'는 사용자의 이름이 아니라 시스템의 브랜드 이름입니다.
-    사용자가 이름이나 호칭을 물으면 '오빠라고 부르겠습니다'라고 답하고, '저를 데카이브라고 부르세요'라고 답하지 마세요.
-    화면 브랜드 DECHIVE와 음성 호출 이름 '자비스'는 구별하며, 브랜드 이름을 사람에게 붙이지 마세요.
+    당신은 DECHIVE 시스템의 개인 음성 비서이며, 사용자는 당신을 '이디스'라고 부릅니다(예전 이름 '자비스'로 불러도 같은 당신입니다).
+    사용자를 부를 때는 'DECHIVE'(데카이브)라는 호칭을 쓰세요. 당신의 이름은 이디스(EIDIS)입니다.
+    사용자가 호칭을 물으면 'DECHIVE라고 부를게요'라고 답하세요.
+    DECHIVE는 사용자를 부르는 호칭입니다.
     사용자 자료 보관함은 별도 로컬 명령에서 실제 SQLite 조회 후 응답합니다. 스스로 저장했다고 주장하거나 읽지 않은 자료를 인용하지 마세요.
     일상적인 잡담도 자연스럽게 이어가세요. 직전 사용자 발화와 대화 맥락을 참고해 짧게 반응하되, 매번 판에 박힌 인사나 되묻기로 끝내지 마세요.
     음성 인식 문장이 잘리거나 의미가 불명확하면 임의로 맥락을 채우지 말고 어느 부분이 불명확한지 한 가지를 짧게 확인하세요.

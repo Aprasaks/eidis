@@ -102,7 +102,7 @@ final class JarvisBundledServer: ObservableObject {
         if await checkHealth() {
             ready = true
             owner = ownedProcess == nil ? "이미 실행 중인 서버" : "앱 내부 서버"
-            message = "자비스 로컬 서버 연결됨 · \(owner) · 127.0.0.1 전용"
+            message = "이디스 로컬 서버 연결됨 · \(owner) · 127.0.0.1 전용"
             return
         }
 
@@ -137,7 +137,7 @@ final class JarvisBundledServer: ObservableObject {
         }
         ownedProcess = process
         owner = "앱 내부 서버"
-        message = "자비스 내부 서버 시작 중 · 외부 API 사용 안 함"
+        message = "이디스 내부 서버 시작 중 · 외부 API 사용 안 함"
 
         for _ in 0..<24 {
             if shuttingDown { return }
@@ -146,11 +146,11 @@ final class JarvisBundledServer: ObservableObject {
                 // Claim ownership only when OUR process is still running.
                 if process.isRunning {
                     ready = true
-                    message = "자비스 로컬 서버 연결됨 · 앱 내부 서버 · 127.0.0.1 전용"
+                    message = "이디스 로컬 서버 연결됨 · 앱 내부 서버 · 127.0.0.1 전용"
                 } else {
                     owner = "이미 실행 중인 서버"
                     ready = true
-                    message = "로컬 자비스 서버 연결됨 · 앱 내부 서버는 종료됨"
+                    message = "로컬 이디스 서버 연결됨 · 앱 내부 서버는 종료됨"
                 }
                 return
             }
@@ -210,6 +210,8 @@ final class JarvisAppLifecycle: NSObject, NSApplicationDelegate {
     /// jarvis-mac://wake-dashboard — 백그라운드 "Hey JARVIS" 호출 (자비스가 꺼져 있어도 macOS가 켜서 전달)
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls where url.scheme == "jarvis-mac" && url.host == "wake-dashboard" {
+            // Load Qwen while the dashboard animates, before the first question.
+            if server.ready { localModelWarmup.warmNow() }
             fullscreen.wakeToDashboard()
         }
     }

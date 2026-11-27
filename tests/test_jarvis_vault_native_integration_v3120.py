@@ -21,7 +21,7 @@ class NativeVaultContract(unittest.TestCase):
         self.assertNotIn('api.anthropic.com',VAULT)
         self.assertIn('private static var summonGreeting: String { JarvisConversationLanguage.summonGreeting }',VOICE)
         self.assertIn('replacingOccurrences(of: "DECHIVE", with: "데카이브"',CONV)
-        self.assertIn("예외 없이 '오빠'라는 호칭을 사용하세요",CMD)
+        self.assertIn("'DECHIVE'(데카이브)라는 호칭을 쓰세요",CMD)
     def test_on_demand_ui_and_command_routing(self):
         for marker in ('let vault = JarvisKnowledgeVault()', 'JarvisVaultIntent.parse(prompt)',
                        'private func handleVault(', '.saveCurrent:', 'browser.snapshotVisiblePage()',

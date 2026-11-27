@@ -14,7 +14,7 @@ enum JarvisLearningIntent: Equatable {
 
     static func parse(_ raw: String) -> Self? {
         let phrase = raw.replacingOccurrences(
-            of: #"^(자비스|jarvis)[,，?？.!！\s]*"#,
+            of: #"^(이디스|자비스|jarvis|eidis)[,，?？.!！\s]*"#,
             with: "", options: [.regularExpression, .caseInsensitive])
         let compact = phrase.lowercased().replacingOccurrences(of: " ", with: "")
         if ["대화학습켜", "기억학습켜", "기억학습시작", "학습켜", "학습시작", "자동학습켜"]

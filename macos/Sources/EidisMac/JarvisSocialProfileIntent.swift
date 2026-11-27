@@ -28,7 +28,7 @@ enum JarvisSocialProfile: String, CaseIterable {
 
     static func parse(_ phrase: String) -> Self? {
         let lower = phrase.lowercased()
-        let cleaned = lower.replacingOccurrences(of: #"^(자비스|데카|jarvis)[,，.!?\s]*"#,
+        let cleaned = lower.replacingOccurrences(of: #"^(이디스|자비스|데카|jarvis|eidis)[,，.!?\s]*"#,
                                                   with: "", options: .regularExpression)
             .filter { !$0.isWhitespace && !$0.isNewline }
         guard ["열어", "띄워", "보여", "켜줘", "접속해", "들어가"].contains(where: { cleaned.contains($0) }),

@@ -1,16 +1,25 @@
 import Foundation
 
-/// 자비스 대화 언어 (2026-11-27 사용자 결정: 영어). UserDefaults "jarvis.conversation.language" = "en" | "ko".
-/// 한국어 동작은 지우지 않고 설정으로 되돌릴 수 있게 둔다.
+/// 이디스 대화 언어 (2026-11-28 사용자 결정: 한국어 · 목소리 유나 프리미엄 · 호칭 DECHIVE).
+/// UserDefaults "jarvis.conversation.language" = "ko" | "en". 영어 동작은 지우지 않고 "en"으로 되돌릴 수 있다.
 enum JarvisConversationLanguage {
-    static var english: Bool { UserDefaults.standard.string(forKey: "jarvis.conversation.language") != "ko" }
+    static var english: Bool { UserDefaults.standard.string(forKey: "jarvis.conversation.language") == "en" }
 
     /// 음성 인식 언어
     static var speechLocale: Locale { Locale(identifier: english ? "en-US" : "ko-KR") }
 
     /// 대화 시스템 프롬프트의 맨 끝에 붙는 최종 규칙 (앞의 한국어 지침보다 우선).
     static var finalDirective: String {
-        guard english else { return "" }
+        guard english else {
+            return """
+
+            [최종 언어·호칭 규칙 — 앞의 언어나 호칭 지침보다 우선]
+            당신의 이름은 이디스(EIDIS)입니다. 차분하고 따뜻하며 은근히 위트 있는 개인 비서처럼, 자연스럽고 간결한 한국어 해요체로 답하세요.
+            사용자는 "DECHIVE"라고 부르세요. 'DECHIVE' 외의 다른 호칭은 쓰지 말고, 자신을 예전 이름 '자비스'로 부르지 마세요. 호칭은 자연스러울 때만 쓰고 매 답변마다 붙이지 마세요.
+            보통 한두 문장, 길어도 세 문장으로 답하고 이모지와 마크다운은 쓰지 마세요.
+            정직, 기억, 승인, 사실을 지어내지 않는다는 앞의 규칙은 그대로 지키세요.
+            """
+        }
         return """
 
         [FINAL LANGUAGE RULE — overrides any earlier instruction about language or address]
@@ -23,6 +32,12 @@ enum JarvisConversationLanguage {
     }
 
     // 2026-11-27 사용자 요청: 호칭은 "DECHIVE" (발음은 데카이브 · 음성 서버가 고정)
-    static var summonGreeting: String { english ? "Welcome back, DECHIVE. How can I help?" : "오빠, 뭘 도와드릴까요?" }
-    static var wakeAcknowledgment: String { english ? "Yes, DECHIVE?" : "네 오빠" }
+    static var summonGreeting: String { english ? "Welcome back, DECHIVE. How can I help?" : "다시 오셨네요, DECHIVE. 뭘 도와드릴까요?" }
+    static var wakeAcknowledgment: String { english ? "Yes, DECHIVE?" : "네, DECHIVE." }
+    static var dashboardOpening: String { english ? "Opening your dashboard, DECHIVE." : "대시보드 열게요, DECHIVE." }
+
+    /// 소리 내어 읽을 문장: DECHIVE는 언제나 "데카이브"로 읽는다 (화면 글자는 DECHIVE 그대로).
+    static func spoken(_ text: String) -> String {
+        english ? text : text.replacingOccurrences(of: "DECHIVE", with: "데카이브", options: .caseInsensitive)
+    }
 }

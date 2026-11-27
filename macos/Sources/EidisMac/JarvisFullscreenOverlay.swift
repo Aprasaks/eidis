@@ -277,7 +277,7 @@ private struct JarvisMiniCoreView: View {
                 .allowsHitTesting(false)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("자비스 일상 채팅 열기")
+        .accessibilityLabel("이디스 일상 채팅 열기")
         .accessibilityIdentifier("jarvis-mini-open-chat")
         .frame(width: diameter, height: diameter)
         // A drag is different from a click; no visible handle is needed.
@@ -625,7 +625,7 @@ private struct JarvisSummonedView: View {
                 }
                 .buttonStyle(.bordered)
                 .accessibilityIdentifier("jarvis-overlay-microphone")
-                TextField("자비스에게 이야기하기", text: $typedText)
+                TextField("이디스에게 이야기하기", text: $typedText)
                     .textFieldStyle(.roundedBorder)
                     .font(.system(size: 12))
                     .focused($isInputFocused)
@@ -717,7 +717,7 @@ private struct JarvisSummonedView: View {
             HStack(spacing: 8) {
                 Image(systemName: "waveform.circle.fill")
                     .foregroundStyle(.orange)
-                Text(dialogue.casualChatMode ? "JARVIS / 일상 채팅" : "JARVIS / CONVERSATION")
+                Text(dialogue.casualChatMode ? "EIDIS / 일상 채팅" : "EIDIS / CONVERSATION")
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.92))
                 Spacer(minLength: 0)
@@ -777,8 +777,8 @@ private struct JarvisSummonedView: View {
                     LazyVStack(alignment: .leading, spacing: 14) {
                         ForEach(dialogue.dialogueTurns) { turn in
                             VStack(alignment: .leading, spacing: 5) {
-                                Text(turn.role == "YOU" ? "YOU" :
-                                     turn.interrupted ? "JARVIS / INTERRUPTED" : "JARVIS")
+                                Text(turn.role == "YOU" ? "DECHIVE" :
+                                     turn.interrupted ? "EIDIS / INTERRUPTED" : "EIDIS")
                                     .font(.system(size: 9, weight: .semibold, design: .monospaced))
                                     .foregroundStyle(turn.role == "YOU" ? .orange : .green)
                                 Text(turn.content)
@@ -792,7 +792,7 @@ private struct JarvisSummonedView: View {
                         }
                         if dialogue.isThinking && !dialogue.streamingAnswer.isEmpty {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("JARVIS / 작성 중 · 아직 최종 답변 아님")
+                                Text("EIDIS / 작성 중 · 아직 최종 답변 아님")
                                     .font(.system(size: 9, weight: .semibold, design: .monospaced))
                                     .foregroundStyle(.orange)
                                 Text(dialogue.streamingAnswer)
@@ -856,7 +856,7 @@ private struct JarvisSummonedView: View {
                 .tint(Color(red: 0.68, green: 0.37, blue: 0.06))
                 .accessibilityLabel(dialogue.isListening ? "질문 마치기" : "마이크 시작 또는 끼어들기")
                 .accessibilityIdentifier("jarvis-workspace-microphone")
-                TextField(dialogue.casualChatMode ? "편하게 이야기해 주세요…" : "자비스에게 질문", text: $typedText)
+                TextField(dialogue.casualChatMode ? "편하게 이야기해 주세요…" : "이디스에게 질문", text: $typedText)
                     .textFieldStyle(.roundedBorder)
                     .font(.system(size: 12))
                     .focused($isInputFocused)
@@ -1569,7 +1569,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
         // when the user is trying to interrupt it.
         // Yield ONLY when full microphone transcription is underway.
         if voice.microphoneCaptureBusy {
-            pauseDeka("음성 받아쓰기 중 · 자비스 호출은 받아쓰기로 감지")
+            pauseDeka("음성 받아쓰기 중 · 이디스 호출은 받아쓰기로 감지")
             return
         }
         guard Date() >= dekaNotBefore, !deka.armed else { return }
@@ -1891,6 +1891,8 @@ final class JarvisFullscreenOverlay: ObservableObject {
     /// 자비스가 꺼져 있었으면 macOS가 앱을 켜고 이 함수로 들어온다.
     /// 코어 화면을 띄우고(생성 연출) → "Opening your dashboard, DECHIVE." → 대시보드(모자이크 조립).
     private var wakeTask: Task<Void, Never>?
+    /// 호출 인사 전용 목소리. 말하는 동안 해제되지 않도록 붙잡아 둔다.
+    private lazy var wakeVoice = JarvisVoiceService()
     func wakeToDashboard() {
         guard wakeTask == nil else { return }
         NSLog("JARVIS: wake word → dashboard")
@@ -1899,11 +1901,15 @@ final class JarvisFullscreenOverlay: ObservableObject {
         wakeTask = Task { @MainActor [weak self] in
             defer { self?.wakeTask = nil }
             try? await Task.sleep(for: .milliseconds(700))
-            if await !JarvisKokoroVoice.shared.speak("Opening your dashboard, DECHIVE.") {
-                JarvisVoiceService().speak("Opening your dashboard, DECHIVE.")
+            let line = JarvisConversationLanguage.dashboardOpening
+            let voice = self?.wakeVoice
+            if JarvisConversationLanguage.english, await JarvisKokoroVoice.shared.speak(line) {
+            } else {
+                voice?.speak(line)
             }
-            // 자비스가 말을 끝낸 뒤에 대시보드를 연다 — 대시보드 받아쓰기가 자비스 목소리를 듣지 않도록
-            for _ in 0..<60 where JarvisKokoroVoice.shared.isPlaying {
+            // 이디스가 말을 끝낸 뒤에 대시보드를 연다 — 대시보드 받아쓰기가 이디스 목소리를 듣지 않도록
+            try? await Task.sleep(for: .milliseconds(150))
+            for _ in 0..<60 where voice?.isSpeaking == true {
                 try? await Task.sleep(for: .milliseconds(100))
             }
             try? await Task.sleep(for: .milliseconds(500))
@@ -2093,7 +2099,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
         let chat = JarvisOverlayPanel(contentRect: frame,
             styleMask: [.titled, .closable, .resizable],
             backing: .buffered, defer: false)
-        chat.title = "JARVIS / 일상 채팅"
+        chat.title = "EIDIS / 일상 채팅"
         chat.titlebarAppearsTransparent = true
         chat.titleVisibility = .hidden
         chat.backgroundColor = NSColor(calibratedRed: 0.035, green: 0.042, blue: 0.055, alpha: 1)

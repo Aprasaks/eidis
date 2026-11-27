@@ -97,7 +97,7 @@ struct JarvisChannelMonitorView: View {
         .sheet(isPresented: $showFacebookConnectionSheet) {
             VStack(alignment: .leading, spacing: 14) {
                 Text("DECHIVE.WIKI / Facebook 페이지 연결").font(.headline)
-                Text("토큰 하나만 붙여넣으세요. 액세스 토큰 디버거에서 \"Extend Access Token\"으로 받은 60일 사용자 토큰을 넣으면, 자비스가 Dechive WIKI 페이지 토큰(만료 없음)을 직접 찾아 검증 후 저장합니다. 페이지 토큰을 넣어도 됩니다.")
+                Text("토큰 하나만 붙여넣으세요. 액세스 토큰 디버거에서 \"Extend Access Token\"으로 받은 60일 사용자 토큰을 넣으면, 이디스가 Dechive WIKI 페이지 토큰(만료 없음)을 직접 찾아 검증 후 저장합니다. 페이지 토큰을 넣어도 됩니다.")
                     .font(.subheadline).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 SecureField("Facebook 토큰 (60일 사용자 토큰 또는 Facebook Page Access Token)", text: $facebookTokenInput)
@@ -530,7 +530,7 @@ struct JarvisChannelMonitorView: View {
         let ig = model.instagramSnapshot
         let yt = model.youtubeSummary?.connected == true ? model.youtubeSummary?.data : nil
         return "목표: DECHIVE.WIKI(역사·과학·자연 지식 위키, 출처 검증)는 해외 영어권 팔로워만 키움(한국 유입 목표 아님). 주제 밖 해시태그·전략 제안 금지. " +
-            "현황(자비스 API 확인값). 해외용 DECHIVE.WIKI: " +
+            "현황(이디스 API 확인값). 해외용 DECHIVE.WIKI: " +
             "Instagram 팔로워 \(n(ig?.followersCount)) 게시물 \(n(ig?.mediaCount)) [\(s(ig?.connected == true, ig?.error, ig?.checkedAt))], " +
             "Threads 팔로워 \(n(threadsSnapshot?.followersCount)) 게시물 \(n(threadsSnapshot?.postsCount)) [\(s(threadsSnapshot?.connected == true, threadsSnapshot?.error, threadsSnapshot?.checkedAt))], " +
             "Facebook 팔로워 \(n(facebookSnapshot?.followersCount)) [\(s(facebookSnapshot?.connected == true, facebookSnapshot?.error, facebookSnapshot?.checkedAt))]. " +
@@ -767,7 +767,7 @@ struct JarvisChannelMonitorView: View {
             Spacer()
             if publisher.publishing { ProgressView().controlSize(.small) }
             Button("📱 테스트 알림") {
-                JarvisPushNotifier.shared.send(title: "JARVIS", body: "아이폰 알림 연결 확인 · SNS 작업실에서 보냄")
+                JarvisPushNotifier.shared.send(title: "EIDIS", body: "아이폰 알림 연결 확인 · SNS 작업실에서 보냄")
             }
             .buttonStyle(.plain).foregroundStyle(claudeAccent)
             .help("등록된 아이폰으로 테스트 알림을 보냅니다")
@@ -956,7 +956,7 @@ struct JarvisChannelMonitorView: View {
                 .frame(maxWidth: .infinity)
             }
             .frame(maxHeight: .infinity)
-            Text(carousel.error ?? "Claude는 격리 폴더에서 읽기·쓰기만 합니다 · 웹·명령 실행·게시·토큰 접근 없음 · 렌더링은 자비스가 수행")
+            Text(carousel.error ?? "Claude는 격리 폴더에서 읽기·쓰기만 합니다 · 웹·명령 실행·게시·토큰 접근 없음 · 렌더링은 이디스가 수행")
                 .font(.system(size: 10 * scale))
                 .foregroundStyle(carousel.error == nil ? muted : .orange)
         }
@@ -1155,7 +1155,7 @@ struct JarvisChannelMonitorView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help("\(channel.title) 프로필을 자비스 내부에서 열기")
+        .help("\(channel.title) 프로필을 이디스 내부에서 열기")
         .accessibilityIdentifier("jarvis-social-open-\(channel.rawValue)")
     }
 

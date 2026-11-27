@@ -15,7 +15,7 @@ class JarvisElevenlabsWakeContract(unittest.TestCase):
     def test_wake_turn_uses_elevenlabs_voice_and_waits_before_listening(self):
         section = CHAT.split("func beginDekaWakeTurn() {", 1)[1].split(
             "func prepareMiniStandby()", 1)[0]
-        self.assertIn('answer = "네 오빠"', section)
+        self.assertIn('answer = "네, DECHIVE."', section)
         self.assertNotIn('macVoice.speak(answer)', section)
         self.assertIn('await self.elevenLabs.speakWakeAcknowledgment(fallback: self.macVoice)', section)
         self.assertIn('await self.elevenLabs.waitForOutputToFinish(fallback: self.macVoice)', section)

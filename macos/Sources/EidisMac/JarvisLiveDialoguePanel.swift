@@ -179,7 +179,7 @@ struct JarvisLiveDialoguePanel: View {
                     VStack(alignment: .leading, spacing: 13) {
                         ForEach(dialogue.dialogueTurns) { turn in
                             VStack(alignment: .leading, spacing: 4) {
-                                Text((turn.role == "YOU" ? "오빠" : "DECHIVE") +
+                                Text((turn.role == "YOU" ? "DECHIVE" : "EIDIS") +
                                      (turn.interrupted ? " / INTERRUPTED" : ""))
                                     .font(.system(size: 9, weight: .semibold, design: .monospaced))
                                     .foregroundStyle(turn.role == "YOU" ? amber : .green.opacity(0.9))
@@ -193,7 +193,7 @@ struct JarvisLiveDialoguePanel: View {
                         }
                         if dialogue.isThinking && !dialogue.streamingAnswer.isEmpty {
                             VStack(alignment: .leading, spacing: 5) {
-                                Text(quiet ? "자비스 · 초안" : "JARVIS / 답변 작성 중 · 최종 답변 아님")
+                                Text(quiet ? "이디스 · 초안" : "EIDIS / 답변 작성 중 · 최종 답변 아님")
                                     .font(.system(size: 9, weight: .semibold, design: .monospaced))
                                     .foregroundStyle(amber)
                                 Text(dialogue.streamingAnswer)
@@ -269,8 +269,8 @@ struct JarvisLiveDialoguePanel: View {
                           dialogue.dashboardDictationEnabled ? amber : muted)
                     .frame(width: 6, height: 6)
                 Text(dialogue.isListening ? "LIVE · 음성 받아쓰기" :
-                     dialogue.isSpeaking ? "JARVIS · 답변 중" :
-                     dialogue.isThinking ? "JARVIS · 처리 중" :
+                     dialogue.isSpeaking ? "EIDIS · 답변 중" :
+                     dialogue.isThinking ? "EIDIS · 처리 중" :
                      dialogue.dashboardDictationEnabled ? dialogue.status : "마이크 꺼짐 · 직접 입력 가능")
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
                     .foregroundStyle(dialogue.isListening ? .green : muted)

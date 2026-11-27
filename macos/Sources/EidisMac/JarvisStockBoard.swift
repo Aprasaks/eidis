@@ -29,7 +29,7 @@ enum StockBoardIntent: Equatable {
     static let aliases = ["삼성전자":"005930","SK하이닉스":"000660","하이닉스":"000660","현대차":"005380","네이버":"035420","카카오":"035720","엔비디아":"NVDA","애플":"AAPL","마이크로소프트":"MSFT","테슬라":"TSLA","아마존":"AMZN"]
     static func parse(_ raw: String) -> Self? {
         let s = raw.uppercased()
-            .replacingOccurrences(of: #"^(자비스|데카|JARVIS)[,\s.!！?？]*"#, with:"",options:.regularExpression)
+            .replacingOccurrences(of: #"^(이디스|자비스|데카|JARVIS|EIDIS)[,\s.!！?？]*"#, with:"",options:.regularExpression)
             .filter { !$0.isWhitespace }
             .trimmingCharacters(in:CharacterSet(charactersIn:".!！?？"))
         guard !["하지마","말고","않아","안해","안띄워","매수","매도","주문","팔아","사줘","사라","구매","취소","보유","계좌","예상","추천"].contains(where:{s.contains($0)}) else {return nil}
@@ -321,14 +321,14 @@ final class StockNoRedirect: NSObject, URLSessionTaskDelegate, @unchecked Sendab
             notice=issues["KR"]==nil && issues["US"]==nil ?
                 "토스증권 공식 순위 · 60초 자동 갱신 가능 · 스트리밍 아님" :
                 "일부 시장 조회 실패 · 각 시장의 상태를 확인하세요"
-            return "오빠, 국내·미국 \(metric.label) TOP 10을 열었습니다. " + notice
+            return "DECHIVE, 국내·미국 \(metric.label) TOP 10을 열었습니다. " + notice
         } catch {
             guard revision==run else{return "주식 조회가 취소되었습니다."}
             autoRefresh=false;topKR=[];topUS=[];topTimes=[:]
             topProblems=["KR":"인증 또는 조회 실패","US":"인증 또는 조회 실패"]
             if case StockError.http(401)=error {token=nil;expires = .distantPast}
             notice=(error as? StockError)?.localizedDescription ?? "네트워크 또는 응답 확인 실패"
-            return "오빠, \(notice). 확인되지 않은 순위는 표시하지 않겠습니다."
+            return "DECHIVE, \(notice). 확인되지 않은 순위는 표시하지 않겠습니다."
         }
     }
 
@@ -355,8 +355,8 @@ final class StockNoRedirect: NSObject, URLSessionTaskDelegate, @unchecked Sendab
     }
 
     func open(_ intent:StockBoardIntent) async -> String {
-        if intent == .hide{hide();return "오빠, 주식 현황표를 닫았습니다."}
-        if busy{return "오빠, 주식 시세 조회가 진행 중입니다."}
+        if intent == .hide{hide();return "DECHIVE, 주식 현황표를 닫았습니다."}
+        if busy{return "DECHIVE, 주식 시세 조회가 진행 중입니다."}
         visible=true
         if intent == .mostViewedUnavailable {
             mode = .dualTop10(.value)
@@ -364,7 +364,7 @@ final class StockNoRedirect: NSObject, URLSessionTaskDelegate, @unchecked Sendab
             selectedTopSymbol=nil;selectedTopCandles=[];selectedTopProblem=nil
             topChartRevision=UUID()
             let result = await refresh()
-            return "오빠, 토스증권 공식 API에는 종목별 조회수 순위가 없어요. 대신 국내·미국 거래대금 TOP 10을 표시했어요. " + result
+            return "DECHIVE, 토스증권 공식 API에는 종목별 조회수 순위가 없어요. 대신 국내·미국 거래대금 TOP 10을 표시했어요. " + result
         }
         if case .dualTop10 = intent {
             topKR=[];topUS=[];topTimes=[:];topProblems=[:]
@@ -460,16 +460,16 @@ final class StockNoRedirect: NSObject, URLSessionTaskDelegate, @unchecked Sendab
             notice=warnings.isEmpty ? "토스증권 조회 완료 · 실시간 스트리밍 아님" : warnings.joined(separator:" · ")
             if case .symbols(let requested)=mode,requested.count<=3,!q.isEmpty {
                 let brief=q.map{"\(localNames[$0.symbol] ?? $0.symbol) \($0.lastPrice) \($0.currency)"}.joined(separator:", ")
-                return "오빠, 토스증권 조회 결과입니다. \(brief). 시세 기준 시각은 화면에서 확인하세요."
+                return "DECHIVE, 토스증권 조회 결과입니다. \(brief). 시세 기준 시각은 화면에서 확인하세요."
             }
-            return "오빠, 토스증권 시세 \(q.count+r.count)개를 화면에 표시했습니다. \(notice)."
+            return "DECHIVE, 토스증권 시세 \(q.count+r.count)개를 화면에 표시했습니다. \(notice)."
         } catch {
             guard revision==run else{return "주식 조회가 취소되었습니다."}
             autoRefresh=false
             if case StockError.http(401)=error{token=nil;expires = .distantPast}
             notice=(error as? StockError)?.localizedDescription ?? "네트워크 또는 응답 확인 실패"
             if checked != nil{notice += " · 이전 조회 값 유지"}
-            return "오빠, \(notice). 확인하지 않은 시세는 표시하지 않겠습니다."
+            return "DECHIVE, \(notice). 확인하지 않은 시세는 표시하지 않겠습니다."
         }
     }
 }
@@ -734,7 +734,7 @@ struct JarvisStockBoardView:View {
         .sheet(isPresented:$settings){
             VStack(alignment:.leading,spacing:14){
                 Text("토스증권 API 연결").font(.title2)
-                Text("자비스 전용 키를 사용하세요. 새 토큰은 같은 클라이언트의 기존 토큰을 무효화합니다. 토스증권 허용 IP 등록이 필요합니다.").font(.callout)
+                Text("이디스 전용 키를 사용하세요. 새 토큰은 같은 클라이언트의 기존 토큰을 무효화합니다. 토스증권 허용 IP 등록이 필요합니다.").font(.callout)
                 TextField("Client ID",text:$id);SecureField("Client Secret",text:$secret)
                 Link("토스증권 공식 API 안내",destination:URL(string:"https://developers.tossinvest.com/docs")!)
                 Text(validation).foregroundStyle(.orange)

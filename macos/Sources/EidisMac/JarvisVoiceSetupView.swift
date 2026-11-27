@@ -7,8 +7,8 @@ import UniformTypeIdentifiers
 /// The audio and generated previews remain in ~/Library/Application Support/DECHIVE-JARVIS.
 @MainActor
 final class JarvisVoiceCloneSetup: NSObject, ObservableObject {
-    static let recordingScript = "안녕하세요. 저는 자비스의 새로운 목소리를 만들고 있습니다. 천천히 또렷하게 말하며, 중요한 작업을 정확하게 확인하겠습니다."
-    static let previewPhrase = "네, 자비스입니다. 무엇을 도와드릴까요?"
+    static let recordingScript = "안녕하세요. 저는 이디스의 새로운 목소리를 만들고 있습니다. 천천히 또렷하게 말하며, 중요한 작업을 정확하게 확인하겠습니다."
+    static let previewPhrase = "네, 이디스입니다. 무엇을 도와드릴까요?"
     @Published var referenceText = recordingScript
     @Published private(set) var referenceURL: URL?
     @Published private(set) var generatedURL: URL?

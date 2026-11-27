@@ -22,7 +22,7 @@ class WakeDaemon(unittest.TestCase):
         self.assertIn('url.scheme == "jarvis-mac" && url.host == "wake-dashboard"', server)
         overlay = (MAC / "JarvisFullscreenOverlay.swift").read_text(encoding="utf-8")
         self.assertIn('"Opening your dashboard, DECHIVE."', overlay)
-        self.assertIn("where JarvisKokoroVoice.shared.isPlaying", overlay)
+        self.assertIn("where voice?.isSpeaking == true", overlay)
         app = (MAC / "EidisMacApp.swift").read_text(encoding="utf-8")
         self.assertEqual(app.count(".handlesExternalEvents(matching: [])"), 4)
 

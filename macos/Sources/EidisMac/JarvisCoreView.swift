@@ -30,8 +30,8 @@ struct JarvisCoreView: View {
         .frame(width: diameter * 1.22, height: diameter * 1.22)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(online
-            ? "자비스 광학 코어. 로컬 서버 연결 확인됨. 음성 듣는 중은 아님."
-            : "자비스 광학 코어. 서버 연결 확인 전 또는 연결 실패.")
+            ? "이디스 광학 코어. 로컬 서버 연결 확인됨. 음성 듣는 중은 아님."
+            : "이디스 광학 코어. 서버 연결 확인 전 또는 연결 실패.")
         .onAppear { spinning = canAnimate }
         .onDisappear { spinning = false }
         .onChange(of: phase) { _, next in
