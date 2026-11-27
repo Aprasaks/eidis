@@ -24,16 +24,19 @@ struct JARVISCalendarView: View {
                         .tracking(-1)
                 }
                 Spacer(minLength: 8)
-                Button {
-                    showingPairing = true
-                    if !nearby.connected { nearby.startSearch() }
-                } label: {
-                    Image(systemName: nearby.connected ? "checkmark.circle" : "link")
-                        .font(.system(size: 18))
-                        .foregroundStyle(JARVISPalette.gold)
-                        .frame(width: 36, height: 43)
+                // 맥북과 한 번 등록한 뒤에는 연결 버튼을 숨긴다 (연결 상태는 코어 탭 한 줄로).
+                if !nearby.remembered && !nearby.connected {
+                    Button {
+                        showingPairing = true
+                        nearby.startSearch()
+                    } label: {
+                        Image(systemName: "link")
+                            .font(.system(size: 18))
+                            .foregroundStyle(JARVISPalette.gold)
+                            .frame(width: 36, height: 43)
+                    }
+                    .accessibilityLabel("Mac 연결 및 동기화")
                 }
-                .accessibilityLabel("Mac 연결 및 동기화")
                 Button {
                     presentingNew = true
                 } label: {

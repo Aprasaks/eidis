@@ -30,6 +30,7 @@ struct JARVISHomeView: View {
     @State private var selectedPage: JARVISMobilePage = JARVISMobilePage.initialPageForVerification
     @State private var prompt = ""
     @State private var messages: [JARVISChatLine] = []
+    @State private var showingPairing = false
     @State private var proposedEvent: JARVISCalendarDraft?
     @State private var showingCalendarManualEntry = false
     @State private var showingAlarmManualEntry = false
@@ -116,6 +117,9 @@ struct JARVISHomeView: View {
         }
         .foregroundStyle(JARVISPalette.white)
         .preferredColorScheme(.dark)
+        .sheet(isPresented: $showingPairing) {
+            JARVISCalendarPairingView(nearby: nearby)
+        }
         .sheet(item: $proposedEvent) { proposal in
             JARVISCalendarEditor(store: calendar, proposal: proposal, selectedDate: proposal.startAt)
         }
@@ -204,6 +208,7 @@ struct JARVISHomeView: View {
                 .font(.system(size: 23, weight: .medium))
                 .tracking(-0.7)
                 .multilineTextAlignment(.center)
+            macLinkLine
             if lastWakeConfirmedAt > 0,
                Calendar.current.isDateInToday(Date(timeIntervalSince1970: lastWakeConfirmedAt)) {
                 Label("기상 확인 완료", systemImage: "checkmark.circle.fill")
@@ -217,6 +222,36 @@ struct JARVISHomeView: View {
             }
         }
         .padding(.top, 2)
+    }
+
+    /// 맥북과는 한 번만 등록한다. 등록 뒤에는 "동기화 완료"를 두고 지금 연결 방법만 바꿔 보여준다.
+    @ViewBuilder private var macLinkLine: some View {
+        let link = nearby.macLink
+        let color: Color = switch link {
+        case .nearby, .remote: Color(red: 0.42, green: 0.86, blue: 0.55)
+        case .offline: JARVISPalette.muted
+        case .checking, .unpaired: JARVISPalette.goldDim
+        }
+        Button {
+            if link == .unpaired { showingPairing = true }
+        } label: {
+            VStack(spacing: 3) {
+                HStack(spacing: 6) {
+                    Image(systemName: link == .offline ? "moon.fill" : link == .unpaired ? "link" : "circle.fill")
+                        .font(.system(size: link == .offline || link == .unpaired ? 10 : 7))
+                        .foregroundStyle(color)
+                    Text(link.routeLabel)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(link == .unpaired ? JARVISPalette.gold : JARVISPalette.white.opacity(0.82))
+                }
+                if let detail = link.detail {
+                    Text(detail).font(.system(size: 10)).foregroundStyle(JARVISPalette.muted)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(link != .unpaired)
+        .accessibilityLabel(link.routeLabel)
     }
 
     private var sitesSection: some View {
@@ -428,6 +463,24 @@ struct JARVISHomeView: View {
             let answer = JARVISCommand.response(to: input)
             reply(answer, for: input)
         }
+    }
+}
+
+/// 코어 탭 한 줄 연결 표시
+enum JARVISMacLink {
+    case unpaired, nearby, remote, offline, checking
+
+    var routeLabel: String {
+        switch self {
+        case .unpaired: "맥북 등록하기"
+        case .nearby: "맥북 동기화 완료 · 같은 Wi-Fi"
+        case .remote: "맥북 동기화 완료 · Tailscale 원격"
+        case .offline: "맥북 동기화 완료 · 지금은 연결 안 됨"
+        case .checking: "맥북 동기화 완료 · 연결 확인 중"
+        }
+    }
+    var detail: String? {
+        self == .offline ? "맥북이 자고 있거나 꺼져 있어요" : nil
     }
 }
 

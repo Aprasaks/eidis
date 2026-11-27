@@ -43,6 +43,19 @@ final class JARVISMobileNearbyCalendar: NSObject, ObservableObject {
     @Published private(set) var remoteProjectVerified = false
     @Published private(set) var remoteOnly = false
     @Published private(set) var remoteStatus = "원격 조회 전"
+    /// Tailscale 원격 요청의 마지막 성공·실패 시각 (코어 탭 "지금은 뭘로 연결" 한 줄용)
+    @Published private(set) var lastRemoteReplyAt: Date?
+    @Published private(set) var lastRemoteFailureAt: Date?
+
+    /// 나만 쓰는 앱: 맥과 한 번 등록하면 "동기화 완료"는 그대로 두고, 지금 연결 방법만 바꿔 보여준다.
+    var macLink: JARVISMacLink {
+        if connected { return .nearby }
+        guard remembered else { return .unpaired }
+        if let ok = lastRemoteReplyAt, Date().timeIntervalSince(ok) < 300,
+           (lastRemoteFailureAt ?? .distantPast) <= ok { return .remote }
+        if lastRemoteFailureAt != nil { return .offline }
+        return .checking
+    }
 
     var connectionSummary: String {
         if connected { return "근거리 보안 연결 · 일정·발행 가능" }
@@ -116,6 +129,7 @@ final class JARVISMobileNearbyCalendar: NSObject, ObservableObject {
                                 }
                                 self.projectSnapshot = snapshot
                                 self.remoteProjectVerified = true
+                                self.lastRemoteReplyAt = Date()
                                 if self.invitedPeer == nil { self.stopSearch() }
                                 self.remoteStatus = "Tailscale 원격 조회 완료"
                                 self.projectStatus = self.remoteStatus
@@ -375,22 +389,28 @@ final class JARVISMobileNearbyCalendar: NSObject, ObservableObject {
     @Published private(set) var planDocs: [JARVISPlanDoc] = []
     @Published private(set) var planStatus = "Mac 기획서 확인 전"
     @Published private(set) var planLoading = false
+    @Published private(set) var planReceivedAt: Date?
 
     func refreshPlans() {
         guard !planLoading else { return }
-        guard connected || remembered else { planStatus = "Mac 기기 등록 필요"; return }
+        guard connected || remembered else { planStatus = "맥북을 먼저 한 번 등록해 주세요"; return }
         let id = UUID().uuidString
         planLoading = true
-        planStatus = "Mac 기획서 불러오는 중"
+        planStatus = "기획서 불러오는 중"
         sendToMac(["kind": "planDocsRequest", "requestID": id], id: id, expect: "planDocs", timeout: 15) { [weak self] data in
             guard let self else { return }
             self.planLoading = false
             guard let data, let reply = try? JSONDecoder().decode(JARVISPlanDocsReply.self, from: data) else {
-                self.planStatus = self.planDocs.isEmpty ? "Mac 응답 없음 · 맥이 켜져 있는지 확인하세요" : "Mac 응답 없음 · 마지막으로 받은 기획서"
+                if let at = self.planReceivedAt {
+                    self.planStatus = "마지막으로 받은 기획서 · \(at.formatted(date: .omitted, time: .shortened))"
+                } else {
+                    self.planStatus = "맥북이 연결되면 기획서를 받아올게요"
+                }
                 return
             }
             self.planDocs = reply.docs
-            self.planStatus = reply.docs.isEmpty ? "Mac에 기획서가 없어요" : "Mac 기획서 \(reply.docs.count)개"
+            self.planReceivedAt = Date()
+            self.planStatus = reply.docs.isEmpty ? "맥북에 기획서가 없어요" : "기획서 \(reply.docs.count)개"
         }
     }
 
@@ -455,6 +475,12 @@ final class JARVISMobileNearbyCalendar: NSObject, ObservableObject {
             guard let data = try? JSONSerialization.data(withJSONObject: object) else { deliverMacReply(id, nil); return }
             do { try session.send(data, toPeers: [peer], with: .reliable) } catch { deliverMacReply(id, nil) }
             return
+        }
+        // 원격(Tailscale)으로 보내는 요청은 성공·실패를 기록해 코어 탭 연결 표시에 쓴다.
+        let original = macReplies[id]
+        macReplies[id] = { [weak self] data in
+            if data != nil { self?.lastRemoteReplyAt = Date() } else { self?.lastRemoteFailureAt = Date() }
+            original?(data)
         }
         var remote = object
         remote["sentAt"] = Date().timeIntervalSince1970   // Mac은 60초 이내 요청만 받는다
