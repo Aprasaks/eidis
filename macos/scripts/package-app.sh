@@ -90,8 +90,16 @@ SIGNING_IDENTITY="${JARVIS_SIGNING_IDENTITY:-}"
 if [[ -z "$SIGNING_IDENTITY" ]]; then
   MATCHES="$(/usr/bin/security find-identity -v -p codesigning | /usr/bin/awk '/"Apple Development: / { print $2 }')"
   MATCH_COUNT="$(printf '%s\n' "$MATCHES" | /usr/bin/awk 'NF {n++} END {print n+0}')"
+  # GitHub Actions(CI=true)에는 개인 Apple 인증서가 없다. 컴파일·번들 검증만 하도록
+  # 임시(ad-hoc) 서명을 쓰고, 이 결과물은 절대 설치하지 않는다. 로컬 빌드는 그대로 엄격하다.
+  if [[ "${CI:-}" == "true" && "$MATCH_COUNT" -eq 0 ]]; then
+    echo "CI: Apple Development 인증서 없음 → 검증 전용 임시 서명 (설치 금지)"
+    CI_ADHOC_SIGNING=1
+    MATCHES="-"
+    MATCH_COUNT=1
+  fi
   if [[ "$MATCH_COUNT" -ne 1 ]]; then
-    echo "오류: 서명용 Apple Development 인증서가 정확히 1개 필요합니다 (현재 $MATCH_COUNT개)." >&2
+    echo "오류: 서명용 Apple Development 인증서가 정확히 1개 필요합니다 (현재 ${MATCH_COUNT}개)." >&2
     echo "다른 인증서가 여러 개면 JARVIS_SIGNING_IDENTITY를 기존 인증서 SHA-1로 지정하세요." >&2
     exit 2
   fi
@@ -102,7 +110,7 @@ fi
 # A CDHash-only designated requirement means the Keychain will prompt again
 # whenever any Swift/resource file changes. Reject such a release here.
 DESIGNATED_REQUIREMENT="$(/usr/bin/codesign -dr - "$APP" 2>&1)"
-if [[ "$DESIGNATED_REQUIREMENT" != *'anchor apple generic'* ]]; then
+if [[ -z "${CI_ADHOC_SIGNING:-}" && "$DESIGNATED_REQUIREMENT" != *'anchor apple generic'* ]]; then
   echo "오류: JARVIS가 안정적인 Apple 서명으로 빌드되지 않았습니다." >&2
   exit 2
 fi
