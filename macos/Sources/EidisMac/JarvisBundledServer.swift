@@ -207,6 +207,13 @@ final class JarvisAppLifecycle: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// jarvis-mac://wake-dashboard — 백그라운드 "Hey JARVIS" 호출 (자비스가 꺼져 있어도 macOS가 켜서 전달)
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls where url.scheme == "jarvis-mac" && url.host == "wake-dashboard" {
+            fullscreen.wakeToDashboard()
+        }
+    }
+
     func applicationShouldHandleReopen(_ sender: NSApplication,
                                        hasVisibleWindows flag: Bool) -> Bool {
         // Clicking the Dock icon summons the core, not the old dashboard.

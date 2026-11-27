@@ -1893,6 +1893,33 @@ final class JarvisFullscreenOverlay: ObservableObject {
         else { present(fullscreenDialogue: nil) }
     }
 
+    /// "Hey JARVIS" 백그라운드 호출 (jarvis-mac://wake-dashboard · tools/wakeword/jarvis_wake_daemon.py).
+    /// 자비스가 꺼져 있었으면 macOS가 앱을 켜고 이 함수로 들어온다.
+    /// 코어 화면을 띄우고(생성 연출) → "Opening your dashboard, DECHIVE." → 대시보드(모자이크 조립).
+    private var wakeTask: Task<Void, Never>?
+    func wakeToDashboard() {
+        guard wakeTask == nil else { return }
+        NSLog("JARVIS: wake word → dashboard")
+        show()
+        NSApp.activate(ignoringOtherApps: true)
+        wakeTask = Task { @MainActor [weak self] in
+            defer { self?.wakeTask = nil }
+            try? await Task.sleep(for: .milliseconds(700))
+            if await !JarvisKokoroVoice.shared.speak("Opening your dashboard, DECHIVE.") {
+                JarvisVoiceService().speak("Opening your dashboard, DECHIVE.")
+            }
+            // 자비스가 말을 끝낸 뒤에 대시보드를 연다 — 대시보드 받아쓰기가 자비스 목소리를 듣지 않도록
+            for _ in 0..<60 where JarvisKokoroVoice.shared.isPlaying {
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+            try? await Task.sleep(for: .milliseconds(500))
+            guard let dialogue = self?.dialogue else { return }
+            if !(dialogue.liveDashboard.isVisible && dialogue.liveDashboard.mode == .overview) {
+                _ = await dialogue.liveDashboard.show(.overview)
+            }
+        }
+    }
+
     private func present(fullscreenDialogue: JarvisOverlayConversation?) {
         NSLog("JARVIS: show requested")
         guard panel == nil,

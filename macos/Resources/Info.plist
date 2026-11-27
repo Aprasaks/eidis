@@ -20,8 +20,17 @@
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>3.14.54</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>dev.dechive.eidis.wake</string>
+			<key>CFBundleURLSchemes</key>
+			<array><string>jarvis-mac</string></array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
-	<string>163</string>
+	<string>166</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>15.0</string>
 	<key>NSAppTransportSecurity</key>

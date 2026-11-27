@@ -17,6 +17,8 @@ struct EidisMacApp: App {
         }
         .defaultSize(width: 1180, height: 770)
         .defaultLaunchBehavior(.suppressed)
+        // jarvis-mac:// 호출(Hey JARVIS)은 앱 델리게이트가 처리한다 — 도구 창을 새로 열지 않음
+        .handlesExternalEvents(matching: [])
 
         // Work/voice/diagnostics are secondary; available only when requested.
         MenuBarExtra("DECHIVE", systemImage: "circle.hexagongrid") {
@@ -28,18 +30,21 @@ struct EidisMacApp: App {
         }
         .defaultSize(width: 690, height: 530)
         .defaultLaunchBehavior(.suppressed)
+        .handlesExternalEvents(matching: [])   // Hey JARVIS 호출로 이 창이 열리지 않게
 
         Window("ElevenLabs 목소리 선택", id: "jarvis-elevenlabs-voices") {
             JarvisElevenLabsLibraryView()
         }
         .defaultSize(width: 720, height: 600)
         .defaultLaunchBehavior(.suppressed)
+        .handlesExternalEvents(matching: [])   // Hey JARVIS 호출로 이 창이 열리지 않게
 
         Window("JARVIS Calendar", id: "jarvis-calendar") {
             JarvisMacCalendarView(model: JarvisMacCalendarStore.shared, onClose: nil)
         }
         .defaultSize(width: 1000, height: 760)
         .defaultLaunchBehavior(.suppressed)
+        .handlesExternalEvents(matching: [])   // Hey JARVIS 호출로 이 창이 열리지 않게
     }
 }
 
