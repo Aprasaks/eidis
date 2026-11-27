@@ -1,12 +1,13 @@
 #!/bin/bash
-# Install a signed Mac JARVIS release, retaining only 3 signed prior builds.
+# Install a signed Mac JARVIS release, retaining only the 1 most recent signed prior build
+# in a hidden folder (~/.jarvis-lab/app-backups) so extra JARVIS apps never show up in Launchpad/Spotlight.
 # Packaging never installs; use --check for a non-mutating audit.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SOURCE="$ROOT/dist/JARVIS.app"
 APP="$HOME/Applications/JARVIS.app"
-BACKUPS="$HOME/Applications/JARVIS-backups"
+BACKUPS="$HOME/.jarvis-lab/app-backups"
 PRUNER="$ROOT/macos/scripts/prune-app-backups.py"
 IDENTIFIER="dev.dechive.eidis"
 
@@ -32,7 +33,7 @@ NEW_BUILD="$(value "$SOURCE" CFBundleVersion)"
 echo "Installed JARVIS: $FROM (build $OLD_BUILD)"
 echo "Staged JARVIS:    $TO (build $NEW_BUILD)"
 if [[ $# -eq 1 ]]; then
-  python3 "$PRUNER" --keep 3
+  python3 "$PRUNER" --keep 1
   echo "CHECK COMPLETE. No files changed."
   exit 0
 fi
@@ -84,8 +85,8 @@ fi
 
 # Installation completed; old backup pruning is best-effort and audited.
 echo "Installed JARVIS v$TO. Pruning old backup apps..."
-if ! python3 "$PRUNER" --keep 3 --apply; then
+if ! python3 "$PRUNER" --keep 1 --apply; then
   echo "WARNING: New app installed; backup pruning incomplete. Check logs." >&2
   exit 2
 fi
-echo "DONE: JARVIS v$TO installed; retained 3 signed previous builds."
+echo "DONE: JARVIS v$TO installed; kept 1 signed previous build."

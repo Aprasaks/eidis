@@ -2,7 +2,7 @@
 """Conservative JARVIS macOS app backup retention.
 
 Dry run by default. --apply removes only superseded dev.dechive.eidis bundles
-under ~/Applications/JARVIS-backups. Keeps the newest three DISTINCT signed
+under ~/.jarvis-lab/app-backups. Keeps the newest --keep DISTINCT signed
 builds, preserving any unrelated/legacy apps. Never touches the installed app,
 Git source, settings, knowledge, or user documents.
 """
@@ -18,7 +18,7 @@ import subprocess
 from pathlib import Path
 
 IDENTIFIER = "dev.dechive.eidis"
-ROOT = Path.home() / "Applications" / "JARVIS-backups"
+ROOT = Path.home() / ".jarvis-lab" / "app-backups"   # hidden: not shown as apps
 CURRENT = Path.home() / "Applications" / "JARVIS.app"
 LOGS = Path.home() / "Library" / "Logs" / "JARVIS" / "maintenance"
 

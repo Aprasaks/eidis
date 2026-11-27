@@ -1,7 +1,7 @@
 # JARVIS macOS updates and backup retention
 
 Keep the current app at `~/Applications/JARVIS.app`. Previous copies are
-stored under `~/Applications/JARVIS-backups/`.
+stored under `~/.jarvis-lab/app-backups/ (hidden, newest 1 kept)`.
 
 ## Installing the next signed release
 
@@ -23,13 +23,13 @@ is always protected.
 To inspect backup cleanup without making any change:
 
 ```bash
-python3 macos/scripts/prune-app-backups.py --keep 3
+python3 macos/scripts/prune-app-backups.py --keep 1
 ```
 
 To do a verified cleanup explicitly:
 
 ```bash
-python3 macos/scripts/prune-app-backups.py --keep 3 --apply
+python3 macos/scripts/prune-app-backups.py --keep 1 --apply
 ```
 
 Each actual cleanup writes a list of removed paths in
