@@ -36,7 +36,8 @@ class ClickableCoreHUD(unittest.TestCase):
         self.assertIn('if runKinds[id] != true',AGENTS)
         self.assertIn('case .ready: "대기"',AGENTS)
         self.assertIn('func probeAll(force: Bool = false)',AGENTS)
-        self.assertIn('let laneHeights = Array(repeating: laneHeight',UI)
+        # 2026-11-27: 쉬는 칸은 접고 일하는 칸이 공간을 쓴다 (같은 높이 3칸 → 접이식)
+        self.assertIn('agentTerminalCard(id, scale: scale, compact: !open)',UI)
         self.assertIn('id.workroomAccent',UI)
         self.assertIn('ScrollView(.vertical)',UI)
 

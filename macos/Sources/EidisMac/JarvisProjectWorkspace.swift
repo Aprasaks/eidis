@@ -79,18 +79,9 @@ struct JarvisProjectWorkspace: View {
                     }
                     .frame(maxHeight: .infinity)
                 } else {
-                    VStack(alignment: .leading, spacing: 15) {
-                        Text("운영 업무 미등록")
-                            .font(.system(size: 22 * scale, weight: .medium))
-                            .foregroundStyle(project.accent)
-                        Text("이 프로젝트의 상세 작업창은 아직 구성하지 않았습니다.")
-                            .foregroundStyle(muted)
-                        Button("웹사이트 열기") { openSite() }
-                            .buttonStyle(.bordered)
-                        Spacer()
-                    }
-                    .padding(20)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    // dechive.app · 군산.com · 탁구협회: 실제 사이트 상태·글/단계/수집 기록·커밋 (JarvisSiteWorkroom.swift)
+                    // 이전에는 "운영 업무 미등록" 한 줄과 중복된 사이트 열기 버튼만 있었다.
+                    JarvisSiteWorkroomBody(project: project, scale: scale)
                 }
             }
             .padding(22)

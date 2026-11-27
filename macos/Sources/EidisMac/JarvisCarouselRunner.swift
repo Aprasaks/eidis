@@ -537,6 +537,20 @@ final class JarvisCarouselRunner: ObservableObject {
         return approve ? .approved : .rejected
     }
 
+    // MARK: - Today summary (자비스 시간표·요약용, 읽기 전용)
+
+    /// 오늘(KST) 01:30 자동 제작으로 만든 실행
+    func todayScheduled() -> Meta? {
+        let today = todayKey()
+        return allMetas().first { todayKey($0.startedAt) == today && $0.trigger == "schedule" }
+    }
+
+    /// 폰 승인을 기다리는 캐러셀 수 / 승인돼 게시를 기다리는 캐러셀 제목
+    func approvalQueue() -> (waiting: Int, approvedTitle: String?) {
+        let metas = allMetas().sorted { $0.startedAt > $1.startedAt }
+        return (metas.filter { $0.status == "review" }.count, metas.first { $0.status == "approved" }?.title)
+    }
+
     private func allMetas() -> [Meta] {
         let dirs = (try? FileManager.default.contentsOfDirectory(at: Self.root, includingPropertiesForKeys: nil)) ?? []
         return dirs.compactMap { dir in

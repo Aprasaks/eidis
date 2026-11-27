@@ -24,8 +24,8 @@ class FixedViewportContract(unittest.TestCase):
         self.assertNotIn('projectsCard(scale: scale)',left)
         self.assertNotIn('keyMetrics(scale: scale)',outer)
         self.assertNotIn('header(scale: scale)',outer)
-        self.assertIn('agentTerminalCard(id, scale: scale)',UI)
-        self.assertIn('laneHeights[index]',UI)
+        self.assertIn('agentTerminalCard(id, scale: scale, compact: !open)',UI)  # 2026-11-27 접이식 칸
+        self.assertIn('.frame(height: open ? expandedHeight : compactHeight)',UI)  # 2026-11-27 접이식 높이
         self.assertIn('let closeReserve: CGFloat = 28',UI)
         self.assertIn('JarvisCommandCenterView(model: liveDashboard, dialogue: dialogue, agentBay: dialogue.agentBay)',OVERLAY)
         self.assertIn('JarvisOverviewGeometry.coreFrame(width: area.size.width, height: area.size.height)', OVERLAY)

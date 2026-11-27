@@ -15,6 +15,7 @@ struct JarvisCommandCenterView: View {
     @State private var workspaceRevealed = false
     @StateObject private var telemetry = JarvisMacSampler()
     @ObservedObject private var sitePulse = JarvisSitePulse.shared
+    @ObservedObject private var carousel = JarvisCarouselRunner.shared
     /// SNS 작업실 열림 상태는 모델(JarvisLiveDashboard.snsRoomOpen)에 둔다.
     /// Esc 한 단계 뒤로 가기와 코어 버튼이 이 상태를 함께 본다.
     private var showChannelOverview: Bool {
@@ -295,6 +296,29 @@ struct JarvisCommandCenterView: View {
         // communication overlay; no simulated agent text or second core.
         VStack(spacing: 0) {
             Spacer(minLength: 0)
+            // 코어 아래 오늘 요약 한 줄 (시간표와 같은 실제 기록에서 계산)
+            TimelineView(.periodic(from: .now, by: 30)) { context in
+                let summary = JarvisDailyTimeline.build(agentBay: agentBay, carousel: carousel,
+                                                        sites: sitePulse, now: context.date).summary
+                HStack(alignment: .top, spacing: 8) {
+                    Text("TODAY")
+                        .font(.system(size: 10 * scale, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(amber)
+                        .padding(.top, 1)
+                    Text(summary)
+                        .font(.system(size: 12 * scale, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.88))
+                        .lineLimit(2)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.black.opacity(0.58), in: RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(amber.opacity(0.32)))
+            }
+            .padding(.bottom, 8)
+            .accessibilityIdentifier("jarvis-today-summary")
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     Image(systemName: "waveform")
@@ -380,7 +404,7 @@ struct JarvisCommandCenterView: View {
                               dialogue.isListening)
                     .accessibilityIdentifier("jarvis-workroom-command-send")
             }
-            .font(.system(size: 10 * scale))
+            .font(.system(size: 12 * scale))   // 10 → 12: 입력 칸 키움
             .padding(9)
             .background(Color.black.opacity(0.70), in: RoundedRectangle(cornerRadius: 8))
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(amber.opacity(0.24)))
@@ -397,17 +421,33 @@ struct JarvisCommandCenterView: View {
     }
 
     private func rightColumn(height: CGFloat, scale: CGFloat) -> some View {
-        // The three real worker terminals get equal, usable display areas.
-        // Health polling is kept in a small summary, not a fabricated stream.
+        // 위: 오늘의 자동 작업 시간표 (실제 기록 기반).
+        // 아래: 에이전트 칸 — 쉬고 있는(출력 없는) 칸은 한 줄로 접고, 일하는 칸이 남은 공간을 쓴다.
         let spacing: CGFloat = 9
         let controlHeight: CGFloat = min(116, height * 0.15)
-        let eventHeight: CGFloat = min(124, height * 0.16)
-        let laneHeight = max(25, (height - controlHeight - eventHeight - spacing * 4) / 3)
-        let laneHeights = Array(repeating: laneHeight, count: JarvisAgentID.allCases.count)
+        let eventHeight: CGFloat = min(96, height * 0.12)
+        let timelineHeight: CGFloat = min(260, max(190, height * 0.32))
+        let compactHeight: CGFloat = 40 * scale
+        let lanes = JarvisAgentID.allCases
+        let expanded = lanes.filter { id in
+            let lane = agentBay.lane(id)
+            return lane.state == .running || lane.state == .failed || !lane.logs.isEmpty
+        }
+        let laneSpace = max(0, height - controlHeight - eventHeight - timelineHeight - spacing * 5)
+        let compactCount = CGFloat(lanes.count - expanded.count)
+        let expandedHeight = expanded.isEmpty ? 0 : max(compactHeight, (laneSpace - compactHeight * compactCount) / CGFloat(expanded.count))
         return VStack(spacing: spacing) {
-            ForEach(Array(JarvisAgentID.allCases.enumerated()), id: \.element.id) { index, id in
-                agentTerminalCard(id, scale: scale)
-                    .frame(height: laneHeights[index])
+            TimelineView(.periodic(from: .now, by: 30)) { context in
+                JarvisDailyTimelinePanel(
+                    timeline: JarvisDailyTimeline.build(agentBay: agentBay, carousel: carousel,
+                                                        sites: sitePulse, now: context.date),
+                    scale: scale)
+            }
+            .frame(minHeight: timelineHeight, maxHeight: .infinity)   // 쉬는 칸이 접히면 남는 공간은 시간표가 쓴다
+            ForEach(lanes) { id in
+                let open = expanded.contains(id)
+                agentTerminalCard(id, scale: scale, compact: !open)
+                    .frame(height: open ? expandedHeight : compactHeight)
             }
             agentEventStream(scale: scale).frame(height: eventHeight)
             agentLaunchControl(scale: scale).frame(height: controlHeight)
@@ -417,7 +457,7 @@ struct JarvisCommandCenterView: View {
         .accessibilityIdentifier("jarvis-agent-terminal-bay")
     }
 
-    private func agentTerminalCard(_ id: JarvisAgentID, scale: CGFloat) -> some View {
+    private func agentTerminalCard(_ id: JarvisAgentID, scale: CGFloat, compact: Bool = false) -> some View {
         let lane = agentBay.lane(id)
         let accent = id.workroomAccent
         return VStack(alignment: .leading, spacing: 7) {
@@ -441,36 +481,39 @@ struct JarvisCommandCenterView: View {
                         .foregroundStyle(.orange)
                 }
             }
-            Rectangle().fill(accent.opacity(0.26)).frame(height: 1)
-            if lane.logs.isEmpty {
-                Text(lane.state == .ready ? "실행 중인 작업 없음" :
-                     lane.state == .missing ? "CLI 실행 파일 없음" :
-                     lane.state == .checking ? "로컬 실행 파일 확인 중" :
-                     "아직 실행 출력 없음")
-                    .font(.system(size: 12 * scale, design: .monospaced))   // 10 → 12
-                    .foregroundStyle(muted)
-                Spacer(minLength: 0)
-            } else {
-                ScrollViewReader { proxy in
-                    ScrollView(.vertical) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            ForEach(Array(lane.logs.enumerated()), id: \.offset) { i, line in
-                                Text(line)
-                                    .font(.system(size: 11 * scale, design: .monospaced))   // 10 → 11
-                                    .foregroundStyle(.white.opacity(0.85))
-                                    .textSelection(.enabled)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .id(i)
+            // 쉬고 있는 칸은 머리줄만 보여준다 (오른쪽 화면 60%가 빈 칸이던 문제).
+            if !compact {
+                Rectangle().fill(accent.opacity(0.26)).frame(height: 1)
+                if lane.logs.isEmpty {
+                    Text(lane.state == .ready ? "실행 중인 작업 없음" :
+                         lane.state == .missing ? "CLI 실행 파일 없음" :
+                         lane.state == .checking ? "로컬 실행 파일 확인 중" :
+                         "아직 실행 출력 없음")
+                        .font(.system(size: 12 * scale, design: .monospaced))   // 10 → 12
+                        .foregroundStyle(muted)
+                    Spacer(minLength: 0)
+                } else {
+                    ScrollViewReader { proxy in
+                        ScrollView(.vertical) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                ForEach(Array(lane.logs.enumerated()), id: \.offset) { i, line in
+                                    Text(line)
+                                        .font(.system(size: 11 * scale, design: .monospaced))   // 10 → 11
+                                        .foregroundStyle(.white.opacity(0.85))
+                                        .textSelection(.enabled)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .id(i)
+                                }
+                            }
+                        }
+                        .onChange(of: lane.logs.count) { _, _ in
+                            if let last = lane.logs.indices.last {
+                                proxy.scrollTo(last, anchor: .bottom)
                             }
                         }
                     }
-                    .onChange(of: lane.logs.count) { _, _ in
-                        if let last = lane.logs.indices.last {
-                            proxy.scrollTo(last, anchor: .bottom)
-                        }
-                    }
+                    .frame(maxHeight: .infinity)
                 }
-                .frame(maxHeight: .infinity)
             }
         }
         .padding(.horizontal, 12)

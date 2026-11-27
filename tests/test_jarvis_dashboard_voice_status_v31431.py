@@ -32,7 +32,7 @@ class DashboardVoiceStatus(unittest.TestCase):
 
     def test_real_agent_bay_replaces_right_system_card(self):
         right=UI.split('private func rightColumn(',1)[1].split('private func macTelemetryCard(',1)[0]
-        self.assertIn('agentTerminalCard(id, scale: scale)',right)
+        self.assertIn('agentTerminalCard(id, scale: scale, compact: !open)',right)  # 2026-11-27 접이식 칸
         self.assertIn('agentLaunchControl(scale: scale)',right)
         self.assertIn('agentEventStream(scale: scale)',right)
         self.assertNotIn('systemCard(scale: scale)',right)

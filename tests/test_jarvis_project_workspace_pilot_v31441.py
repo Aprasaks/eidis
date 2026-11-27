@@ -14,14 +14,15 @@ class ProjectWorkspacePilot(unittest.TestCase):
             self.assertIn(domain,WORK)
         self.assertIn("ForEach(JarvisWorkroomProject.allCases)",UI)
         self.assertIn("if project == .dev",WORK)
-        self.assertIn("운영 업무 미등록",WORK)
+        # 2026-11-27: 빈 "운영 업무 미등록" 대신 실제 데이터 작업실 (가짜 작업 없음 · 읽기 전용)
+        self.assertIn("JarvisSiteWorkroomBody(project: project, scale: scale)",WORK)
         self.assertIn("model.workroomProject = project",UI)
         self.assertIn("model.workroomProject = nil",UI)
         self.assertIn("liveDashboard.workroomProject == nil",CORE)
 
     def test_real_colored_terminals_and_deduplicated_health(self):
         self.assertIn("id.workroomAccent",UI)
-        self.assertIn("let laneHeights = Array(repeating: laneHeight",UI)
+        self.assertIn("agentTerminalCard(id, scale: scale, compact: !open)",UI)  # 2026-11-27 접이식 칸
         self.assertIn("sourceChecks.removeAll { $0.source == source }",MODEL)
         self.assertIn("agentBay.events.last",UI)
         self.assertIn("checks.count - failures.count",UI)

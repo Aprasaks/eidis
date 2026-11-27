@@ -87,7 +87,7 @@ final class JarvisSitePulse: ObservableObject {
 
     // MARK: Fetchers
 
-    nonisolated private static func get(_ url: URL, accept: String? = nil) async -> (Int, Data?, TimeInterval) {
+    nonisolated static func get(_ url: URL, accept: String? = nil) async -> (Int, Data?, TimeInterval) {
         var req = URLRequest(url: url)
         req.timeoutInterval = 12
         req.cachePolicy = .reloadIgnoringLocalCacheData
@@ -100,7 +100,7 @@ final class JarvisSitePulse: ObservableObject {
         return ((response as? HTTPURLResponse)?.statusCode ?? 0, data, Date().timeIntervalSince(started))
     }
 
-    nonisolated private static func checkSite(_ address: String) async -> (Bool, String) {
+    nonisolated static func checkSite(_ address: String) async -> (Bool, String) {
         guard let url = URL(string: address) else { return (false, "주소 오류") }
         let (status, _, seconds) = await get(url)
         if status == 0 { return (false, "응답 없음") }
@@ -128,7 +128,7 @@ final class JarvisSitePulse: ObservableObject {
 
     /// 집계 비밀 값: 자비스가 만든 Keychain 항목에서만 읽는다 (확인 팝업 없이, 없으면 nil).
     /// 처음 한 번은 설치 때 둔 0600 파일을 Keychain으로 옮기고 파일을 지운다.
-    nonisolated private static func statsSecret() -> String? {
+    nonisolated static func statsSecret() -> String? {
         let base: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: statsService,
@@ -204,7 +204,7 @@ final class JarvisSitePulse: ObservableObject {
         return ("대회 정보 수집 · 마지막 \(relative(date)) \(result)" + (stale ? " · 수집 코드 수정 예정" : ""), stale)
     }
 
-    nonisolated private static func relative(_ date: Date) -> String {
+    nonisolated static func relative(_ date: Date) -> String {
         let seconds = Date().timeIntervalSince(date)
         if seconds < 3600 { return "\(max(1, Int(seconds / 60)))분 전" }
         if seconds < 86_400 { return "\(Int(seconds / 3600))시간 전" }

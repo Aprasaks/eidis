@@ -42,5 +42,24 @@ class UiAuditFixes(unittest.TestCase):
         self.assertIn('#include? "JARVISRemote.local.xcconfig"', read(ROOT / "ios/JARVISRemote.xcconfig"))
 
 
+class DashboardRedesign(unittest.TestCase):
+    def test_timeline_reads_real_records(self):
+        src = read(MAC / "JarvisDailyTimeline.swift")
+        self.assertIn("agentBay.knowledgeDailyStaged", src)
+        self.assertIn("carousel.todayScheduled()", src)
+        self.assertIn("JarvisInstagramPublisher.record($0)", src)
+        center = read(MAC / "JarvisCommandCenterView.swift")
+        self.assertIn("JarvisDailyTimelinePanel(", center)
+        self.assertIn('accessibilityIdentifier("jarvis-today-summary")', center)
+        self.assertIn("agentTerminalCard(id, scale: scale, compact: !open)", center)
+
+    def test_site_workrooms_are_read_only_real_data(self):
+        src = read(MAC / "JarvisSiteWorkroom.swift")
+        for marker in ("api.github.com/repos/Aprasaks/", "dechive.app/feed.xml",
+                       "REBUILD_STEPS.md", "letter.dechive.app/api/letter-stats"):
+            self.assertIn(marker, src)
+        self.assertNotIn('httpMethod = "POST"', src)
+
+
 if __name__ == "__main__":
     unittest.main()
