@@ -14,6 +14,7 @@ struct JarvisCommandCenterView: View {
     @FocusState private var workroomInputFocused: Bool
     @State private var workspaceRevealed = false
     @StateObject private var telemetry = JarvisMacSampler()
+    @ObservedObject private var sitePulse = JarvisSitePulse.shared
     /// SNS 작업실 열림 상태는 모델(JarvisLiveDashboard.snsRoomOpen)에 둔다.
     /// Esc 한 단계 뒤로 가기와 코어 버튼이 이 상태를 함께 본다.
     private var showChannelOverview: Bool {
@@ -121,6 +122,7 @@ struct JarvisCommandCenterView: View {
             // Apple's speech recognizer owns the input.
             dialogue.setDashboardDictation(true)
             agentBay.probeAll()
+            sitePulse.start()   // 왼쪽 사이트 카드 실제 상태 (15분마다)
             withAnimation(.easeOut(duration: 0.72)) { workspaceRevealed = true }
         }
         .onDisappear {
@@ -202,12 +204,40 @@ struct JarvisCommandCenterView: View {
                                   : "기존 실행 \(agentBay.knowledgeDailyStarts)/3"))
                                 .font(.system(size: 11 * scale, weight: .medium))
                                 .foregroundStyle(project.accent)
+                        } else if let pulse = sitePulse.pulses[project] {
+                            // 실제 상태 (JarvisSitePulse): 사이트별 한 줄 + 최근 커밋
+                            if let detail = pulse.detail {
+                                Text(detail)
+                                    .font(.system(size: 12 * scale, weight: .medium))
+                                    .foregroundStyle(pulse.detailWarning ? Color.orange : project.accent)
+                                    .lineLimit(1)
+                            }
+                            if let commit = pulse.commitLabel {
+                                Label(commit, systemImage: "arrow.triangle.branch")
+                                    .font(.system(size: 11 * scale))
+                                    .foregroundStyle(muted)
+                                    .lineLimit(1)
+                            }
                         } else {
-                            Text("운영 업무 미등록")
-                                .font(.system(size: 12 * scale))   // 10 → 12: TV 거리에서도 읽히게
+                            Text("사이트 상태 확인 중…")
+                                .font(.system(size: 12 * scale))
                                 .foregroundStyle(muted)
                         }
                         Spacer(minLength: 0)
+                        if let pulse = sitePulse.pulses[project] {
+                            // 카드 하단: 사이트 응답 상태 (초록 = 정상)
+                            HStack(spacing: 6) {
+                                Circle().fill(pulse.siteOK == true ? mint : (pulse.siteOK == false ? Color.orange : muted))
+                                    .frame(width: 7, height: 7)
+                                Text("사이트 " + pulse.siteLabel)
+                                Spacer(minLength: 0)
+                                if let at = pulse.checkedAt {
+                                    Text(at.formatted(date: .omitted, time: .shortened) + " 확인")
+                                }
+                            }
+                            .font(.system(size: 10 * scale, design: .monospaced))
+                            .foregroundStyle(muted)
+                        }
                     }
                     .padding(14)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

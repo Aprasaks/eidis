@@ -10,7 +10,7 @@ CORE=(SRC/"JarvisFullscreenOverlay.swift").read_text()
 
 class ProjectWorkspacePilot(unittest.TestCase):
     def test_four_project_routes_no_unregistered_jobs(self):
-        for domain in ("dechive.dev","dechive.app","gunsan.com","gunsan-table-tennis-association.vercel.app"):
+        for domain in ("dechive.dev","dechive.app","군산.com","gunsan-table-tennis-association.vercel.app"):  # 2026-11-27: 실제 도메인 군산.com
             self.assertIn(domain,WORK)
         self.assertIn("ForEach(JarvisWorkroomProject.allCases)",UI)
         self.assertIn("if project == .dev",WORK)

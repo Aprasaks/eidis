@@ -16,7 +16,7 @@ enum JarvisWorkroomProject: String, CaseIterable, Identifiable {
         switch self {
         case .dev: "dechive.dev"
         case .app: "dechive.app"
-        case .gunsan: "gunsan.com"
+        case .gunsan: "군산.com"   // 실제 주소는 퓨니코드 xn--6e0b287a.com (JarvisSitePulse.site)
         case .tableTennis: "gunsan-table-tennis-association.vercel.app"
         }
     }
@@ -458,6 +458,7 @@ struct JarvisProjectWorkspace: View {
     }
 
     private func openSite() {
-        if let url = URL(string: "https://" + project.domain) { NSWorkspace.shared.open(url) }
+        // 한글 도메인(군산.com)은 URL(string:)이 실패하므로 실제 주소 표를 쓴다.
+        if let url = URL(string: JarvisSitePulse.site(project).url) { NSWorkspace.shared.open(url) }
     }
 }
