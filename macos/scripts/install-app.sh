@@ -38,6 +38,25 @@ if [[ $# -eq 1 ]]; then
   exit 0
 fi
 (( NEW_BUILD > OLD_BUILD )) || fail "New bundle build must be newer (use --check to audit)"
+# 캐러셀 제작 중에 앱을 바꾸면 렌더링·검수를 맡던 앱이 꺼져 제작이 멈춘다 (2026-11-28 01:31).
+# 시작한 지 45분 안 된 "running" 실행이 있으면 설치하지 않는다. 급하면 EIDIS_INSTALL_FORCE=1.
+if [[ "${EIDIS_INSTALL_FORCE:-0}" != 1 ]] && python3 - <<'PY'
+import json, pathlib, sys, time
+root = pathlib.Path.home() / ".jarvis-lab/sns-carousel/runs"
+for meta in root.glob("*/meta.json"):
+    try:
+        m = json.loads(meta.read_text())
+    except Exception:
+        continue
+    # startedAt is a Swift Date (seconds since 2001-01-01)
+    if m.get("status") == "running" and time.time() - (m.get("startedAt", 0) + 978307200) < 45 * 60:
+        print("캐러셀 제작 중: " + meta.parent.name, file=sys.stderr)
+        sys.exit(0)
+sys.exit(1)
+PY
+then
+  fail "SNS carousel is being made right now; install after it finishes (or EIDIS_INSTALL_FORCE=1)"
+fi
 
 mkdir -p "$BACKUPS"
 [[ ! -L "$BACKUPS" ]] || fail "Backup directory unexpectedly changed"

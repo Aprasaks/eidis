@@ -82,6 +82,7 @@ final class JarvisCarouselRunner: ObservableObject {
         guard scheduleTask == nil else { return }
         scheduleTask = Task { [weak self] in
             while !Task.isCancelled {
+                await self?.recoverInterruptedRuns()
                 await self?.runIfDue()
                 do { try await Task.sleep(for: .seconds(60)) } catch { return }
             }
@@ -116,7 +117,9 @@ final class JarvisCarouselRunner: ObservableObject {
         guard (90..<150).contains(minutes) else { return }
         guard !isRunning, !JarvisAgentTerminalBay.shared.nightShiftRunning else { return }
         let today = todayKey(now)
-        let ranToday = allMetas().contains { todayKey($0.startedAt) == today && $0.trigger == "schedule" }
+        // 앱 설치·재시작으로 끊긴 실행("interrupted")은 오늘 한 번 더 시도한다. 그 밖의 결과는 하루 한 번.
+        let todays = allMetas().filter { todayKey($0.startedAt) == today && $0.trigger == "schedule" }
+        let ranToday = todays.contains { $0.status != "interrupted" } || todays.count >= 2
         guard !ranToday else { scheduleStatus = "오늘 01:30 자동 제작 완료"; return }
         guard let url = await newestUnmadeArticle() else {
             scheduleStatus = "새 위키 글 없음 · 오늘 자동 제작 건너뜀"
@@ -586,6 +589,45 @@ final class JarvisCarouselRunner: ObservableObject {
         }
     }
 
+    /// 앱이 켜진 뒤 한 번: 지난 실행 중 "running"으로 남은 것을 정리한다.
+    /// 앱을 새로 설치하거나 재시작하면 렌더링·검수를 맡던 앱이 사라져 상태가 영원히 "running"에 머물고,
+    /// 그러면 오늘 자동 제작도 "이미 했다"로 보여 다시 시도하지 않았다 (2026-11-28 01:31 build 171 설치와 겹침).
+    /// - 초안(slides.html·caption.txt·report.md)이 다 있는 가장 최근 실행(24시간 안)은 렌더링·시각 검수부터 이어 간다.
+    /// - 나머지는 "interrupted"로 표시한다.
+    private var recoveryDone = false
+    private func recoverInterruptedRuns() async {
+        guard !recoveryDone, !isRunning, !JarvisAgentTerminalBay.shared.nightShiftRunning else { return }
+        recoveryDone = true
+        let fm = FileManager.default
+        let dirs = ((try? fm.contentsOfDirectory(at: Self.root, includingPropertiesForKeys: nil)) ?? [])
+            .sorted { $0.lastPathComponent > $1.lastPathComponent }
+        var resume: (URL, Meta)?
+        for dir in dirs {
+            guard let data = try? Data(contentsOf: dir.appendingPathComponent("meta.json")),
+                  var saved = try? JSONDecoder().decode(Meta.self, from: data), saved.status == "running" else { continue }
+            let draftDone = ["slides.html", "caption.txt", "report.md"]
+                .allSatisfy { fm.fileExists(atPath: dir.appendingPathComponent($0).path) }
+            if resume == nil, draftDone, Date().timeIntervalSince(saved.startedAt) < 24 * 3600 {
+                resume = (dir, saved)
+                continue
+            }
+            saved.status = "interrupted"
+            if let out = try? JSONEncoder().encode(saved) { try? out.write(to: dir.appendingPathComponent("meta.json")) }
+        }
+        metasCache = nil
+        guard let (dir, saved) = resume else { return }
+        runDirectory = dir
+        meta = saved
+        cancelled = false
+        error = nil
+        slides = []
+        logs = ((try? String(contentsOf: dir.appendingPathComponent("run.log"), encoding: .utf8)) ?? "")
+            .split(separator: "\n").suffix(200).map(String.init)
+        append("앱이 다시 켜져 멈췄던 제작을 이어 갑니다 · 초안은 완성돼 있어 렌더링부터")
+        guard await renderAll(dir) else { return }
+        launchClaude(in: dir, phase: .check)
+    }
+
     /// Show the newest finished run after an app restart.
     private func loadLatest() {
         let dirs = ((try? FileManager.default.contentsOfDirectory(at: Self.root, includingPropertiesForKeys: nil)) ?? [])
@@ -600,7 +642,6 @@ final class JarvisCarouselRunner: ObservableObject {
             expectedSlides = slides.count
             caption = try? String(contentsOf: dir.appendingPathComponent("caption.txt"), encoding: .utf8)
             threadText = try? String(contentsOf: dir.appendingPathComponent("threads.txt"), encoding: .utf8)
-        threadText = try? String(contentsOf: dir.appendingPathComponent("threads.txt"), encoding: .utf8)
             report = try? String(contentsOf: dir.appendingPathComponent("report.md"), encoding: .utf8)
             logs = ((try? String(contentsOf: dir.appendingPathComponent("run.log"), encoding: .utf8)) ?? "")
                 .split(separator: "\n").suffix(200).map(String.init)
