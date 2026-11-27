@@ -212,6 +212,12 @@ struct JarvisCommandCenterView: View {
                                     .foregroundStyle(pulse.detailWarning ? Color.orange : project.accent)
                                     .lineLimit(1)
                             }
+                            if let note = pulse.note {
+                                Text(note)
+                                    .font(.system(size: 11 * scale))
+                                    .foregroundStyle(.white.opacity(0.72))
+                                    .lineLimit(1)
+                            }
                             if let commit = pulse.commitLabel {
                                 Label(commit, systemImage: "arrow.triangle.branch")
                                     .font(.system(size: 11 * scale))

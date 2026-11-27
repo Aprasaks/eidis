@@ -1,4 +1,5 @@
 import Foundation
+import Security
 
 /// 왼쪽 패널 사이트 카드용 실제 상태 (읽기 전용, 공개 정보만).
 ///
@@ -15,6 +16,7 @@ final class JarvisSitePulse: ObservableObject {
         var siteLabel = "확인 중…"
         var commitLabel: String?
         var detail: String?
+        var note: String?
         var detailWarning = false
         var checkedAt: Date?
     }
@@ -52,7 +54,9 @@ final class JarvisSitePulse: ObservableObject {
             pulse.commitLabel = await Self.latestCommit(repo)
             switch project {
             case .app:
-                pulse.detail = await Self.latestPost() ?? "최신 글 확인 실패"
+                // dechive.app 구독 팝업은 letter.dechive.app 폼을 그대로 쓰므로 구독자 명단은 하나다.
+                pulse.detail = await Self.subscribers() ?? "뉴스레터 구독자 수 확인 실패"
+                pulse.note = await Self.latestPost() ?? "최신 글 확인 실패"
             case .gunsan:
                 // 사용자 확인(2026-11-27): 리빌드 1~4단계 반영 후 새 작업 대기 중.
                 pulse.detail = "새 작업 대기 중 · 지도·맛집·리뷰·QR 예정"
@@ -102,6 +106,33 @@ final class JarvisSitePulse: ObservableObject {
                 .flatMap(ISO8601DateFormatter().date(from:)) else { return nil }
         let title = message.split(separator: "\n").first.map(String.init) ?? message
         return relative(date) + " · " + String(title.prefix(48))
+    }
+
+    /// 뉴스레터 구독자 수 (letter.dechive.app/api/letter-stats · 숫자만 · 비밀 값은 Keychain에만)
+    nonisolated private static func subscribers() async -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "dev.dechive.eidis.letter.stats",
+            kSecAttrAccount as String: "letter-stats-secret",
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var output: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &output) == errSecSuccess,
+              let data = output as? Data, let secret = String(data: data, encoding: .utf8),
+              let url = URL(string: "https://letter.dechive.app/api/letter-stats") else { return nil }
+        var req = URLRequest(url: url)
+        req.timeoutInterval = 12
+        req.cachePolicy = .reloadIgnoringLocalCacheData
+        req.setValue("Bearer " + secret, forHTTPHeaderField: "Authorization")
+        guard let (body, response) = try? await URLSession(configuration: .ephemeral).data(for: req),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let json = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any],
+              let active = json["active"] as? Int else { return nil }
+        let bySource = json["bySource"] as? [String: Int] ?? [:]
+        let week = json["newThisWeek"] as? Int ?? 0
+        return "뉴스레터 구독자 \(active)명 · 메인 \(bySource["dechive.app"] ?? 0) · 레터 \(bySource["letter.dechive.app"] ?? 0)"
+            + (week > 0 ? " · 이번 주 +\(week)" : "")
     }
 
     /// dechive.app 최신 글: feed.xml 첫 항목 제목
