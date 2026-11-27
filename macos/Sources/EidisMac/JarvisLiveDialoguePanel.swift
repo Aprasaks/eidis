@@ -8,7 +8,6 @@ struct JarvisLiveDialoguePanel: View {
     @ObservedObject var dialogue: JarvisOverlayConversation
     var quiet: Bool = false
     @State private var draftText = ""
-    @State private var blinkingCaret = false
     @FocusState private var draftFocused: Bool
 
     private let amber = Color(red: 0.94, green: 0.67, blue: 0.30)
@@ -311,19 +310,18 @@ struct JarvisLiveDialoguePanel: View {
                             }
                         }
                         .accessibilityIdentifier("jarvis-dashboard-live-composer")
-                    Rectangle()
-                        .fill(amber)
-                        .frame(width: 1.5, height: 17)
-                        // When another monitor owns keyboard focus, native
-                        // TextField does not blink. Show the visual voice caret
-                        // without taking keyboard focus away from GPT/Codex.
-                        .opacity(draftFocused && NSApp.isActive ? 0 :
-                                 (blinkingCaret ? 1 : 0))
-                        .onAppear {
-                            withAnimation(.easeInOut(duration: 0.55).repeatForever(autoreverses: true)) {
-                                blinkingCaret = true
-                            }
-                        }
+                    // When another monitor owns keyboard focus, native
+                    // TextField does not blink. Show the visual voice caret
+                    // without taking keyboard focus away from GPT/Codex.
+                    // 깜빡임은 0.55초마다 한 번만 다시 그린다. (repeatForever 애니메이션은
+                    // 대시보드 전체를 초당 60번 다시 그려 CPU를 30% 가까이 썼다.)
+                    TimelineView(.periodic(from: .now, by: 0.55)) { context in
+                        let on = Int(context.date.timeIntervalSinceReferenceDate / 0.55).isMultiple(of: 2)
+                        Rectangle()
+                            .fill(amber)
+                            .frame(width: 1.5, height: 17)
+                            .opacity(draftFocused && NSApp.isActive ? 0 : (on ? 1 : 0))
+                    }
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 9)

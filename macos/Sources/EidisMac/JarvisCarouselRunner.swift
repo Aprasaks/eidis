@@ -95,12 +95,17 @@ final class JarvisCarouselRunner: ObservableObject {
         JarvisThreadsPublisher.shared.startSchedule()
     }
 
-    private func todayKey(_ date: Date = Date()) -> String {
+    /// 화면이 다시 그려질 때마다 불리므로 포맷터는 한 번만 만든다.
+    private static let dayFormatter: DateFormatter = {
         let f = DateFormatter()
-        f.timeZone = Self.seoul
+        f.timeZone = seoul
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "yyyyMMdd"
-        return f.string(from: date)
+        return f
+    }()
+
+    private func todayKey(_ date: Date = Date()) -> String {
+        Self.dayFormatter.string(from: date)
     }
 
     private func runIfDue() async {
@@ -564,7 +569,17 @@ final class JarvisCarouselRunner: ObservableObject {
         return (metas.filter { $0.status == "review" }.count, metas.first { $0.status == "approved" }?.title)
     }
 
+    /// 대시보드가 다시 그려질 때마다 디스크를 읽지 않도록 5초 동안 결과를 재사용한다.
+    private var metasCache: (at: Date, metas: [Meta])?
+
     private func allMetas() -> [Meta] {
+        if let cache = metasCache, Date().timeIntervalSince(cache.at) < 5 { return cache.metas }
+        let metas = readAllMetas()
+        metasCache = (Date(), metas)
+        return metas
+    }
+
+    private func readAllMetas() -> [Meta] {
         let dirs = (try? FileManager.default.contentsOfDirectory(at: Self.root, includingPropertiesForKeys: nil)) ?? []
         return dirs.compactMap { dir in
             (try? Data(contentsOf: dir.appendingPathComponent("meta.json"))).flatMap { try? JSONDecoder().decode(Meta.self, from: $0) }

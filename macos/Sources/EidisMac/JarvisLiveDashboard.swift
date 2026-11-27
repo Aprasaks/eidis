@@ -502,7 +502,7 @@ final class JarvisLiveDashboard: ObservableObject {
 
     private func startLocalGitScanIfNeeded(id: UUID) {
         guard gitTask == nil,
-              gitLastCheckedAt.map({ Date().timeIntervalSince($0) > 25 }) ?? true else { return }
+              gitLastCheckedAt.map({ Date().timeIntervalSince($0) > 120 }) ?? true else { return }   // git 상태는 자주 안 바뀜: 25초 → 2분
         gitIsLoading = true
         gitLastCheckedAt = Date()
         gitTask = Task { [weak self] in

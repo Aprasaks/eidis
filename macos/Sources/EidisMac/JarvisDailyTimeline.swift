@@ -20,9 +20,23 @@ struct JarvisDailyTimeline {
     /// 다음 정해진 작업까지 남은 시간 (예: "다음 · Threads 게시 2시간 13분 후")
     var next: String = ""
 
+    /// 대시보드는 마이크·상태 변화로 자주 다시 그려진다. 같은 상태면 5초 동안 계산 결과(파일 읽기 포함)를 재사용한다.
+    @MainActor private static var cache: (at: Date, signature: String, value: JarvisDailyTimeline)?
+
     @MainActor
     static func build(agentBay: JarvisAgentTerminalBay, carousel: JarvisCarouselRunner,
                       sites: JarvisSitePulse, now: Date = Date()) -> JarvisDailyTimeline {
+        let signature = [agentBay.nightShiftRunning, carousel.isRunning].map { $0 ? "1" : "0" }.joined()
+            + "|\(agentBay.knowledgeDailyStarts)|\(agentBay.knowledgeDailyStaged)|\(carousel.stage.label)|\(carousel.scheduleStatus)"
+        if let cache, cache.signature == signature, abs(now.timeIntervalSince(cache.at)) < 5 { return cache.value }
+        let value = compute(agentBay: agentBay, carousel: carousel, sites: sites, now: now)
+        cache = (now, signature, value)
+        return value
+    }
+
+    @MainActor
+    private static func compute(agentBay: JarvisAgentTerminalBay, carousel: JarvisCarouselRunner,
+                                sites: JarvisSitePulse, now: Date) -> JarvisDailyTimeline {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
         let minutes = calendar.component(.hour, from: now) * 60 + calendar.component(.minute, from: now)
@@ -120,12 +134,16 @@ struct JarvisDailyTimeline {
         return timeline
     }
 
-    static func dayKey(_ date: Date) -> String {
+    private static let dayFormatter: DateFormatter = {
         let f = DateFormatter()
         f.timeZone = TimeZone(identifier: "Asia/Seoul")
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "yyyyMMdd"
-        return f.string(from: date)
+        return f
+    }()
+
+    static func dayKey(_ date: Date) -> String {
+        dayFormatter.string(from: date)
     }
 }
 
