@@ -254,6 +254,9 @@ struct JarvisCommandCenterView: View {
                 }
                 .buttonStyle(.plain)
                 .frame(height: cardHeight)
+                // 대시보드가 열릴 때 카드가 위에서부터 차례로 그려진다
+                .jarvisDrawIn(delay: 0.15 + Double(JarvisWorkroomProject.allCases.firstIndex(of: project) ?? 0) * 0.14,
+                              accent: project.accent)
                 .accessibilityIdentifier("jarvis-project-" + project.rawValue)
             }
             Button {
@@ -284,6 +287,7 @@ struct JarvisCommandCenterView: View {
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(amber.opacity(0.55), lineWidth: 1))
             }
             .buttonStyle(.plain)
+            .jarvisDrawIn(delay: 0.75, accent: amber, corner: 6)
             .accessibilityIdentifier("jarvis-channel-overview")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -318,6 +322,7 @@ struct JarvisCommandCenterView: View {
                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(amber.opacity(0.32)))
             }
             .padding(.bottom, 8)
+            .jarvisDrawIn(delay: 0.9, accent: amber)
             .accessibilityIdentifier("jarvis-today-summary")
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
@@ -377,6 +382,7 @@ struct JarvisCommandCenterView: View {
                 Rectangle().fill(amber.opacity(0.54)).frame(width: 2)
                     .padding(.vertical, 14)
             }
+            .jarvisDrawIn(delay: 1.0, accent: amber)
             .accessibilityIdentifier("jarvis-workroom-center-conversation")
             HStack(spacing: 7) {
                 Button {
@@ -449,13 +455,18 @@ struct JarvisCommandCenterView: View {
             .frame(minHeight: timelineHeight, maxHeight: .infinity)   // 쉬는 칸이 접히면 남는 공간은 시간표가 쓴다
             .clipped()
             .layoutPriority(1)
+            .jarvisDrawIn(delay: 0.45, accent: amber, corner: 9)
             ForEach(lanes) { id in
                 let open = expanded.contains(id)
                 agentTerminalCard(id, scale: scale, compact: !open)
                     .frame(height: open ? expandedHeight : compactHeight)
+                    .jarvisDrawIn(delay: 0.65 + Double(lanes.firstIndex(of: id) ?? 0) * 0.12,
+                                  accent: id.workroomAccent, corner: 9)
             }
             agentEventStream(scale: scale).frame(height: eventHeight)
+                .jarvisDrawIn(delay: 1.0, accent: amber, corner: 9)
             agentLaunchControl(scale: scale).frame(height: controlHeight)
+                .jarvisDrawIn(delay: 1.1, accent: amber, corner: 11)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .clipped()
