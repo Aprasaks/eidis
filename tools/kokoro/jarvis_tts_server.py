@@ -28,12 +28,26 @@ model = load_model(MODEL_ID)
 lock = threading.Lock()  # one synthesis at a time (shared model)
 
 
+def loudness(audio):
+    """Kokoro output is quiet (peak about -9 dBFS, mean about -27 dB).
+    Raise speech to roughly -16 dB RMS, then soft-limit so peaks never clip."""
+    peak = float(np.max(np.abs(audio))) if audio.size else 0.0
+    rms = float(np.sqrt(np.mean(audio ** 2))) if audio.size else 0.0
+    if peak < 1e-4 or rms < 1e-5:
+        return audio
+    target_rms = 10 ** (-16 / 20)
+    gain = min(target_rms / rms, 8.0)
+    boosted = audio * gain
+    return (np.tanh(boosted * 1.1) / np.tanh(1.1)).astype(np.float32) * 0.97
+
+
 def synthesize(text: str, voice: str, speed: float) -> bytes:
     chunks = []
     with lock:
         for result in model.generate(text=text, voice=voice, speed=speed, lang_code=voice[0]):
             chunks.append(np.asarray(result.audio, dtype=np.float32))
     audio = np.concatenate(chunks) if chunks else np.zeros(1, dtype=np.float32)
+    audio = loudness(audio)
     pcm = (np.clip(audio, -1, 1) * 32767).astype("<i2").tobytes()
     buffer = io.BytesIO()
     with wave.open(buffer, "wb") as wav:
