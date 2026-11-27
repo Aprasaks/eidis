@@ -177,7 +177,7 @@ enum JARVISCalendarSpeechParser {
               start > now else { return nil }
 
         working = working.replacingOccurrences(of: time.full, with: " ")
-        working = working.replacingOccurrences(of: #"(자비스|애기야|아기야|일정|예약|스케줄|잡아\s*줘|등록해\s*줘|등록해|추가해\s*줘|추가해|넣어\s*줘|만들어\s*줘)"#,
+        working = working.replacingOccurrences(of: #"(이디스|자비스|애기야|아기야|일정|예약|스케줄|잡아\s*줘|등록해\s*줘|등록해|추가해\s*줘|추가해|넣어\s*줘|만들어\s*줘)"#,
             with: " ", options: .regularExpression)
         working = working.replacingOccurrences(of: #"(^|\s)(에|을|를|좀|해줘|해 줘)(?=\s|$)"#,
             with: " ", options: .regularExpression)

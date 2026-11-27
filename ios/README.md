@@ -93,8 +93,8 @@ ffmpeg -i macos/Resources/Art/DECHIVE_FullHD_Loop.mp4 \
 
 ## iPhone-only address and voice (v0.1.3)
 
-- iPhone system replies address the owner as **오라버니**, while Mac JARVIS
-  retains **오빠**. First-screen title is “안녕하세요 오라버니!”.
+- Since 2026-11-28 the assistant is EIDIS (이디스) on both iPhone and Mac, and it
+  always addresses the owner as **DECHIVE** (spoken 데카이브).
 - The waveform button at the top opens an opt-in **ElevenLabs** settings
   sheet; default TTS is still the built-in iOS Korean voice.
 - Voice ID and model default to the currently configured Mac values

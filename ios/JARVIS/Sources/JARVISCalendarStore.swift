@@ -144,7 +144,7 @@ final class JARVISCalendarStore: ObservableObject {
                 remoteVersions = envelope.remoteVersions ?? [:]
             }
         } catch {
-            errorMessage = "저장된 자비스 일정 파일을 읽지 못했어요. 파일을 덮어쓰지 않고 보호하고 있습니다."
+            errorMessage = "저장된 이디스 일정 파일을 읽지 못했어요. 파일을 덮어쓰지 않고 보호하고 있습니다."
         }
     }
 
@@ -195,12 +195,12 @@ final class JARVISCalendarStore: ObservableObject {
                 return
             }
         } else if permission.authorizationStatus == .denied {
-            notificationMessage = "일정은 저장됐지만 iPhone에서 JARVIS 알림을 허용해야 해요."
+            notificationMessage = "일정은 저장됐지만 iPhone에서 EIDIS 알림을 허용해야 해요."
             return
         }
 
         let content = UNMutableNotificationContent()
-        content.title = "JARVIS Calendar"
+        content.title = "EIDIS Calendar"
         content.body = event.title
         content.sound = .default
         let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: triggerDate)

@@ -26,7 +26,7 @@ struct JARVISAlarmView: View {
                         .frame(width: 43, height: 43)
                         .background(JARVISPalette.gold, in: Circle())
                 }
-                .accessibilityLabel("새 자비스 알람")
+                .accessibilityLabel("새 이디스 알람")
             }
             .padding(.top, 22)
 
@@ -43,7 +43,7 @@ struct JARVISAlarmView: View {
                     Text("첫 알람을 설정해 보세요.")
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(JARVISPalette.white)
-                    Text("자비스가 정해진 시각에 깨워줄 거예요.")
+                    Text("이디스가 정해진 시각에 깨워줄 거예요.")
                         .font(.system(size: 12))
                         .foregroundStyle(JARVISPalette.muted)
                     Button {
@@ -176,7 +176,7 @@ struct JARVISAlarmView: View {
             }
             Button("취소", role: .cancel) { deleting = nil }
         } message: {
-            Text("JARVIS 알람과 iPhone에 예약된 해당 알람이 함께 삭제됩니다.")
+            Text("EIDIS 알람과 iPhone에 예약된 해당 알람이 함께 삭제됩니다.")
         }
     }
 }
@@ -211,7 +211,7 @@ struct JARVISAlarmEditor: View {
                                   minute: current?.minute ?? 0,
                                   second: 0, of: Date()) ?? Date()
         _time = State(initialValue: initial)
-        _title = State(initialValue: current?.title ?? "좋은 아침이에요, 오라버니")
+        _title = State(initialValue: current?.title ?? "좋은 아침이에요, DECHIVE")
         _repeatDays = State(initialValue: Set(current?.weekdays ?? []))
         _isRepeating = State(initialValue: !(current?.weekdays.isEmpty ?? true))
     }

@@ -38,7 +38,7 @@ class MobileDashboardContractTests(unittest.TestCase):
         self.assertEqual(xcode.count('INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription'), 0)
 
     def test_iphone_only_and_mac_address_not_modified(self):
-        self.assertIn('오라버니', (IOS / 'JARVISCommand.swift').read_text())
+        self.assertIn('DECHIVE', (IOS / 'JARVISCommand.swift').read_text())
         self.assertIn('JarvisConversationLanguage.summonGreeting',
                       (ROOT / 'macos/Sources/EidisMac/ElevenLabsVoiceService.swift').read_text())
 

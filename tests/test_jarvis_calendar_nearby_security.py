@@ -50,7 +50,7 @@ class NearbyCalendarSecurityContracts(unittest.TestCase):
         screen = (ROOT/'ios/JARVIS/Sources/JARVISHomeView.swift').read_text()
         self.assertNotIn('PERSONAL AI COMPANION', screen)
         self.assertNotIn('QUICK ACTIONS', screen)
-        self.assertIn('안녕하세요 오라버니!', screen)
+        self.assertIn('안녕하세요 DECHIVE!', screen)
         self.assertIn('DECHIVE_Core_Mobile', screen)
 
 if __name__ == '__main__':

@@ -54,13 +54,13 @@ final class JARVISVoice: NSObject, ObservableObject {
         }
         guard id == sessionID else { return }
         guard speechAuth == .authorized else {
-            status = "설정에서 JARVIS의 음성 인식을 허용해 주세요."
+            status = "설정에서 EIDIS의 음성 인식을 허용해 주세요."
             return
         }
         let micAuth = await AVAudioApplication.requestRecordPermission()
         guard id == sessionID else { return }
         guard micAuth else {
-            status = "설정에서 JARVIS의 마이크를 허용해 주세요."
+            status = "설정에서 EIDIS의 마이크를 허용해 주세요."
             return
         }
 
@@ -204,8 +204,11 @@ final class JARVISVoice: NSObject, ObservableObject {
         } catch {
             // System TTS can still attempt playback with the active session.
         }
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: "ko-KR")
+        // DECHIVE는 언제나 "데카이브"로 읽는다. 유나 프리미엄이 설치돼 있으면 맥과 같은 목소리를 쓴다.
+        let spoken = text.replacingOccurrences(of: "DECHIVE", with: "데카이브", options: .caseInsensitive)
+        let utterance = AVSpeechUtterance(string: spoken)
+        utterance.voice = AVSpeechSynthesisVoice(identifier: "com.apple.voice.premium.ko-KR.Yuna")
+            ?? AVSpeechSynthesisVoice(language: "ko-KR")
         utterance.rate = 0.48
         synthesizer.speak(utterance)
     }

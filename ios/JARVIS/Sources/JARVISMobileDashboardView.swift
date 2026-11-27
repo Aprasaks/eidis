@@ -60,31 +60,31 @@ enum JARVISMobilePage: String, CaseIterable, Identifiable {
         switch self {
         case .core: "금빛 코어와 대화"
         case .dashboard: "전체 정보를 한눈에"
-        case .calendar: "JARVIS 자체 일정"
-        case .alarm: "자비스 기상 알람"
-        case .memory: "자비스가 기억한 정보"
+        case .calendar: "EIDIS 자체 일정"
+        case .alarm: "이디스 기상 알람"
+        case .memory: "이디스가 기억한 정보"
         case .stocks: "국내·미국 주식 현황표"
         case .projects: "프로젝트와 작업 기록"
         case .knowledge: "보관한 지식과 자료"
         case .social: "SNS 채널 정보"
         case .news: "뉴스 및 브리핑"
-        case .system: "맥과 자비스 상태"
+        case .system: "맥과 이디스 상태"
         }
     }
 
     var sourceNotice: String {
         switch self {
-        case .core: "아이폰 자비스에서 직접 실행"
+        case .core: "아이폰 이디스에서 직접 실행"
         case .dashboard: "맥 데이터 연결 준비 중"
-        case .calendar: "JARVIS 자체 일정 저장소 · 이 아이폰"
-        case .alarm: "JARVIS 자체 알람 · iPhone 시스템"
-        case .memory: "맥 자비스의 개인 기억과 프로필 · 연결 전"
-        case .stocks: "맥 자비스 증권 데이터 · 연결 전"
+        case .calendar: "EIDIS 자체 일정 저장소 · 이 아이폰"
+        case .alarm: "EIDIS 자체 알람 · iPhone 시스템"
+        case .memory: "맥 이디스의 개인 기억과 프로필 · 연결 전"
+        case .stocks: "맥 이디스 증권 데이터 · 연결 전"
         case .projects: "공개 지식 현황 및 연결된 Mac 작업 기록"
-        case .knowledge: "맥 자비스 저장 자료 · 연결 전"
+        case .knowledge: "맥 이디스 저장 자료 · 연결 전"
         case .social: "캐러셀 검토·승인 · 채널 현황"
-        case .news: "맥 자비스 뉴스 브리핑 · 연결 전"
-        case .system: "맥 자비스 시스템 정보 · 연결 전"
+        case .news: "맥 이디스 뉴스 브리핑 · 연결 전"
+        case .system: "맥 이디스 시스템 정보 · 연결 전"
         }
     }
 
@@ -137,13 +137,13 @@ enum JARVISMobilePage: String, CaseIterable, Identifiable {
 
     var spokenStatus: String {
         switch self {
-        case .core: return "오라버니, 코어 화면으로 돌아왔어요."
-        case .dashboard: return "오라버니, 전체 현황 화면을 열었어요. 맥에서 가져오는 정보는 아직 연결 전이에요."
-        case .projects: return "오라버니, 프로젝트 화면을 열었어요. 확인 가능한 기록을 불러올게요."
-        case .calendar: return "오라버니, 자비스 캘린더를 열었어요. 저장된 일정과 새 일정을 확인할 수 있어요."
-        case .alarm: return "오라버니, 자비스 알람을 열었어요. 원하는 시각을 설정하고 저장해 주세요."
-        case .social: return "오라버니, SNS 화면을 열었어요. 맥 자비스가 만든 캐러셀을 확인할게요."
-        default: return "오라버니, \(title) 화면을 열었어요. 맥 자비스가 아직 연결되지 않아 실제 데이터는 표시하지 않았어요."
+        case .core: return "DECHIVE, 코어 화면으로 돌아왔어요."
+        case .dashboard: return "DECHIVE, 전체 현황 화면을 열었어요. 맥에서 가져오는 정보는 아직 연결 전이에요."
+        case .projects: return "DECHIVE, 프로젝트 화면을 열었어요. 확인 가능한 기록을 불러올게요."
+        case .calendar: return "DECHIVE, 이디스 캘린더를 열었어요. 저장된 일정과 새 일정을 확인할 수 있어요."
+        case .alarm: return "DECHIVE, 이디스 알람을 열었어요. 원하는 시각을 설정하고 저장해 주세요."
+        case .social: return "DECHIVE, SNS 화면을 열었어요. 맥 이디스가 만든 캐러셀을 확인할게요."
+        default: return "DECHIVE, \(title) 화면을 열었어요. 맥 이디스가 아직 연결되지 않아 실제 데이터는 표시하지 않았어요."
         }
     }
 }

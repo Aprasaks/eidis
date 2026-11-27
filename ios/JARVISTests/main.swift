@@ -24,7 +24,7 @@ struct JARVISMobileIntentTests {
                          response.contains("연결한 후"),
                          "Unverified remote success message for \(phrase)")
         }
-        precondition(JARVISCommand.response(to: "애기야") .contains("오라버니"))
+        precondition(JARVISCommand.response(to: "애기야") .contains("DECHIVE"))
         print("PASS: 8 iOS local intent examples and 3 no-fake-remote-succcess assertions")
     }
 }

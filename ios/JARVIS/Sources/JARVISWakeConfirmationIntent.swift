@@ -13,14 +13,14 @@ enum JARVISWakeConfirmation {
 @available(iOS 26.0, *)
 struct JARVISWakeConfirmationIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "일어났어"
-    static var description = IntentDescription("JARVIS 알람을 끄고 기상 확인을 기록합니다.")
+    static var description = IntentDescription("EIDIS 알람을 끄고 기상 확인을 기록합니다.")
 
     // The stop must work while the app is in the background. When permitted,
     // iOS may bring JARVIS to the foreground afterwards; unlocking is managed
     // by iOS, not bypassed by the app.
     static var supportedModes: IntentModes = [.background, .foreground(.deferred)]
 
-    @Parameter(title: "JARVIS 알람 ID")
+    @Parameter(title: "EIDIS 알람 ID")
     var alarmID: String
 
     init(alarmID: String) {

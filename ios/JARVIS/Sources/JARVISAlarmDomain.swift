@@ -12,7 +12,7 @@ struct JARVISAlarmRecord: Codable, Identifiable, Equatable {
     var isEnabled: Bool
     var createdAt: Date
 
-    init(id: UUID = UUID(), title: String = "좋은 아침이에요, 오라버니",
+    init(id: UUID = UUID(), title: String = "좋은 아침이에요, DECHIVE",
          hour: Int = 7, minute: Int = 0, weekdays: [Int] = [],
          isEnabled: Bool = true, createdAt: Date = Date()) {
         self.id = id
@@ -88,9 +88,9 @@ enum JARVISAlarmError: LocalizedError {
         case .invalid(let message), .storage(let message), .system(let message):
             message
         case .unsupported:
-            "자비스 알람은 iOS 26 이상에서 사용할 수 있어요."
+            "이디스 알람은 iOS 26 이상에서 사용할 수 있어요."
         case .denied:
-            "알람 권한이 필요해요. iPhone 설정에서 JARVIS의 알람 접근을 허용해 주세요."
+            "알람 권한이 필요해요. iPhone 설정에서 EIDIS의 알람 접근을 허용해 주세요."
         }
     }
 }

@@ -50,14 +50,14 @@ struct JARVISCalendarPairingView: View {
                     }
                 } else if nearby.remembered {
                     Section {
-                        Text("Mac 자비스가 실행 중이어야 합니다. 외부에서는 두 기기의 Tailscale 연결을 확인하세요.")
+                        Text("Mac 이디스가 실행 중이어야 합니다. 외부에서는 두 기기의 Tailscale 연결을 확인하세요.")
                             .font(.footnote)
                         Button("다시 연결 시도") { nearby.setForeground(true); nearby.refreshProjects() }
                         Button("기기 등록 해제", role: .destructive) { nearby.disconnect() }
                     }
                 } else {
                     Section {
-                        Text("맥 자비스의 캘린더에서 'iPhone 연결'을 누르고 표시된 코드를 입력하세요.")
+                        Text("맥 이디스의 캘린더에서 'iPhone 연결'을 누르고 표시된 코드를 입력하세요.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                         TextField("연결 코드 12자리", text: $code)

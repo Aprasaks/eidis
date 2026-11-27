@@ -374,7 +374,7 @@
 				CURRENT_PROJECT_VERSION = 19;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = JARVIS/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = JARVIS;
+				INFOPLIST_KEY_CFBundleDisplayName = EIDIS;
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "사용자가 승인하면 근처 Mac JARVIS와 암호화된 연결로 일정을 동기화합니다.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "사용자가 음성 버튼을 누르면 한국어 음성 명령을 듣기 위해 마이크를 사용합니다.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "JARVIS에서 한국어 음성 명령을 기기 내에서 인식합니다.";
@@ -402,7 +402,7 @@
 				CURRENT_PROJECT_VERSION = 19;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = JARVIS/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = JARVIS;
+				INFOPLIST_KEY_CFBundleDisplayName = EIDIS;
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "사용자가 승인하면 근처 Mac JARVIS와 암호화된 연결로 일정을 동기화합니다.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "사용자가 음성 버튼을 누르면 한국어 음성 명령을 듣기 위해 마이크를 사용합니다.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "JARVIS에서 한국어 음성 명령을 기기 내에서 인식합니다.";

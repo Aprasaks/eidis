@@ -152,7 +152,7 @@ struct JARVISHomeView: View {
 
     private var header: some View {
         HStack(alignment: .center) {
-            Text("JARVIS")
+            Text("EIDIS")
                 .font(.system(size: 22, weight: .semibold, design: .monospaced))
                 .tracking(4)
             Spacer()
@@ -205,8 +205,8 @@ struct JARVISHomeView: View {
                         ], center: .center, startRadius: 0, endRadius: 184)
                     }
                     .accessibilityLabel(active
-                        ? "맥 자비스 원본 금빛 코어 애니메이션 재생 중"
-                        : "맥 자비스 원본 금빛 코어 애니메이션 일시정지")
+                        ? "맥 이디스 원본 금빛 코어 애니메이션 재생 중"
+                        : "맥 이디스 원본 금빛 코어 애니메이션 일시정지")
                     .accessibilityAddTraits(.isImage)
             } else {
                 VStack(spacing: 8) {
@@ -226,7 +226,7 @@ struct JARVISHomeView: View {
 
     private var greeting: some View {
         VStack(spacing: 10) {
-            Text("안녕하세요 오라버니!")
+            Text("안녕하세요 DECHIVE!")
                 .font(.system(size: 23, weight: .medium))
                 .tracking(-0.7)
                 .multilineTextAlignment(.center)
@@ -309,7 +309,7 @@ struct JARVISHomeView: View {
 
     private var composer: some View {
         HStack(spacing: 10) {
-            TextField("자비스에게 말하기…", text: $prompt)
+            TextField("이디스에게 말하기…", text: $prompt)
                 .font(.system(size: 14))
                 .submitLabel(.send)
                 .focused($inputFocused)
@@ -318,7 +318,7 @@ struct JARVISHomeView: View {
                 .frame(height: 48)
                 .background(JARVISPalette.panel, in: Capsule())
                 .overlay(Capsule().stroke(JARVISPalette.panelEdge))
-                .accessibilityLabel("자비스 텍스트 명령")
+                .accessibilityLabel("이디스 텍스트 명령")
 
             if !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 Button(action: submitPrompt) {
@@ -379,19 +379,19 @@ struct JARVISHomeView: View {
            (["맞춰", "설정", "추가", "등록", "깨워"].contains { compact.contains($0) }) {
             selectedPage = .alarm
             showingAlarmManualEntry = true
-            voice.speak("오라버니, 자비스 알람 작성 화면을 열었어요. 시간을 확인하고 저장을 눌러 주세요.", for: input)
+            voice.speak("DECHIVE, 이디스 알람 작성 화면을 열었어요. 시간을 확인하고 저장을 눌러 주세요.", for: input)
             return
         }
         if let proposal = JARVISCalendarSpeechParser.parse(input) {
             selectedPage = .calendar
             proposedEvent = proposal
-            voice.speak("오라버니, \(proposal.evidence)으로 이해했어요. 내용을 확인하고 저장을 눌러 주세요.", for: input)
+            voice.speak("DECHIVE, \(proposal.evidence)으로 이해했어요. 내용을 확인하고 저장을 눌러 주세요.", for: input)
             return
         }
         if JARVISCalendarSpeechParser.requestsCreation(input) {
             selectedPage = .calendar
             showingCalendarManualEntry = true
-            voice.speak("오라버니, 날짜나 오전·오후가 불분명해요. 일정 확인 화면에서 정확한 시간을 지정해 주세요.", for: input)
+            voice.speak("DECHIVE, 날짜나 오전·오후가 불분명해요. 일정 확인 화면에서 정확한 시간을 지정해 주세요.", for: input)
             return
         }
         if let page = JARVISMobilePage.requestedPage(for: input) {

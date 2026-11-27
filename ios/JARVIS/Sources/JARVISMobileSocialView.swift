@@ -133,7 +133,7 @@ struct JARVISMobileSocialView: View {
     }
 
     private var emptyCard: some View {
-        Text("검토할 캐러셀이 없어요. Mac 자비스가 매일 01:30에 새 위키 글로 만들어요.")
+        Text("검토할 캐러셀이 없어요. Mac 이디스가 매일 01:30에 새 위키 글로 만들어요.")
             .font(.system(size: 13))
             .foregroundStyle(JARVISPalette.muted)
             .frame(maxWidth: .infinity, alignment: .leading)

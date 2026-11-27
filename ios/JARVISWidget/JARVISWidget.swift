@@ -30,7 +30,7 @@ private enum Palette {
 private func number(_ value: Int?) -> String { value.map { $0.formatted() } ?? "—" }
 
 private func headline(_ s: JARVISWidgetSummary?) -> String {
-    guard let s else { return "자비스를 열어 연결" }
+    guard let s else { return "이디스를 열어 연결" }
     if s.waitingApprovals > 0 { return "승인 대기 \(s.waitingApprovals)" }
     if s.latestStatus == "posted" { return "오늘 게시 완료" }
     if s.nextPostTitle != nil { return "22시 게시 예정" }
@@ -44,10 +44,10 @@ struct JARVISWidgetView: View {
     var body: some View {
         switch family {
         case .accessoryInline:
-            Text("JARVIS · " + headline(entry.summary))
+            Text("EIDIS · " + headline(entry.summary))
         case .accessoryRectangular:
             VStack(alignment: .leading, spacing: 1) {
-                Text("JARVIS").font(.system(size: 12, weight: .bold, design: .monospaced))
+                Text("EIDIS").font(.system(size: 12, weight: .bold, design: .monospaced))
                 Text(headline(entry.summary)).font(.system(size: 13, weight: .semibold))
                 Text("팔로워 \(number(entry.summary?.globalFollowers)) · YT \(number(entry.summary?.youtubeSubscribers))")
                     .font(.system(size: 12))
@@ -63,7 +63,7 @@ struct JARVISWidgetView: View {
     private var small: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("JARVIS").font(.system(size: 12, weight: .bold, design: .monospaced)).foregroundStyle(Palette.gold)
+                Text("EIDIS").font(.system(size: 12, weight: .bold, design: .monospaced)).foregroundStyle(Palette.gold)
                 Spacer()
                 Circle().fill((entry.summary?.waitingApprovals ?? 0) > 0 ? Palette.gold : Palette.mint).frame(width: 7, height: 7)
             }
@@ -78,7 +78,7 @@ struct JARVISWidgetView: View {
     private var medium: some View {
         HStack(alignment: .top, spacing: 14) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("JARVIS · SNS").font(.system(size: 12, weight: .bold, design: .monospaced)).foregroundStyle(Palette.gold)
+                Text("EIDIS · SNS").font(.system(size: 12, weight: .bold, design: .monospaced)).foregroundStyle(Palette.gold)
                 Text(headline(entry.summary)).font(.system(size: 18, weight: .semibold)).foregroundStyle(.white)
                 if let title = entry.summary?.nextPostTitle {
                     Text(title).font(.system(size: 12)).foregroundStyle(Palette.muted).lineLimit(2)
@@ -113,7 +113,7 @@ struct JARVISStatusWidget: Widget {
                 .containerBackground(for: .widget) { Palette.black }
                 .widgetURL(URL(string: "jarvis://social"))
         }
-        .configurationDisplayName("JARVIS")
+        .configurationDisplayName("EIDIS")
         .description("승인 대기, 다음 게시, 팔로워와 구독자 수")
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryRectangular, .accessoryInline])
     }

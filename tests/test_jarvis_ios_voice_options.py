@@ -10,9 +10,10 @@ class JARVISIOSVoiceOptionTests(unittest.TestCase):
     def test_mobile_only_address_is_orabeoni(self):
         commands = (IOS / 'JARVISCommand.swift').read_text()
         home = (IOS / 'JARVISHomeView.swift').read_text()
-        self.assertIn('안녕하세요 오라버니!', home)
+        self.assertIn('안녕하세요 DECHIVE!', home)
         self.assertNotIn('오빠', commands)
-        self.assertIn('오라버니', commands)
+        self.assertIn('DECHIVE', commands)
+        self.assertNotIn('오라버니', commands)
         self.assertNotIn('JARVIS RESPONSE', home)
         self.assertNotIn('Text("LOCAL")', home)
 

@@ -43,7 +43,7 @@ struct JARVISCalendarView: View {
                         .frame(width: 43, height: 43)
                         .background(JARVISPalette.gold, in: Circle())
                 }
-                .accessibilityLabel("자비스 새 일정 추가")
+                .accessibilityLabel("이디스 새 일정 추가")
             }
             .padding(.top, 22)
 
@@ -295,7 +295,7 @@ struct JARVISCalendarEditor: View {
             Form {
                 if let recognizedDescription {
                     Section {
-                        Label("자비스가 이해한 일정: \(recognizedDescription)",
+                        Label("이디스가 이해한 일정: \(recognizedDescription)",
                               systemImage: "waveform")
                             .foregroundStyle(JARVISPalette.gold)
                         Text("음성 명령은 초안만 작성합니다. 아래 내용을 확인하고 '저장'을 누르기 전에는 일정이 추가되지 않습니다.")
@@ -366,7 +366,7 @@ struct JARVISCalendarEditor: View {
                 Button("삭제", role: .destructive) { delete() }
                 Button("취소", role: .cancel) {}
             } message: {
-                Text("이 일정은 자비스 캘린더에서 삭제됩니다.")
+                Text("이 일정은 이디스 캘린더에서 삭제됩니다.")
             }
             .preferredColorScheme(.dark)
         }

@@ -18,12 +18,12 @@ struct JARVISVoiceSettingsView: View {
                             .foregroundStyle(JARVISPalette.gold)
                         VStack(alignment: .leading, spacing: 4) {
                             Text("목소리 설정").font(.headline)
-                            Text("맥 자비스와 같은 ElevenLabs Voice ID")
+                            Text("맥 이디스와 같은 ElevenLabs Voice ID")
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    Text("아이폰 자비스는 오라버니라고 부릅니다. 맥 자비스의 호칭과 목소리 설정은 변경하지 않아요.")
+                    Text("아이폰 이디스는 DECHIVE라고 부릅니다. 맥 자비스의 호칭과 목소리 설정은 변경하지 않아요.")
                         .font(.footnote)
                 }
 
@@ -59,7 +59,7 @@ struct JARVISVoiceSettingsView: View {
                         Text("Flash v2.5 · 빠른 응답").tag("eleven_flash_v2_5")
                         Text("Multilingual v2").tag("eleven_multilingual_v2")
                     }
-                    Text("Mac JARVIS에서 확인된 Voice ID와 Flash v2.5를 기본값으로 설정했습니다. Voice ID 자체는 비밀 키가 아니에요.")
+                    Text("Mac EIDIS에서 확인된 Voice ID와 Flash v2.5를 기본값으로 설정했습니다. Voice ID 자체는 비밀 키가 아니에요.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     Button {
