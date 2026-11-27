@@ -16,9 +16,9 @@ class HomeStandbyDisplayRolesContract(unittest.TestCase):
         )[0]
         self.assertIn("JarvisLoopingCore(videoURL: videoURL, compact: compactCore,", body)
         self.assertIn("persistentPlayback: corePlayback", body)
-        self.assertIn("LinearGradient(stops: [", body)
-        self.assertIn(".init(color: .white, location: 0.765)", body)
-        self.assertIn(".init(color: .clear, location: 0.815)", body)
+        self.assertIn("RadialGradient(stops: [", body)  # 2026-11-27: 글자 없는 코어(잘림 해결)
+        self.assertIn("글자 없는 블렌더 원본으로 바꿔 가림막을 없앤다", body)
+        self.assertNotIn(".init(color: .clear, location: 0.815)", body)  # 2026-11-27: 캡션 가림막 제거
         self.assertNotIn("restingControls", body)
         self.assertNotIn("JarvisLiveDialoguePanel(dialogue: dialogue, quiet: true)", body)
         self.assertIn("if workspaceActive {", body)

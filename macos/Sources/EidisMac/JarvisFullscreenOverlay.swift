@@ -312,6 +312,8 @@ private struct JarvisSummonedView: View {
     @State private var typedText = ""
     @FocusState private var isInputFocused: Bool
     @State private var appeared = false
+    /// 소환할 때 한 번: 설계도 선이 그어지며 금색 코어가 생기는 연출 (DECHIVE_Core_Form, 3초)
+    @State private var formPlaying = JarvisCinematics.form != nil
     @State private var controlsHovered = false
     @State private var closeHovered = false
     @State private var showDiagnostics = false
@@ -391,6 +393,23 @@ private struct JarvisSummonedView: View {
                 // chroma-key artifacts or a visibly scaled transparency matte.
                 Color.black.opacity(appeared ? 1 : 0)
                     .ignoresSafeArea()
+                // 대시보드: 코어가 금빛 조각으로 분해 → 조각이 배경에 은은하게 떠다님 (패널 뒤)
+                if commandCenter {
+                    JarvisDebrisBackdrop()
+                        .ignoresSafeArea()
+                        .transition(.opacity)
+                }
+                // 소환 연출: 코어 루프 자리에 생성 영상을 먼저 틀고, 끝나면 루프를 처음부터 이어 튼다
+                if formPlaying && !commandCenter && !workspaceActive, let form = JarvisCinematics.form {
+                    JarvisCinematicClip(url: form) {
+                        corePlayback.player.seek(to: .zero)
+                        withAnimation(.easeOut(duration: 0.2)) { formPlaying = false }
+                    }
+                    .frame(width: area.size.width, height: area.size.height)
+                    .position(x: area.size.width / 2, y: area.size.height / 2)
+                    .zIndex(10)
+                    .allowsHitTesting(false)
+                }
                 JarvisLoopingCore(videoURL: videoURL, compact: compactCore,
                                   persistentPlayback: corePlayback)
                     .frame(width: commandCenter ? overviewCoreSize : (compactCore ? smallCore : area.size.width),
@@ -410,27 +429,23 @@ private struct JarvisSummonedView: View {
                                startRadius: 0, endRadius: overviewCoreSize * 0.50)
 
                         } else if compactCore {
-                            LinearGradient(stops: [
-                                .init(color: .white, location: 0.0),
-                                .init(color: .white, location: 0.72),
-                                .init(color: .clear, location: 0.82)
-                            ], startPoint: .top, endPoint: .bottom)
-                            .clipShape(Circle())
-                        } else {
-                            // The original clip contains text below the orbit.
-                            // Keep the core visible while fading out the caption.
-                            LinearGradient(stops: [
+                            // 글자 없는 코어(2026-11-27 교체)라 아래를 가릴 필요가 없다. 가장자리만 부드럽게.
+                            RadialGradient(stops: [
                                 .init(color: .white, location: 0),
-                                .init(color: .white, location: 0.765),
-                                .init(color: .clear, location: 0.815),
+                                .init(color: .white, location: 0.86),
                                 .init(color: .clear, location: 1)
-                            ], startPoint: .top, endPoint: .bottom)
+                            ], center: .center, startRadius: 0, endRadius: smallCore * 0.5)
+                        } else {
+                            // 예전 영상은 궤도 아래에 DECHIVE 글자가 박혀 있어 아래 20%를 가로로 가렸고,
+                            // 그 때문에 링 아래쪽이 잘렸다. 글자 없는 블렌더 원본으로 바꿔 가림막을 없앤다.
+                            Color.white
                         }
                     }
                     .position(x: commandCenter ? overviewFrame.midX : area.size.width / 2,
                               y: commandCenter ? overviewFrame.midY :
                                 workspaceActive ? area.size.height * 0.17 : area.size.height / 2)
-                    .opacity(dialogue.socialDashboardChannel != nil ? 0 : (appeared ? (workspaceActive ? 0.65 : (liveDashboard.workroomProject == nil ? 1 : 0.18)) : 0))
+                    .opacity(dialogue.socialDashboardChannel != nil || (formPlaying && !commandCenter && !workspaceActive) ? 0
+                             : (appeared ? (workspaceActive ? 0.65 : (liveDashboard.workroomProject == nil ? 1 : 0.18)) : 0))
                     .animation(reduceMotion ? nil : .easeInOut(duration: 0.72), value: compactCore)
                     // In the overview this is a foreground hologram, never a
                     // child of a dashboard card. Its transparent lane keeps

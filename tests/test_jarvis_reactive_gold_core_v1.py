@@ -17,8 +17,8 @@ class ReactiveCore(unittest.TestCase):
         self.assertIn("persistentPlayback: corePlayback", OVERLAY)
         self.assertIn('url(forResource: "DECHIVE_FullHD_Loop"', OVERLAY)
         self.assertNotIn("JarvisCoreReactiveEffects(dialogue:", OVERLAY)
-        self.assertIn(".init(color: .white, location: 0.765)", OVERLAY)
-        self.assertIn(".init(color: .clear, location: 0.815)", OVERLAY)
+        self.assertIn("글자 없는 블렌더 원본으로 바꿔 가림막을 없앤다", OVERLAY)  # 2026-11-27: 글자 없는 코어(잘림 해결)
+        self.assertNotIn(".init(color: .clear, location: 0.815)", OVERLAY)  # 2026-11-27: 캡션 가림막 제거
         # Experimental assets remain in source, not in the running HOME.
         self.assertIn('wake.status == "호출 대기 · Jarvis"', CORE)
 

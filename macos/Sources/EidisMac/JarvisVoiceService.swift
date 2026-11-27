@@ -66,7 +66,9 @@ final class JarvisVoiceService: ObservableObject {
     /// Mac 내장 음성 (대체용). 한글이 없으면 영어 음성으로 읽는다.
     private func speakNative(_ text: String, rateOverride: Double?) {
         if text.range(of: "[가-힣]", options: .regularExpression) == nil {
-            let english = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            // DECHIVE는 항상 "데카이브"로 (Mac 음성은 철자를 하나씩 읽으므로 발음대로 적어 준다)
+            let english = text.replacingOccurrences(of: "dechive", with: "Deh-kive", options: .caseInsensitive)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             guard !english.isEmpty else { return }
             synthesizer.stopSpeaking(at: .immediate)
             let utterance = AVSpeechUtterance(string: english)

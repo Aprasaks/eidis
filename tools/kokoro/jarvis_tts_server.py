@@ -41,7 +41,21 @@ def loudness(audio):
     return (np.tanh(boosted * 1.1) / np.tanh(1.1)).astype(np.float32) * 0.97
 
 
+# 브랜드 발음 고정: DECHIVE는 항상 "데카이브" (/dɛkˈaɪv/, Kokoro 표기 dɛkˈIv).
+# 기본 발음기는 글자를 하나씩 읽거나(D-E-C-H-I-V-E) 아예 건너뛴다.
+DECHIVE_IPA = "dɛkˈIv"
+_DECHIVE = re.compile(r"\bdechive(?:\.(wiki|dev|app))?\b", re.IGNORECASE)
+
+
+def pronounce(text: str) -> str:
+    def repl(m):
+        site = f" dot {m.group(1).lower()}" if m.group(1) else ""
+        return f"[Dechive](/{DECHIVE_IPA}/){site}"
+    return _DECHIVE.sub(repl, text)
+
+
 def synthesize(text: str, voice: str, speed: float) -> bytes:
+    text = pronounce(text)
     chunks = []
     with lock:
         for result in model.generate(text=text, voice=voice, speed=speed, lang_code=voice[0]):

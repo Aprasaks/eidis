@@ -33,5 +33,16 @@ class VoiceEnglish(unittest.TestCase):
         self.assertIn('text.contains("dashboard")', read("JarvisLiveDashboard.swift"))
 
 
+class DechiveName(unittest.TestCase):
+    def test_address_and_pronunciation(self):
+        lang = read("JarvisConversationLanguage.swift")
+        self.assertIn('Address the user as "DECHIVE"', lang)
+        self.assertIn('"Welcome back, DECHIVE. How can I help?"', lang)
+        server = (ROOT / "tools/kokoro/jarvis_tts_server.py").read_text(encoding="utf-8")
+        self.assertIn('DECHIVE_IPA = "dɛkˈIv"', server)
+        self.assertIn("text = pronounce(text)", server)
+        self.assertIn('with: "Deh-kive"', read("JarvisVoiceService.swift"))
+
+
 if __name__ == "__main__":
     unittest.main()

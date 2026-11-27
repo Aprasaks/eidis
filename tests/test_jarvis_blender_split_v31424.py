@@ -33,8 +33,8 @@ class BlenderSplit(unittest.TestCase):
 
     def test_stable_video_is_looped_with_caption_mask(self):
         self.assertIn('AVPlayerLooper(player: player, templateItem: AVPlayerItem(url: url))',OVERLAY)
-        self.assertIn('location: 0.765',OVERLAY)
-        self.assertIn('location: 0.815',OVERLAY)
+        self.assertIn('글자 없는 블렌더 원본으로 바꿔 가림막을 없앤다',OVERLAY)  # 2026-11-27: 글자 없는 코어로 교체(잘림 해결)
+        self.assertNotIn('location: 0.815', OVERLAY)  # 2026-11-27: 캡션 가림막 제거
         self.assertIn('persistentPlayback: corePlayback',OVERLAY)
 
 if __name__ == '__main__':unittest.main()

@@ -35,6 +35,10 @@ test -s "$RESOURCES/JARVIS.icns"
 # Use the user's original 1920x1080 clip verbatim. The old 720p alpha
 # conversion introduced visible edge noise on external ultrawide displays.
 cp "$PACKAGE/Resources/Art/DECHIVE_FullHD_Loop.mp4" "$RESOURCES/DECHIVE_FullHD_Loop.mp4"
+# 블렌더 연출 영상 (tools/blender): 코어 생성 · 분해 · 떠다니는 잔해
+for clip in DECHIVE_Core_Form DECHIVE_Core_Dissolve DECHIVE_Debris_Loop; do
+  [ -f "$PACKAGE/Resources/Art/$clip.mp4" ] && cp "$PACKAGE/Resources/Art/$clip.mp4" "$RESOURCES/$clip.mp4"
+done
 # Reactive clips caused unwanted flicker and unnecessary decoders.
 # Leave the source files available in Resources/Art for possible rollback,
 # but package only the single stable core video.
