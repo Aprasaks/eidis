@@ -296,6 +296,7 @@ final class JarvisOverlayConversation: ObservableObject {
             self.liveTranscript = String(partial.prefix(6000))
             self.lastPartialAt = Date()
         }
+        registerCompletionNotices()
     }
 
     static var microphoneAlreadyAuthorized: Bool {
@@ -581,6 +582,26 @@ final class JarvisOverlayConversation: ObservableObject {
         let token = generation
         dialogueTask = Task { [weak self] in
             await self?.handleQuestion(trimmed, token: token, typed: true)
+        }
+    }
+
+    /// P1 CLI 완료 알림: 대화 중(듣기·생각·말하기)에는 끼어들지 않고, 끊긴 틈에 대화창에 남기고 말한다.
+    /// 글자 채팅 중이거나 밤 시간이면 말하지 않고 대화창에만 남긴다.
+    private func registerCompletionNotices() {
+        JarvisCompletionNotices.shared.deliver = { [weak self] notice, speakAllowed in
+            guard let self, !self.isThinking, !self.isSpeaking, !self.isListening,
+                  !self.soundOutputActive else { return false }
+            self.dialogueTurns.append(JarvisLiveDialogueTurn(role: "DECHIVE", content: notice.text))
+            if self.dialogueTurns.count > 12 { self.dialogueTurns.removeFirst(self.dialogueTurns.count - 12) }
+            guard speakAllowed, !self.casualChatMode else { return true }
+            self.isSpeaking = true
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                await self.elevenLabs.speak(JarvisConversationLanguage.spoken(notice.text), fallback: self.macVoice)
+                await self.elevenLabs.waitForOutputToFinish(fallback: self.macVoice)
+                self.isSpeaking = false
+            }
+            return true
         }
     }
 

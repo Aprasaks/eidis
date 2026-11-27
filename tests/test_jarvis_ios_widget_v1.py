@@ -28,7 +28,7 @@ class IOSWidget(unittest.TestCase):
         nearby = read("JARVIS/Sources/JARVISMobileNearbyCalendar.swift")
         self.assertIn("snapshot.widgetSummary.save()", nearby)
         self.assertIn("WidgetCenter.shared.reloadAllTimelines()", nearby)
-        self.assertIn('url.scheme == "jarvis", url.host == "social"', read("JARVIS/Sources/JARVISHomeView.swift"))
+        self.assertIn('url.scheme == "jarvis", let host = url.host, let page = JARVISMobilePage(rawValue: host)', read("JARVIS/Sources/JARVISHomeView.swift"))
 
 
 if __name__ == "__main__":

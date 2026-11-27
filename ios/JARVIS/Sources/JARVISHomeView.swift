@@ -152,7 +152,7 @@ struct JARVISHomeView: View {
         }
         .onOpenURL { url in
             // 위젯을 누르면 SNS 화면으로 (jarvis://social)
-            if url.scheme == "jarvis", url.host == "social" { selectedPage = .social }
+            if url.scheme == "jarvis", let host = url.host, let page = JARVISMobilePage(rawValue: host) { selectedPage = page }
         }
         .onChange(of: scenePhase) { _, phase in
             nearby.setForeground(phase == .active)

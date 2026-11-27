@@ -756,14 +756,26 @@ final class JarvisAgentTerminalBay: ObservableObject {
         }
     }
 
-    func runReadOnly(_ id: JarvisAgentID, prompt: String) {
-        guard !nightShiftRunning else { return }
+    /// 실행하지 못하면 이유를 돌려주고 작업 패널 기록에도 남긴다 (예전에는 아무 말 없이 무시됐다).
+    @discardableResult
+    func runReadOnly(_ id: JarvisAgentID, prompt: String) -> String? {
+        func refuse(_ reason: String) -> String {
+            append(id, "실행 안 함 · " + reason)
+            record(id.title + " · " + reason)
+            return reason
+        }
+        guard !nightShiftRunning else { return refuse("밤 지식 작업이 도는 중이라 끝난 뒤에 맡길 수 있어요.") }
         let question = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !question.isEmpty, question.count <= 500,
-              !question.unicodeScalars.contains(where: { $0.value == 0 }), !isAnyRunning else { return }
+        guard !question.isEmpty else { return refuse("요청 내용이 비어 있어요.") }
+        guard question.count <= 500 else { return refuse("요청이 500자를 넘어요. 짧게 줄여 주세요.") }
+        guard !question.unicodeScalars.contains(where: { $0.value == 0 }) else { return refuse("요청에 읽을 수 없는 문자가 있어요.") }
+        guard !isAnyRunning else {
+            let busy = JarvisAgentID.allCases.first { processes[$0] != nil }?.title ?? "다른 CLI"
+            return refuse("\(busy) 작업이 아직 도는 중이에요. 끝나면 알려드릴게요.")
+        }
         guard let path = executablePaths[id] ?? executable(for: id) else {
             update(id) { $0.state = .missing }
-            return
+            return refuse("\(id.title) 실행 파일을 찾지 못했어요.")
         }
         // Model execution is explicit, limited to an existing project,
         // and guarded by the CLI's own read-only / plan permissions.
@@ -783,6 +795,7 @@ final class JarvisAgentTerminalBay: ObservableObject {
                          "--skip-git-repo-check", "--json", task]
         }
         launch(id, executable: path, arguments: arguments, isProbe: false)
+        return nil
     }
 
     func cancel(_ id: JarvisAgentID) {
@@ -966,6 +979,16 @@ final class JarvisAgentTerminalBay: ObservableObject {
                                 (aborted ? " · 사용자 중단" : code == 0 ? " · 정상 완료" : " · 오류"))
                     self.record(id.title + " · 종료 코드 " + String(code) +
                                 (aborted ? " · 중단" : ""))
+                }
+                // P1 완료 알림: 직접 맡긴 작업과 수동 지식 작업만. 밤 근무·Sanity 등록은 조용히 둔다.
+                if !probe && sanityRunID == nil && !(pilotID != nil && self.nightShiftRunning) {
+                    var detail = self.lane(id).logs.suffix(40).joined(separator: "\n")
+                    if pilotID != nil, let folder = self.knowledgePilot?.directory,
+                       let result = try? String(contentsOf: folder.appendingPathComponent("result.md"), encoding: .utf8) {
+                        detail = result
+                    }
+                    JarvisCompletionNotices.shared.report(agent: id.title, ok: code == 0,
+                                                          cancelled: aborted, detail: detail)
                 }
                 if let pilotID {
                     self.finishKnowledgePilot(id: pilotID, code: code, aborted: aborted)
