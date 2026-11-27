@@ -2,6 +2,8 @@ import unittest
 from pathlib import Path
 R=Path(__file__).resolve().parents[1]
 COMMAND=(R/'macos/Sources/EidisMac/JarvisCommandCenterView.swift').read_text()
+# SNS·유튜브 패널은 대시보드 하단 'SNS / YOUTUBE' 버튼으로 여는 SNS 방(JarvisChannelMonitorView)으로 옮겨졌다.
+SNS_ROOM=(R/'macos/Sources/EidisMac/JarvisChannelMonitorView.swift').read_text()
 OVERLAY=(R/'macos/Sources/EidisMac/JarvisFullscreenOverlay.swift').read_text()
 GIT=(R/'macos/Sources/EidisMac/JarvisLocalGitScanner.swift').read_text()
 LIVE=(R/'macos/Sources/EidisMac/JarvisLiveDashboard.swift').read_text()
@@ -62,7 +64,8 @@ class CommandCenterContract(unittest.TestCase):
                      'RECORDED EVENTS', 'model.sourceChecks',
                      'model.recordedActivity', 'model.gitSnapshot', 'model.githubSnapshot',
                      '실제 기록 시각', 'GitHub는 로그인 계정의 API 결과'):
-            self.assertIn(text,COMMAND)
+            self.assertIn(text,COMMAND+SNS_ROOM)
+        self.assertIn('SNS / YOUTUBE', COMMAND)
         self.assertNotIn('fake statistics', COMMAND.lower())
-        self.assertIn('<string>3.14.47</string>', INFO)
+        self.assertRegex(INFO, r'<string>3\.\d+\.\d+</string>')   # 버전은 릴리스마다 오르므로 형식만 확인
 if __name__=='__main__':unittest.main()

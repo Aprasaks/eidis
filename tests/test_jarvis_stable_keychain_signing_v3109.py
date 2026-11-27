@@ -17,7 +17,7 @@ class StableKeychainSigning(unittest.TestCase):
                        'anchor apple generic',
                        'exit 2'):
             self.assertIn(needle, PACKAGE)
-        self.assertIn('<string>3.14.47</string>', INFO)
+        self.assertRegex(INFO, r'<string>3\.\d+\.\d+</string>')   # 버전은 릴리스마다 오르므로 형식만 확인
     def test_key_never_moved_to_insecure_settings_or_files(self):
         for needle in ('kSecClassGenericPassword',
                        'dev.dechive.eidis.elevenlabs',

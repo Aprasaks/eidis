@@ -51,7 +51,7 @@ class FixedViewportContract(unittest.TestCase):
         self.assertIn('"열어"',ROUTER)
         self.assertIn('"켜줘"',ROUTER)
         self.assertIn('return .show(.overview)',ROUTER)
-        self.assertIn('<string>3.14.47</string>',INFO)
+        self.assertRegex(INFO, r'<string>3\.\d+\.\d+</string>')   # 버전은 릴리스마다 오르므로 형식만 확인
         self.assertIn('JarvisLoopingCore(videoURL: videoURL, compact: compactCore,',OVERLAY)
 
 if __name__=='__main__': unittest.main()

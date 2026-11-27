@@ -1,3 +1,4 @@
+import sys
 import unittest, tempfile, subprocess, shutil
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
@@ -9,7 +10,7 @@ class SplitBudget(unittest.TestCase):
         self.assertIn("reserveRepair(topicCode: topic.code)",A)
         self.assertIn("검토 등록 3편 목표 달성",A)
         self.assertIn("recovery.lock",A)
-    @unittest.skipUnless(shutil.which("swift"),"Swift required")
+    @unittest.skipUnless(shutil.which("swift") and sys.platform == "darwin", "macOS Swift (Darwin/CryptoKit) required")
     def test_real_budget(self):
         source=C.split("enum JarvisKnowledgeDailyBudget {")[1].split("struct JarvisKnowledgePublicArticle")[0]
         with tempfile.TemporaryDirectory() as d:

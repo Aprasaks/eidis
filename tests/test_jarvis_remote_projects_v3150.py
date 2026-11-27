@@ -1,3 +1,4 @@
+import sys
 """Source contracts and real CryptoKit round trip for authenticated remote projects."""
 from pathlib import Path
 import shutil
@@ -43,7 +44,7 @@ class RemoteProjectContracts(unittest.TestCase):
         self.assertIn("stopRemoteRead()", PHONE)
         self.assertIn('object["requestID"] as? String == id', PHONE)
         self.assertIn("!self.connected, self.remembered", PHONE)
-    @unittest.skipUnless(shutil.which("swift"), "Swift required")
+    @unittest.skipUnless(shutil.which("swift") and sys.platform == "darwin", "macOS Swift (Darwin/CryptoKit) required")
     def test_real_cryptokit(self):
         wire = MAC.split("private enum JARVISRemoteWire {")[1]
         with tempfile.TemporaryDirectory() as tmp:

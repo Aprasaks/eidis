@@ -53,6 +53,6 @@ class JarvisEmbeddedBrowserContract(unittest.TestCase):
                       'browser: dialogue.browser', 'hotkey?.uninstallEscape()',
                       'self.dialogue?.browser.isVisible != true', 'DECHIVE_FullHD_Loop']:
             self.assertIn(token,OVERLAY)
-        self.assertIn('<string>3.14.47</string>',APP)
+        self.assertRegex(APP, r'<string>3\.\d+\.\d+</string>')   # 버전은 릴리스마다 오르므로 형식만 확인
 
 if __name__ == '__main__': unittest.main()

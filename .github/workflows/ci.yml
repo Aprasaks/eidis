@@ -38,6 +38,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Show Swift version
         run: swift --version
+      - name: Install Chrome bridge dependencies (bundled into the app)
+        run: npm ci --ignore-scripts
+        working-directory: tools/chrome-bridge
       - name: Build development JARVIS.app (no TCC prompts in CI)
         run: bash macos/scripts/package-app.sh
       - name: Test on-device Korean speech vocabulary hints

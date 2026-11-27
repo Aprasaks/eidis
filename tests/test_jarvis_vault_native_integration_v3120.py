@@ -40,6 +40,6 @@ class NativeVaultContract(unittest.TestCase):
         self.assertIn('CREATE TABLE IF NOT EXISTS vault_items',STORAGE)
         self.assertIn('CREATE UNIQUE INDEX IF NOT EXISTS vault_active_fingerprint_idx',STORAGE)
         self.assertIn('source_status',STORAGE)
-        self.assertIn('<string>3.14.47</string>',PLIST)
+        self.assertRegex(PLIST, r'<string>3\.\d+\.\d+</string>')   # 버전은 릴리스마다 오르므로 형식만 확인
 
 if __name__=='__main__': unittest.main()

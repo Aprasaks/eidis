@@ -23,8 +23,8 @@ class SummonOnlyLaunchTests(unittest.TestCase):
         self.assertIn('cmdKey | optionKey', OVERLAY)
         self.assertIn('event.keyCode == 53', OVERLAY)
         self.assertNotIn('SFSpeechRecognizer', OVERLAY)
-        self.assertIn('<string>3.14.47</string>', PLIST)
-        self.assertIn('<string>121</string>', PLIST)
+        self.assertRegex(PLIST, r'<string>3\.\d+\.\d+</string>')   # 버전은 릴리스마다 오르므로 형식만 확인
+        self.assertRegex(PLIST, r'<key>CFBundleVersion</key>\s*<string>\d+</string>')   # 빌드 번호는 설치마다 오른다
         self.assertIn('<string>15.0</string>', PLIST)
 
 if __name__ == '__main__':

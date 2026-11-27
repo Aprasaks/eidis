@@ -63,8 +63,8 @@ class JarvisImmersiveHomeContracts(unittest.TestCase):
             self.assertNotIn(bad, IMMERSIVE)
 
     def test_release_version(self):
-        self.assertIn('<string>3.14.47</string>', PLIST)
-        self.assertIn('<string>121</string>', PLIST)
+        self.assertRegex(PLIST, r'<string>3\.\d+\.\d+</string>')   # 버전은 릴리스마다 오르므로 형식만 확인
+        self.assertRegex(PLIST, r'<key>CFBundleVersion</key>\s*<string>\d+</string>')   # 빌드 번호는 설치마다 오른다
         self.assertIn('<string>dev.dechive.eidis</string>', PLIST)
 
 

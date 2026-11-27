@@ -37,7 +37,7 @@ class LiveDashboardContract(unittest.TestCase):
         self.assertIn('case .unavailable:',CONV)
         self.assertIn('_ = liveDashboard.hide()  // Never leave stale unrelated numbers visible.',CONV)
         self.assertIn('externalSignals = [',LIVE)
-        self.assertIn('<string>3.14.47</string>',INFO)
+        self.assertRegex(INFO, r'<string>3\.\d+\.\d+</string>')   # 버전은 릴리스마다 오르므로 형식만 확인
     def test_no_fabricated_status(self):
         self.assertIn('실제 값 확인 필요',UI)
         self.assertIn('연결 안 됨',UI)
