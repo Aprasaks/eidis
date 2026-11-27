@@ -74,7 +74,7 @@ let dashboard = JarvisDashboardHomeView(
 assertLayout(dashboard, title: "JARVIS v3.7 Dashboard (synthetic fixture)",
              width: 1140, height: 675, screenshot: output)
 let immersive = JarvisImmersiveHomeView(
-    snapshot: sample, onShowDashboard: {},
+    snapshot: sample, onShowDashboard: {}, onRefresh: {},
     onOpenWork: {}, onOpenSpeech: {},
     onOpenScreen: {}, onOpenDiagnostics: {}
 )
@@ -83,7 +83,7 @@ assertLayout(immersive, title: "JARVIS v3.8 immersive home (synthetic fixture)",
              screenshot: output.map { $0.replacingOccurrences(
                  of: "dashboard_fixture", with: "immersive_fixture") })
 assertLayout(JarvisImmersiveHomeView(
-    snapshot: offline, onShowDashboard: {}, onOpenWork: {},
+    snapshot: offline, onShowDashboard: {}, onRefresh: {}, onOpenWork: {},
     onOpenSpeech: {}, onOpenScreen: {}, onOpenDiagnostics: {}
 ), title: "JARVIS v3.8 immersive offline",
    width: 900, height: 600)

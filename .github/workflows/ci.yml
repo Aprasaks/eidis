@@ -71,7 +71,7 @@ jobs:
           /tmp/jarvis-bundled-server-guards "$PWD/dist/JARVIS.app/Contents/Resources"
       - name: Verify cinematic native dashboard and state-driven launch
         run: |
-          swiftc -o /tmp/jarvis-v37-dashboard-smoke macos/tests/dashboard/main.swift macos/Sources/EidisMac/JarvisSystemSnapshot.swift macos/Sources/EidisMac/JarvisCoreView.swift macos/Sources/EidisMac/JarvisStatusBadge.swift macos/Sources/EidisMac/JarvisIntroSplashView.swift macos/Sources/EidisMac/JarvisDashboardHomeView.swift macos/Sources/EidisMac/JarvisImmersiveHomeView.swift
+          swiftc -o /tmp/jarvis-v37-dashboard-smoke macos/tests/dashboard/main.swift macos/Sources/EidisMac/JarvisSystemSnapshot.swift macos/Sources/EidisMac/JarvisCoreView.swift macos/Sources/EidisMac/JarvisStatusBadge.swift macos/Sources/EidisMac/JarvisIntroSplashView.swift macos/Sources/EidisMac/JarvisDashboardHomeView.swift macos/Sources/EidisMac/JarvisImmersiveHomeView.swift macos/Sources/EidisMac/JarvisHologramView.swift
           /tmp/jarvis-v37-dashboard-smoke
 
       - name: Test Korean speech finalization decision (no microphone access)
@@ -80,7 +80,7 @@ jobs:
           /tmp/jarvis-voice-decision
       - name: Test DECHIVE selective thinking and explicit thought memory (no mic)
         run: |
-          swiftc -parse-as-library -o /tmp/dechive-thinking-smoke macos/tests/thinking/main.swift macos/Sources/EidisMac/JarvisThinkingCore.swift
+          swiftc -parse-as-library -o /tmp/dechive-thinking-smoke macos/tests/thinking/main.swift macos/Sources/EidisMac/JarvisThinkingCore.swift macos/Sources/EidisMac/JarvisLocalModelConfiguration.swift
           /tmp/dechive-thinking-smoke
       - name: Test Action Core explicit delegation and query parsing
         run: |
@@ -92,7 +92,7 @@ jobs:
           /tmp/dechive-research-smoke
       - name: Test Research 1.1 verification intents and shared model gate
         run: |
-          swiftc -parse-as-library -o /tmp/dechive-verification-smoke macos/tests/research/verification-smoke.swift macos/Sources/EidisMac/JarvisResearchVerification.swift macos/Sources/EidisMac/JarvisThinkingCore.swift
+          swiftc -parse-as-library -o /tmp/dechive-verification-smoke macos/tests/research/verification-smoke.swift macos/Sources/EidisMac/JarvisResearchVerification.swift macos/Sources/EidisMac/JarvisThinkingCore.swift macos/Sources/EidisMac/JarvisLocalModelConfiguration.swift
           /tmp/dechive-verification-smoke
       - name: Test Browser Control 1.0 intent and safe navigation policy
         run: |
