@@ -27,5 +27,16 @@ class WakeDaemon(unittest.TestCase):
         self.assertEqual(app.count(".handlesExternalEvents(matching: [])"), 4)
 
 
+class WakeDaemonCpuAndCrashGuard(unittest.TestCase):
+    """상시 듣기 CPU 절약(소리 있을 때만 모델) + 크래시 때만 자동 재실행 (2026-11-27)."""
+    def test_gate_and_guard(self):
+        src = (pathlib.Path(__file__).resolve().parents[1] / "tools/wakeword/jarvis_wake_daemon.py").read_text(encoding="utf-8")
+        self.assertIn("PREROLL", src)               # 'Hey' 앞부분을 잃지 않게 직전 소리를 보관
+        self.assertIn("model.reset()", src)
+        self.assertIn('"EidisMac-*.ips"', src)      # 크래시 보고서가 새로 생겼을 때만
+        self.assertIn('"-g", "-b", "dev.dechive.eidis"', src)
+        self.assertIn("closed normally", src)       # 정상 종료는 존중
+
+
 if __name__ == "__main__":
     unittest.main()
