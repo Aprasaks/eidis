@@ -29,8 +29,10 @@ final class JarvisCompletionNotices {
     /// 작업 하나가 끝났을 때 부른다. detail은 작업 출력의 마지막 부분(사람이 읽을 수 있는 줄).
     func report(agent: String, ok: Bool, cancelled: Bool, detail: String) {
         Task {
-            let fallback = cancelled ? "\(agent) 작업을 중단했어요."
-                : ok ? "\(agent) 작업이 끝났어요." : "\(agent) 작업이 오류로 끝났어요. 작업 패널에서 확인해 주세요."
+            let en = JarvisConversationLanguage.english
+            let fallback = cancelled ? (en ? "\(agent) task was stopped." : "\(agent) 작업을 중단했어요.")
+                : ok ? (en ? "\(agent) task is done." : "\(agent) 작업이 끝났어요.")
+                : (en ? "\(agent) task ended with an error. Check the work panel." : "\(agent) 작업이 오류로 끝났어요. 작업 패널에서 확인해 주세요.")
             var text = fallback
             if !cancelled, let summary = await Self.summarize(agent: agent, ok: ok, detail: detail) {
                 text = summary
@@ -63,7 +65,13 @@ final class JarvisCompletionNotices {
     private static func summarize(agent: String, ok: Bool, detail: String) async -> String? {
         let tail = String(detail.suffix(3_500)).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !tail.isEmpty else { return nil }
-        let system = """
+        let system = JarvisConversationLanguage.english ? """
+        You are EIDIS, DECHIVE's personal assistant. Below is the last output of a \(agent) task.
+        Tell DECHIVE the result in one or two natural, concise English sentences.
+        Start with what finished, like '\(agent) is done.', then give only the key result or the cause of an error.
+        Do not invent anything that is not in the output, and do not copy file paths, code or raw log lines. Never use Korean.
+        Task status: \(ok ? "finished normally" : "ended with an error")
+        """ : """
         당신은 DECHIVE의 개인 비서 이디스입니다. 아래는 \(agent) 작업의 마지막 출력입니다.
         DECHIVE에게 결과를 한두 문장의 자연스러운 한국어 해요체로 알려 주세요.
         첫 문장은 '\(agent) 작업 끝났어요.'처럼 무엇이 끝났는지로 시작하고, 핵심 결과나 오류 원인만 말하세요.

@@ -86,7 +86,7 @@ enum JarvisPhoneChat {
             policy + "\n" + JarvisPersona.systemGuidance +
             "\n[현재 Mac 날짜·시간 참고] " + JarvisLocalClock.context() +
             (profileContext.isEmpty ? "" : "\n" + profileContext) +
-            JarvisConversationLanguage.finalDirective]]
+            JarvisConversationLanguage.koreanDirective]]
         messages.append(contentsOf: toneExamples)
         messages.append(contentsOf: history)
         messages.append(["role": "user", "content": text])

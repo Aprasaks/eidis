@@ -27,7 +27,10 @@ class VoiceEnglish(unittest.TestCase):
     def test_english_conversation(self):
         lang = read("JarvisConversationLanguage.swift")
         self.assertIn('Locale(identifier: english ? "en-US" : "ko-KR")', lang)
-        self.assertIn("Always reply in natural, concise English as JARVIS", lang)
+        self.assertIn("Always reply in natural, concise English as EIDIS", lang)
+        # 2026-11-28: 맥은 영어가 기본, "ko"로 둘 때만 한국어. 폰 문자 대화는 한국어 유지.
+        self.assertIn('string(forKey: "jarvis.conversation.language") != "ko"', lang)
+        self.assertIn("JarvisConversationLanguage.koreanDirective", read("JarvisPhoneChat.swift"))
         convo = read("JarvisOverlayConversation.swift")
         self.assertEqual(convo.count("JarvisConversationLanguage.finalDirective"), 2)
         self.assertIn('text.contains("dashboard")', read("JarvisLiveDashboard.swift"))
