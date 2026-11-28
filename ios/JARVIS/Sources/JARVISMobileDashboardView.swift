@@ -81,7 +81,7 @@ enum JARVISMobilePage: String, CaseIterable, Identifiable {
         case .dashboard: "맥 데이터 연결 준비 중"
         case .calendar: "EIDIS 자체 일정 저장소 · 이 아이폰"
         case .alarm: "EIDIS 자체 알람 · iPhone 시스템"
-        case .approval: "캐러셀 검토·승인 · 맥 이디스"
+        case .approval: "SNS 캐러셀 · 지식 글 승인"
         case .memory: "맥 이디스 기획서 · 주식"
         case .stocks: "맥 이디스 증권 데이터 · 연결 전"
         case .projects: "공개 지식 현황 및 연결된 Mac 작업 기록"
@@ -243,7 +243,10 @@ struct JARVISMobileDataPageView: View {
                 JARVISCalendarView(store: calendar, nearby: nearby)
             } else if page == .projects {
                 JARVISMobileProjectsView(nearby: nearby)
-            } else if page == .social || page == .approval {
+            } else if page == .approval {
+                // 승인함 (P7 M2): SNS 캐러셀과 dechive.dev 지식 글을 한 탭에서 승인한다
+                JARVISApprovalInboxView(nearby: nearby)
+            } else if page == .social {
                 // SNS: Mac 자비스 캐러셀 미리보기·승인 (JARVISMobileSocialView.swift)
                 JARVISMobileSocialView(nearby: nearby)
             } else {
@@ -268,6 +271,31 @@ struct JARVISMobileDataPageView: View {
     }
 }
 
+
+/// 승인 탭 (기획서 P7 M2): 승인이 필요한 것을 한곳에.
+/// - SNS: 이디스가 만든 캐러셀 미리보기 → 승인하면 22:00 인스타 · 09:00 Threads 자동 게시
+/// - 지식 글: 밤 작업이 만든 dechive.dev 원고 → 목차 순서대로 확인 후 발행
+struct JARVISApprovalInboxView: View {
+    enum Section: String, CaseIterable, Identifiable {
+        case social = "SNS 캐러셀", knowledge = "지식 글"
+        var id: String { rawValue }
+    }
+    @ObservedObject var nearby: JARVISMobileNearbyCalendar
+    @State private var section: Section = .social
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Picker("승인 항목", selection: $section) {
+                ForEach(Section.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            switch section {
+            case .social: JARVISMobileSocialView(nearby: nearby)
+            case .knowledge: JARVISMobileProjectsView(nearby: nearby)
+            }
+        }
+    }
+}
 
 /// Project metadata and owner-only staged article previews.
 struct JARVISProjectSnapshot: Decodable {
