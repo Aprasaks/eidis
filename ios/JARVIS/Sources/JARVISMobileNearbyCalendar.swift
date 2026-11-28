@@ -431,10 +431,13 @@ final class JARVISMobileNearbyCalendar: NSObject, ObservableObject {
 
     // MARK: 기억 탭 · 프로젝트 기획서 (Mac: JarvisPlanRemote.swift · 읽기 전용)
 
-    @Published private(set) var planDocs: [JARVISPlanDoc] = []
-    @Published private(set) var planStatus = "Mac 기획서 확인 전"
+    // 마지막으로 받은 기획서는 폰에 저장해 둔다 → 맥과 연결이 끊겨도(밖·맥 잠자기) 기억 탭에서 읽을 수 있다.
+    @Published private(set) var planDocs: [JARVISPlanDoc] = JARVISPlanCache.load()?.docs ?? []
+    @Published private(set) var planStatus = JARVISPlanCache.load().map {
+        "폰에 저장된 기획서 · \($0.receivedAt.formatted(.dateTime.month().day().hour().minute()))"
+    } ?? "Mac 기획서 확인 전"
     @Published private(set) var planLoading = false
-    @Published private(set) var planReceivedAt: Date?
+    @Published private(set) var planReceivedAt: Date? = JARVISPlanCache.load()?.receivedAt
 
     func refreshPlans() {
         guard !planLoading else { return }
@@ -447,7 +450,7 @@ final class JARVISMobileNearbyCalendar: NSObject, ObservableObject {
             self.planLoading = false
             guard let data, let reply = try? JSONDecoder().decode(JARVISPlanDocsReply.self, from: data) else {
                 if let at = self.planReceivedAt {
-                    self.planStatus = "마지막으로 받은 기획서 · \(at.formatted(date: .omitted, time: .shortened))"
+                    self.planStatus = "맥 연결 없음 · 폰에 저장된 기획서 (\(at.formatted(.dateTime.month().day().hour().minute())))"
                 } else {
                     self.planStatus = "맥북이 연결되면 기획서를 받아올게요"
                 }
@@ -455,6 +458,7 @@ final class JARVISMobileNearbyCalendar: NSObject, ObservableObject {
             }
             self.planDocs = reply.docs
             self.planReceivedAt = Date()
+            JARVISPlanCache.save(reply.docs, at: Date())
             self.planStatus = reply.docs.isEmpty ? "맥북에 기획서가 없어요" : "기획서 \(reply.docs.count)개"
         }
     }

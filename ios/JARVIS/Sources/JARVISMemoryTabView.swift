@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: 기획서 데이터 (Mac JarvisPlanRemote.swift 의 "planDocs" 응답)
 
-struct JARVISPlanDoc: Decodable, Identifiable, Hashable {
+struct JARVISPlanDoc: Codable, Identifiable, Hashable {
     let file: String
     let title: String
     let updatedAt: String
@@ -18,6 +18,26 @@ struct JARVISPlanDoc: Decodable, Identifiable, Hashable {
 
 struct JARVISPlanDocsReply: Decodable {
     let docs: [JARVISPlanDoc]
+}
+
+/// 마지막으로 받은 기획서를 폰 안(Application Support)에 저장한다. 맥 없이도 기억 탭에서 읽기 위해.
+struct JARVISPlanCache: Codable {
+    let docs: [JARVISPlanDoc]
+    let receivedAt: Date
+
+    private static var file: URL? {
+        guard let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return nil }
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("eidis-plan-docs.json")
+    }
+    static func load() -> JARVISPlanCache? {
+        guard let file, let data = try? Data(contentsOf: file) else { return nil }
+        return try? JSONDecoder().decode(JARVISPlanCache.self, from: data)
+    }
+    static func save(_ docs: [JARVISPlanDoc], at date: Date) {
+        guard let file, let data = try? JSONEncoder().encode(JARVISPlanCache(docs: docs, receivedAt: date)) else { return }
+        try? data.write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    }
 }
 
 // MARK: 주식 데이터 (Mac JarvisStockBoard.phoneSnapshot 의 "stockSnapshot" 응답)
@@ -91,7 +111,7 @@ struct JARVISMemoryTabView: View {
             }
         }
         .sheet(item: $openDoc) { JARVISPlanDocView(doc: $0) }
-        .task { if nearby.planDocs.isEmpty { nearby.refreshPlans() } }
+        .task { nearby.refreshPlans() }
         .onChange(of: section) { _, now in if now == .stocks { nearby.refreshStocks() } }
     }
 
