@@ -28,6 +28,9 @@ import sounddevice as sd
 from openwakeword.model import Model
 
 MODEL = pathlib.Path.home() / ".jarvis-lab/wakeword/hey_jarvis_v0.1.onnx"
+# "이디스" 호출어 (tools/wakeword/train_eidis.py · P8 E3). 있으면 같이 듣는다.
+EIDIS_MODEL = pathlib.Path.home() / ".jarvis-lab/wakeword/eidis_wake.onnx"
+EIDIS_THRESHOLD = 0.8
 RATE, CHUNK = 16000, 1280          # 80 ms frames (openWakeWord standard)
 THRESHOLD = 0.6
 COOLDOWN = 10.0
@@ -89,11 +92,12 @@ class CrashGuard:
 
 
 def main():
-    model = Model(wakeword_models=[str(MODEL)], inference_framework="onnx")
+    models = [str(MODEL)] + ([str(EIDIS_MODEL)] if EIDIS_MODEL.exists() else [])
+    model = Model(wakeword_models=models, inference_framework="onnx")
     last_hit = 0.0
     guard = CrashGuard()
     guard_tick = time.time()
-    log("listening for 'Hey JARVIS'")
+    log("listening for 'Hey JARVIS'" + (" and 'EIDIS'" if len(models) > 1 else ""))
     with sd.InputStream(samplerate=RATE, channels=1, dtype="int16", blocksize=CHUNK) as stream:
         heard = 0.0
         last_minute = 0
@@ -115,12 +119,21 @@ def main():
                         model.predict(old)
                     preroll.clear()
                 open_frames = HANGOVER if loud else open_frames - 1
-                score = float(max(model.predict(pcm).values()))
+                scores = model.predict(pcm)
+                jarvis = float(scores.get(MODEL.stem, 0.0))
+                eidis = float(scores.get(EIDIS_MODEL.stem, 0.0))
                 now = time.time()
-                if score >= THRESHOLD and now - last_hit > COOLDOWN:
+                if jarvis >= THRESHOLD and now - last_hit > COOLDOWN:
+                    # "Hey JARVIS" → 흰빛→금빛 코어 · Welcome home · 대시보드
                     last_hit = now
-                    log(f"wake {score:.2f}")
+                    log(f"wake {jarvis:.2f}")
                     subprocess.run(["/usr/bin/open", "jarvis-mac://wake-dashboard"], check=False)
+                    model.reset()
+                elif eidis >= EIDIS_THRESHOLD and now - last_hit > COOLDOWN:
+                    # "이디스" → "What can I help you with?" 후 바로 듣기
+                    last_hit = now
+                    log(f"eidis {eidis:.2f}")
+                    subprocess.run(["/usr/bin/open", "jarvis-mac://wake-eidis"], check=False)
                     model.reset()
                 if open_frames == 0:
                     model.reset()                      # gate closes: rest the model

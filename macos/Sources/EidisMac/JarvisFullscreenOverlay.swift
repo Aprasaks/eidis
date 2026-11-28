@@ -1935,6 +1935,32 @@ final class JarvisFullscreenOverlay: ObservableObject {
         }
     }
 
+    /// "이디스" 호출어 (jarvis-mac://wake-eidis · tools/wakeword/eidis_wake.onnx, P8 E3).
+    /// 대시보드를 열지 않고 코어 앞에서 "What can I help you with?"라고 묻고 바로 듣는다.
+    func wakeToListen() {
+        guard wakeTask == nil else { return }
+        NSLog("EIDIS: name wake → listen")
+        show()
+        NSApp.activate(ignoringOtherApps: true)
+        wakeTask = Task { @MainActor [weak self] in
+            defer { self?.wakeTask = nil }
+            try? await Task.sleep(for: .milliseconds(400))
+            let line = JarvisConversationLanguage.english ? "What can I help you with?" : "네, DECHIVE. 뭘 도와드릴까요?"
+            let voice = self?.wakeVoice
+            if JarvisConversationLanguage.english, await JarvisKokoroVoice.shared.speak(line) {
+            } else {
+                voice?.speak(line)
+            }
+            try? await Task.sleep(for: .milliseconds(150))
+            for _ in 0..<60 where voice?.isSpeaking == true {
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+            // 이디스 목소리가 끝난 뒤에 듣기 시작한다 (자기 목소리를 받아 적지 않도록)
+            try? await Task.sleep(for: .milliseconds(350))
+            self?.dialogue?.activateListening()
+        }
+    }
+
     private func present(fullscreenDialogue: JarvisOverlayConversation?) {
         NSLog("JARVIS: show requested")
         guard panel == nil,

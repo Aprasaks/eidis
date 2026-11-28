@@ -214,6 +214,11 @@ final class JarvisAppLifecycle: NSObject, NSApplicationDelegate {
             if server.ready { localModelWarmup.warmNow() }
             fullscreen.wakeToDashboard()
         }
+        // "이디스" 호출어: 대시보드 없이 "What can I help you with?" → 바로 듣기
+        for url in urls where url.scheme == "jarvis-mac" && url.host == "wake-eidis" {
+            if server.ready { localModelWarmup.warmNow() }
+            fullscreen.wakeToListen()
+        }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication,
