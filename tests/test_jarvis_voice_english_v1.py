@@ -13,7 +13,7 @@ def read(name):
 class VoiceEnglish(unittest.TestCase):
     def test_single_voice_route(self):
         kokoro = read("JarvisKokoroVoice.swift")
-        self.assertIn('static let voice = "af_heart"', kokoro)
+        self.assertIn('static let voice = "am_michael"', kokoro)
         self.assertIn('env["HF_HUB_OFFLINE"] = "1"', kokoro)
         voice = read("JarvisVoiceService.swift")
         self.assertIn("if JarvisKokoroVoice.shared.isPrimary && JarvisConversationLanguage.english {", voice)

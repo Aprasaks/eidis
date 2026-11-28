@@ -1,6 +1,6 @@
 import Foundation
 
-/// 이디스 대화 언어. 2026-11-28 사용자 결정 변경: 맥은 전부 영어 (Kokoro af_heart · 호칭 DECHIVE).
+/// 이디스 대화 언어. 2026-11-28 사용자 결정 변경: 맥은 전부 영어 (Kokoro am_michael · 호칭 DECHIVE).
 /// UserDefaults "jarvis.conversation.language" = "ko"로 두면 한국어·유나 프리미엄으로 되돌아간다.
 enum JarvisConversationLanguage {
     static var english: Bool { UserDefaults.standard.string(forKey: "jarvis.conversation.language") != "ko" }

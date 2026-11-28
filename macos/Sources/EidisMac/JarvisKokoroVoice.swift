@@ -12,7 +12,8 @@ import AVFoundation
 final class JarvisKokoroVoice {
     static let shared = JarvisKokoroVoice()
 
-    static let voice = "af_heart"
+    // 2026-11-28 사용자 선택 변경: af_heart → am_michael (남자 목소리, "Hey JARVIS" 시험에서 고름)
+    static let voice = "am_michael"
     private static let endpoint = URL(string: "http://127.0.0.1:8792")!
     private static let home = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".jarvis-lab/tts")
     private var player: AVAudioPlayer?

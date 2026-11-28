@@ -20,7 +20,7 @@ from mlx_audio.tts.utils import load_model
 
 HOST, PORT = "127.0.0.1", 8792
 MODEL_ID = "mlx-community/Kokoro-82M-bf16"
-DEFAULT_VOICE = "af_heart"
+DEFAULT_VOICE = "am_michael"
 VOICES = re.compile(r"^(a|b)(f|m)_[a-z]{2,12}$")
 MAX_CHARS = 1200
 
