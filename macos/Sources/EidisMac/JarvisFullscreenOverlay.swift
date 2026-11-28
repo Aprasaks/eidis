@@ -1858,7 +1858,9 @@ final class JarvisFullscreenOverlay: ObservableObject {
         }
         miniDialogue = nil
         miniPanel.orderOut(nil)
-        miniPanel.contentView = nil
+        // K4 크래시: 버튼 동작 안에서 창 내용을 바로 지우면 SwiftUI가 클릭 처리를 끝내기 전에
+        // 버튼이 사라져 _ButtonGesture → MainActor.assumeIsolated 에서 죽었다. 다음 차례에 비운다.
+        DispatchQueue.main.async { miniPanel.contentView = nil }
         self.miniPanel = nil
         hotkey?.uninstallMicrophone()
     }
@@ -2146,7 +2148,7 @@ final class JarvisFullscreenOverlay: ObservableObject {
         guard let chat = detachedChatPanel else { return }
         detachedChatPanel = nil
         chat.orderOut(nil)
-        chat.contentView = nil
+        DispatchQueue.main.async { chat.contentView = nil }   // K4: 클릭 처리가 끝난 뒤 비운다
         miniDialogue?.textInputFocused = false
         NSLog("JARVIS: mini casual chat closed; mini core remains active")
     }
@@ -2274,7 +2276,8 @@ final class JarvisFullscreenOverlay: ObservableObject {
         interactionMonitor = nil
         horizontalScrollTotal = 0
         window.orderOut(nil)
-        window.contentView = nil // releases video layer and pauses AVPlayerLooper
+        // releases video layer and pauses AVPlayerLooper — K4: 닫기 버튼 클릭 처리가 끝난 뒤에 비운다
+        DispatchQueue.main.async { window.contentView = nil }
         onPresentationChanged?(false)
         if miniEnabled { showMini() } else { stopDeka("코어 닫힘 · 상시 대기 종료") }
     }
