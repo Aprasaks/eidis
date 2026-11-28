@@ -35,6 +35,8 @@ enum JarvisConversationLanguage {
     // 2026-11-27 사용자 요청: 호칭은 "DECHIVE" (발음은 데카이브 · 음성 서버가 고정)
     static var summonGreeting: String { english ? "Welcome back, DECHIVE. How can I help?" : "다시 오셨네요, DECHIVE. 뭘 도와드릴까요?" }
     static var wakeAcknowledgment: String { english ? "Yes, DECHIVE?" : "네, DECHIVE." }
+    /// "Hey JARVIS" 소환: 코어가 흰빛에서 금빛으로 바뀔 때 하는 인사 (2026-11-28 사용자 지정)
+    static var homeGreeting: String { english ? "Welcome home, DECHIVE." : "어서 오세요, DECHIVE." }
     static var dashboardOpening: String { english ? "Opening your dashboard, DECHIVE." : "대시보드 열게요, DECHIVE." }
 
     /// 소리 내어 읽을 문장: DECHIVE는 언제나 "데카이브"로 읽는다 (화면 글자는 DECHIVE 그대로).

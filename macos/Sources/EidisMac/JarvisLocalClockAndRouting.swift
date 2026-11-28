@@ -72,7 +72,7 @@ enum JarvisLocalClock {
 enum JarvisDialogueInput {
     static func command(_ text: String) -> String {
         text.trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: #"^(이디스|자비스|데카|jarvis|eidis)(?=$|[\s,，.!！?？])[,，.!！?？\s]*"#,
+            .replacingOccurrences(of: #"^(?:hey\s+)?(이디스|자비스|데카|jarvis|eidis|edith|eddis|edis|idis|aidis)(?=$|[\s,，.!！?？])[,，.!！?？\s]*"#,
                                   with: "", options: [.regularExpression,.caseInsensitive])
     }
     // Only an isolated personal wake phrase is a greeting. A following
@@ -80,8 +80,13 @@ enum JarvisDialogueInput {
     static func personalWakeGreeting(_ text:String) -> (reply:String, end:Bool)? {
         let compact = text.trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: #"[,，.!！?？\s]+"#, with: "", options: .regularExpression)
-        guard ["이디스", "이디스야", "자비스", "자비스야"].contains(compact) else { return nil }
-        return ("네, DECHIVE.", false)
+        // 영어 음성 인식은 "이디스"를 Edith·Eddis 등으로 받아 적는다. 이름만 불렀을 때만 인사한다.
+        let names = ["이디스", "이디스야", "자비스", "자비스야", "eidis", "edith", "eddis", "edis", "idis", "aidis",
+                     "jarvis", "heyeidis", "heyedith", "heyjarvis"]
+        guard names.contains(compact.lowercased()) else { return nil }
+        // 맥은 영어가 기본 (UserDefaults "jarvis.conversation.language" = "ko"일 때만 한국어)
+        let english = UserDefaults.standard.string(forKey: "jarvis.conversation.language") != "ko"
+        return (english ? "What can I help you with?" : "네, DECHIVE. 뭘 도와드릴까요?", false)
     }
     static func presenceOrEnd(_ text:String) -> (reply:String, end:Bool)? {
         let compact=command(text).filter{!$0.isWhitespace}.trimmingCharacters(in:CharacterSet(charactersIn:".!?？!！"))

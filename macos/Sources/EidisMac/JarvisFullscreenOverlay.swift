@@ -408,6 +408,11 @@ private struct JarvisSummonedView: View {
                 }
                 JarvisLoopingCore(videoURL: videoURL, compact: compactCore,
                                   persistentPlayback: corePlayback)
+                    .onChange(of: dialogue.formReplay) { _, _ in
+                        guard JarvisCinematics.form != nil else { return }
+                        formPlaying = false
+                        DispatchQueue.main.async { formPlaying = true }
+                    }
                     .frame(width: commandCenter ? overviewCoreSize : (compactCore ? smallCore : area.size.width),
                            height: commandCenter ? overviewCoreSize : (compactCore ? smallCore : area.size.height))
                     // Use the original stable ten-second gold core movie.
@@ -1889,19 +1894,25 @@ final class JarvisFullscreenOverlay: ObservableObject {
 
     /// "Hey JARVIS" 백그라운드 호출 (jarvis-mac://wake-dashboard · tools/wakeword/jarvis_wake_daemon.py).
     /// 자비스가 꺼져 있었으면 macOS가 앱을 켜고 이 함수로 들어온다.
-    /// 코어 화면을 띄우고(생성 연출) → "Opening your dashboard, DECHIVE." → 대시보드(모자이크 조립).
+    /// 2026-11-28 사용자 지정 순서: 코어 소환 → 흰빛에서 금빛으로 (DECHIVE_Core_Form 3초)
+    /// → 금빛이 될 때 "Welcome home, DECHIVE." → 대시보드.
     private var wakeTask: Task<Void, Never>?
     /// 호출 인사 전용 목소리. 말하는 동안 해제되지 않도록 붙잡아 둔다.
     private lazy var wakeVoice = JarvisVoiceService()
     func wakeToDashboard() {
         guard wakeTask == nil else { return }
-        NSLog("JARVIS: wake word → dashboard")
+        NSLog("JARVIS: wake word → core form → dashboard")
+        let started = Date()
         show()
         NSApp.activate(ignoringOtherApps: true)
+        // 대시보드가 이미 떠 있으면 내리고, 코어 생성 연출을 처음부터 다시 튼다.
+        if let dialogue, dialogue.liveDashboard.isVisible { _ = dialogue.liveDashboard.hide() }
+        dialogue?.formReplay += 1
         wakeTask = Task { @MainActor [weak self] in
             defer { self?.wakeTask = nil }
-            try? await Task.sleep(for: .milliseconds(700))
-            let line = JarvisConversationLanguage.dashboardOpening
+            // 생성 영상은 약 2초에 금빛으로 바뀐다. 그 순간에 맞춰 인사한다.
+            try? await Task.sleep(for: .milliseconds(1_700))
+            let line = JarvisConversationLanguage.homeGreeting
             let voice = self?.wakeVoice
             if JarvisConversationLanguage.english, await JarvisKokoroVoice.shared.speak(line) {
             } else {
@@ -1912,7 +1923,9 @@ final class JarvisFullscreenOverlay: ObservableObject {
             for _ in 0..<60 where voice?.isSpeaking == true {
                 try? await Task.sleep(for: .milliseconds(100))
             }
-            try? await Task.sleep(for: .milliseconds(500))
+            // 금빛 코어를 잠깐 보여 준 뒤 (호출 후 최소 3.6초) 대시보드로
+            let shown = Date().timeIntervalSince(started)
+            if shown < 3.6 { try? await Task.sleep(for: .milliseconds(Int((3.6 - shown) * 1000))) }
             guard let dialogue = self?.dialogue else { return }
             if !(dialogue.liveDashboard.isVisible && dialogue.liveDashboard.mode == .overview) {
                 _ = await dialogue.liveDashboard.show(.overview)

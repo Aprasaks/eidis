@@ -72,7 +72,8 @@ class InterruptibleWake(unittest.TestCase):
         self.assertIn('["jarvis", "eidis"].contains(called.lowercased()) || ["자비스", "이디스"].contains(called)',CHAT)
         self.assertIn('self?.beginDekaWakeTurn()',CHAT)
         self.assertIn('var microphoneCaptureBusy: Bool',CHAT)
-        self.assertIn('guard ["이디스", "이디스야", "자비스", "자비스야"].contains(compact)',CLOCK)
+        self.assertIn('guard names.contains(compact.lowercased()) else { return nil }',CLOCK)
+        self.assertIn('"What can I help you with?"',CLOCK)
 
     def test_persona_is_one_user_requested_address(self):
         self.assertIn('static let preferredAddress = "DECHIVE"',PERSONA)

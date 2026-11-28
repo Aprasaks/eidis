@@ -32,6 +32,8 @@ struct JarvisLiveDialogueTurn: Identifiable {
 @MainActor
 final class JarvisOverlayConversation: ObservableObject {
     @Published private(set) var status = "DECHIVE 인사 중…"
+    /// "Hey JARVIS" 호출마다 1씩 올리면 코어 생성 연출(흰빛 → 금빛)을 처음부터 다시 튼다.
+    @Published var formReplay = 0
     @Published private(set) var question = ""
     @Published private(set) var answer = ""
     @Published private(set) var sourceURL: URL?

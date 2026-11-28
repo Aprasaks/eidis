@@ -21,7 +21,11 @@ class WakeDaemon(unittest.TestCase):
         server = (MAC / "JarvisBundledServer.swift").read_text(encoding="utf-8")
         self.assertIn('url.scheme == "jarvis-mac" && url.host == "wake-dashboard"', server)
         overlay = (MAC / "JarvisFullscreenOverlay.swift").read_text(encoding="utf-8")
-        self.assertIn('"Opening your dashboard, DECHIVE."', overlay)
+        # 2026-11-28: 흰빛→금빛 생성 연출을 다시 틀고, 금빛일 때 "Welcome home, DECHIVE." 후 대시보드
+        self.assertIn("dialogue?.formReplay += 1", overlay)
+        self.assertIn("JarvisConversationLanguage.homeGreeting", overlay)
+        lang = (MAC / "JarvisConversationLanguage.swift").read_text(encoding="utf-8")
+        self.assertIn('"Welcome home, DECHIVE."', lang)
         self.assertIn("where voice?.isSpeaking == true", overlay)
         app = (MAC / "EidisMacApp.swift").read_text(encoding="utf-8")
         self.assertEqual(app.count(".handlesExternalEvents(matching: [])"), 4)
