@@ -626,7 +626,9 @@ final class JarvisOverlayConversation: ObservableObject {
         isThinking = true
         status = "질문 처리 중…"
         do {
-            let command = JarvisDialogueInput.command(prompt)
+            let stripped = JarvisDialogueInput.command(prompt)
+            // 영어 명령("show stocks", "what's the weather")은 이미 있는 화면을 여는 한국어 명령으로 바꿔 같은 경로를 탄다.
+            let command = JarvisEnglishCommand.canonical(stripped) ?? stripped
             let localReply = JarvisDialogueInput.personalWakeGreeting(prompt) ?? JarvisDialogueInput.presenceOrEnd(command)
             var response: String
             if let intent = JarvisCasualChatIntent.parse(command) {
@@ -648,6 +650,12 @@ final class JarvisOverlayConversation: ObservableObject {
             else { response = try await planAndRespond(command, token: token) }
             // 9B 답변 정리: 'DECHIVE 님', 하지 않을 일을 해 두겠다는 약속 문장 제거 (폰 대화와 같은 규칙)
             response = JarvisPhoneChat.tidy(response)
+            // 영어 모드: 화면들이 돌려준 한국어 안내문은 로컬 Qwen으로 영어로 바꿔서 보여 주고 말한다.
+            if JarvisConversationLanguage.english,
+               response.range(of: #"\p{Hangul}"#, options: .regularExpression) != nil,
+               let english = await JarvisEnglishCommand.toEnglish(response) {
+                response = english
+            }
             guard token == generation && !Task.isCancelled else { return }
             guard !response.isEmpty else {
                 isThinking = false
@@ -702,9 +710,11 @@ final class JarvisOverlayConversation: ObservableObject {
                 JarvisResearchIntent.parse(prompt) != nil ||
                 JarvisVerificationIntent.parse(prompt) != nil ||
                 JarvisBrowserControlIntent.parse(prompt) != nil) && response.count > 650 {
-                speechText = String(response.prefix(550)) + ". 자세한 보고서는 화면에서 확인하실 수 있습니다."
+                speechText = String(response.prefix(550)) + (JarvisConversationLanguage.english
+                    ? ". The full report is on screen." : ". 자세한 보고서는 화면에서 확인하실 수 있습니다.")
             } else { speechText = response }
-            let spoken = speechText.replacingOccurrences(of: "DECHIVE", with: "데카이브", options: .caseInsensitive)
+            // 한국어일 때만 DECHIVE를 "데카이브"로 읽힌다. 영어(Kokoro)는 음성 서버가 발음을 맞춘다.
+            let spoken = JarvisConversationLanguage.spoken(speechText)
             let voiceStarted = Date()
             await elevenLabs.speak(spoken, fallback: macVoice)
             NSLog("DECHIVE voice synthesis request elapsed_ms=%.1f",
