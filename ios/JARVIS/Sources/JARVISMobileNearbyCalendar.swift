@@ -412,6 +412,49 @@ final class JARVISMobileNearbyCalendar: NSObject, ObservableObject {
         }
     }
 
+    // MARK: 승인 탭 · 기억 후보 (Mac: JarvisPhoneLearning.swift · P7 M3)
+
+    @Published private(set) var learningPending: [JARVISLearningCandidate] = []
+    @Published private(set) var learningStatus = "기억 후보 확인 전"
+    @Published private(set) var learningBusy = false
+
+    /// action: "list" | "approve" | "reject"
+    func refreshLearning(action: String = "list", id: Int? = nil) {
+        guard !learningBusy else { return }
+        guard connected || remembered else { learningStatus = "맥북을 먼저 한 번 등록해 주세요"; return }
+        let requestID = UUID().uuidString
+        var object: [String: Any] = ["kind": "learningRequest", "requestID": requestID, "action": action]
+        if let id { object["id"] = id }
+        learningBusy = true
+        sendToMac(object, id: requestID, expect: "learningReply", timeout: 30) { [weak self] data in
+            guard let self else { return }
+            self.learningBusy = false
+            guard let data, let reply = try? JSONDecoder().decode(JARVISLearningReply.self, from: data) else {
+                self.learningStatus = "맥북이 연결되면 기억 후보를 받아올게요"; return
+            }
+            self.learningPending = reply.pending
+            self.learningStatus = reply.pending.isEmpty
+                ? "기억할 후보 없음 · 확정된 기억 \(reply.approvedCount)개"
+                : "기억 후보 \(reply.pending.count)개 · 승인한 것만 기억해요"
+        }
+    }
+
+    // MARK: 승인 탭 · SNS 긴급 정지 (Mac: JarvisSNSPause · P6 A1)
+
+    @Published private(set) var snsPaused: Bool?
+
+    func refreshSNSPause(set value: Bool? = nil) {
+        guard connected || remembered else { return }
+        let requestID = UUID().uuidString
+        var object: [String: Any] = ["kind": "snsPauseRequest", "requestID": requestID]
+        if let value { object["set"] = value }
+        sendToMac(object, id: requestID, expect: "snsPauseReply", timeout: 20) { [weak self] data in
+            guard let data, let reply = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+                  let paused = reply["paused"] as? Bool else { return }
+            self?.snsPaused = paused
+        }
+    }
+
     // MARK: 코어 탭 대화창 → 맥에 상주 중인 Qwen (Mac: JarvisPhoneChat.swift)
 
     /// 답을 받으면 (text, true), 맥이 답하지 못했으면 (안내 문구, false), 연결 실패면 (nil, false).
@@ -769,7 +812,7 @@ final class JARVISMobileNearbyCalendar: NSObject, ObservableObject {
         }
         guard connected, trustedPeer == peer else { return }
         // SNS 응답: 기다리던 requestID일 때만 전달한다.
-        if kind == "socialSnapshot" || kind == "socialApprovalResult" || kind == "pushRegistered" || kind == "planDocs" || kind == "chatReply" || kind == "stockSnapshot" {
+        if kind == "socialSnapshot" || kind == "socialApprovalResult" || kind == "pushRegistered" || kind == "planDocs" || kind == "chatReply" || kind == "stockSnapshot" || kind == "learningReply" || kind == "snsPauseReply" {
             if let id = object["requestID"] as? String { deliverMacReply(id, data) }
             return
         }

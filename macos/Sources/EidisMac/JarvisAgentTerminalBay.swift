@@ -734,6 +734,25 @@ final class JarvisAgentTerminalBay: ObservableObject {
 
     var isAnyRunning: Bool { processes.values.contains { $0.isRunning } }
 
+    /// P2 C2: CLI별 마지막 사용 한도 도달 (시각, 다시 쓸 수 있는 시각 등 출력 한 줄)
+    @Published private(set) var limitHits: [JarvisAgentID: (at: Date, detail: String)] = [:]
+
+    /// 출력에서 사용 한도 메시지를 찾는다. 찾으면 그 줄의 짧은 요약(없으면 "")을, 없으면 nil.
+    nonisolated static func limitMessage<S: Sequence>(in lines: S) -> String? where S.Element == String {
+        let patterns = ["usage limit", "rate limit", "limit reached", "hit your limit", "reached your limit",
+                        "quota exceeded", "resource_exhausted", "too many requests", "status 429", "\"429\"",
+                        "try again at", "resets at", "사용 한도", "사용량 한도"]
+        for line in lines.reversed() {
+            let lower = line.lowercased()
+            guard patterns.contains(where: { lower.contains($0) }) else { continue }
+            if let r = lower.range(of: #"(resets?|try again)( at| in)? [^\.\"]{1,40}"#, options: .regularExpression) {
+                return String(lower[r]).trimmingCharacters(in: .whitespaces)
+            }
+            return ""
+        }
+        return nil
+    }
+
     func lane(_ id: JarvisAgentID) -> JarvisAgentLane {
         lanes.first { $0.id == id } ?? JarvisAgentLane(id: id, state: .missing)
     }
@@ -769,9 +788,15 @@ final class JarvisAgentTerminalBay: ObservableObject {
         guard !question.isEmpty else { return refuse("요청 내용이 비어 있어요.") }
         guard question.count <= 500 else { return refuse("요청이 500자를 넘어요. 짧게 줄여 주세요.") }
         guard !question.unicodeScalars.contains(where: { $0.value == 0 }) else { return refuse("요청에 읽을 수 없는 문자가 있어요.") }
-        guard !isAnyRunning else {
-            let busy = JarvisAgentID.allCases.first { processes[$0] != nil }?.title ?? "다른 CLI"
-            return refuse("\(busy) 작업이 아직 도는 중이에요. 끝나면 알려드릴게요.")
+        // P2 C3: CLI별로 하나씩. Claude가 도는 중이어도 Codex·Gemini에는 맡길 수 있다.
+        guard processes[id] == nil else {
+            return refuse("\(id.title) 작업이 아직 도는 중이에요. 끝나면 알려드릴게요.")
+        }
+        // P2 C2: 최근 사용 한도에 걸린 CLI는 바로 다시 보내지 않는다.
+        if let hit = limitHits[id], Date().timeIntervalSince(hit.at) < 30 * 60 {
+            let others = JarvisAgentID.allCases.filter { $0 != id && limitHits[$0] == nil }.map(\.title)
+            return refuse("\(id.title) 사용 한도에 걸려 있어요" + (hit.detail.isEmpty ? "" : " (\(hit.detail))") +
+                          (others.isEmpty ? "." : ". \(others.joined(separator: "나 "))에 맡겨 보세요."))
         }
         guard let path = executablePaths[id] ?? executable(for: id) else {
             update(id) { $0.state = .missing }
@@ -907,7 +932,8 @@ final class JarvisAgentTerminalBay: ObservableObject {
 
     private func launch(_ id: JarvisAgentID, executable: String, arguments: [String], isProbe: Bool,
                         workingDirectory: URL? = nil, pilotID: UUID? = nil, sanityRunID: UUID? = nil) {
-        guard processes[id] == nil, !(!isProbe && isAnyRunning) else { return }
+        // 같은 CLI는 하나만. 밤 지식 작업·Sanity 등록은 부르는 쪽에서 isAnyRunning을 먼저 확인한다.
+        guard processes[id] == nil else { return }
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments
@@ -980,9 +1006,22 @@ final class JarvisAgentTerminalBay: ObservableObject {
                     self.record(id.title + " · 종료 코드 " + String(code) +
                                 (aborted ? " · 중단" : ""))
                 }
+                // P2 C2: 출력에서 사용 한도 메시지를 찾는다 (구독 한도 · 429 · resets at …)
+                var limitNote: String?
+                if !probe, let hit = Self.limitMessage(in: self.lane(id).logs.suffix(60)) {
+                    self.limitHits[id] = (Date(), hit)
+                    limitNote = hit
+                    self.append(id, "⚠️ 사용 한도 도달" + (hit.isEmpty ? "" : " · " + hit))
+                    self.record(id.title + " · 사용 한도 도달")
+                } else if !probe, code == 0 {
+                    self.limitHits[id] = nil
+                }
                 // P1 완료 알림: 직접 맡긴 작업과 수동 지식 작업만. 밤 근무·Sanity 등록은 조용히 둔다.
                 if !probe && sanityRunID == nil && !(pilotID != nil && self.nightShiftRunning) {
                     var detail = self.lane(id).logs.suffix(40).joined(separator: "\n")
+                    if let limitNote {
+                        detail = "사용 한도에 걸려 작업을 끝내지 못함. " + limitNote + "\n" + detail
+                    }
                     if pilotID != nil, let folder = self.knowledgePilot?.directory,
                        let result = try? String(contentsOf: folder.appendingPathComponent("result.md"), encoding: .utf8) {
                         detail = result

@@ -45,6 +45,14 @@ final class JarvisCompletionNotices {
         }
     }
 
+    /// 요약 없이 바로 알리는 한 줄 (P4 먼저 말 걸기: 일정 10분 전, 1시간 안에 비).
+    func announce(agent: String, text: String, pushTitle: String, page: String = "core") {
+        queue.append(Notice(agent: agent, text: text, at: Date()))
+        if queue.count > 10 { queue.removeFirst(queue.count - 10) }
+        JarvisPushNotifier.shared.send(title: pushTitle, body: text, page: page)
+        startDraining()
+    }
+
     private func startDraining() {
         guard drainTask == nil else { return }
         drainTask = Task { [weak self] in

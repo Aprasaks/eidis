@@ -96,6 +96,10 @@ final class JarvisCarouselRunner: ObservableObject {
         JarvisThreadsPublisher.shared.startSchedule()
         // 맥이 잠든 사이 게시 시간을 놓쳤으면 깨어날 때 폰으로 알린다 (몰래 늦게 올리지는 않는다)
         JarvisMissedPostNotice.shared.start()
+        // 폰 대화에서 밤에 기억 후보 뽑기 (승인한 것만 기억 · P7 M3)
+        JarvisPhoneLearning.shared.start()
+        // 먼저 말 걸기: 일정 10분 전, 1시간 안에 비 (P4)
+        JarvisWatchers.shared.start()
     }
 
     /// 화면이 다시 그려질 때마다 불리므로 포맷터는 한 번만 만든다.

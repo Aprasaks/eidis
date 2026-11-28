@@ -571,7 +571,7 @@ struct JarvisCommandCenterView: View {
                     agentBay.runReadOnly(selectedAgent, prompt: agentPrompt)
                 }
                 .disabled(agentPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                          agentBay.isAnyRunning ||
+                          agentBay.lane(selectedAgent).state == .running ||   // P2 C3: 고른 CLI만 바쁘면 막는다
                           [.missing, .checking].contains(agentBay.lane(selectedAgent).state))
                 .buttonStyle(.borderedProminent)   // 비활성 회색 글자만 보이던 버튼을 눈에 띄게
                 .tint(amber.opacity(0.8))

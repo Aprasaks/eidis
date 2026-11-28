@@ -656,6 +656,8 @@ final class JarvisOverlayConversation: ObservableObject {
                let english = await JarvisEnglishCommand.toEnglish(response) {
                 response = english
             }
+            // P5 D1: 오늘 대화 요약 갱신 (4차례마다 로컬 Qwen)
+            if !response.isEmpty { JarvisDaySummary.shared.note(user: prompt, assistant: response) }
             guard token == generation && !Task.isCancelled else { return }
             guard !response.isEmpty else {
                 isThinking = false
@@ -912,6 +914,7 @@ final class JarvisOverlayConversation: ObservableObject {
             (profile.isEmpty ? "" : "\n" + profile) +
             (related.isEmpty ? "" : "\n" + related) +
             (projectContext.isEmpty ? "" : "\n" + projectContext) +
+            JarvisDaySummary.shared.context +
             JarvisConversationLanguage.finalDirective]]
         messages.append(contentsOf: conversation.suffix(8))
         messages.append(["role": "user", "content": String(prompt.prefix(900))])
@@ -939,7 +942,30 @@ final class JarvisOverlayConversation: ObservableObject {
 
     /// Qwen selects tools through the local Ollama API. This client only runs
     /// audited, read-only actions from JarvisCommand, never generated code.
+    /// P2 C1: 말로 맡긴 CLI 작업. 확인("yes")을 받아야 실행한다.
+    private var pendingHandoff: JarvisEnglishCommand.Handoff?
+
+    private func handoffReply(_ prompt: String) -> String? {
+        let en = JarvisConversationLanguage.english
+        if let pending = pendingHandoff {
+            pendingHandoff = nil
+            if let yes = JarvisEnglishCommand.confirmation(prompt) {
+                guard yes else { return en ? "Okay, I won't send it." : "알겠어요, 보내지 않을게요." }
+                let id: JarvisAgentID = pending.agent == "claude" ? .claude : pending.agent == "gemini" ? .gemini : .codex
+                if let refusal = JarvisAgentTerminalBay.shared.runReadOnly(id, prompt: pending.task) { return refusal }
+                return en ? "Sent to \(id.title). I'll tell you when it's done."
+                          : "\(id.title)에 보냈어요. 끝나면 알려드릴게요."
+            }
+        }
+        guard let handoff = JarvisEnglishCommand.handoff(prompt) else { return nil }
+        pendingHandoff = handoff
+        let name = handoff.agent == "claude" ? "Claude Code" : handoff.agent == "gemini" ? "Gemini" : "Codex"
+        return en ? "Send this to \(name) as a read-only task: “\(handoff.task)”? Say yes to start."
+                  : "\(name)에 읽기 전용 작업으로 보낼까요? “\(handoff.task)” 보내려면 '응'이라고 해 주세요."
+    }
+
     private func planAndRespond(_ prompt: String, token: UUID) async throws -> String {
+        if let reply = handoffReply(prompt) { return reply }
         // Calendar commands use JARVIS's own SQLite records, never Apple Calendar.
         // A creation command opens an editor draft; it NEVER writes before Save.
         if let intent = JarvisMacCalendarIntent.parse(prompt) {
@@ -1343,6 +1369,7 @@ final class JarvisOverlayConversation: ObservableObject {
                         JarvisLocalClock.context() +
                         (profileContext.isEmpty ? "" : "\n" + profileContext) +
                         (recalledContext.isEmpty ? "" : "\n" + recalledContext) +
+                        JarvisDaySummary.shared.context +
                         "\n[최종 답변 규칙] 평소 대화는 편안한 해요체 한두 문장. 시각과 출처를 묻지 않았다면 답변 첫머리에 날짜, 시스템 시각, 근거를 읊지 마세요. 필요한 답부터 말하세요." +
                         JarvisConversationLanguage.finalDirective]]
         messages.append(contentsOf: conversation.suffix(8))

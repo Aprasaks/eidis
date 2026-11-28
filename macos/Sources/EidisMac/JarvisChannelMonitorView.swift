@@ -35,6 +35,7 @@ struct JarvisChannelMonitorView: View {
     @State private var lastClaudeTitle: String?
     @State private var studioMode = 0
     @State private var confirmPublishNow = false
+    @State private var autopostPaused = false
     @State private var carouselURL = ""
     @ObservedObject private var carousel = JarvisCarouselRunner.shared
     @ObservedObject private var publisher = JarvisInstagramPublisher.shared
@@ -568,7 +569,7 @@ struct JarvisChannelMonitorView: View {
     private func claudeStudio(_ scale: CGFloat) -> some View {
         let lane = agentBay.lane(.claude)
         let running = lane.state == .running
-        let blocked = agentBay.isAnyRunning || agentBay.nightShiftRunning || lane.state == .missing
+        let blocked = running || agentBay.nightShiftRunning || lane.state == .missing   // P2 C3: Claude만 바쁘면 막는다
         let quick: [(String, String, String)] = [
             ("오늘 할 일", "sparkles", "이 수치만 근거로, 오늘 해외 영어권 팔로워를 늘리기 위해 할 일 3가지를 제안해줘."),
             ("스레드 주제", "at", "DECHIVE.WIKI 주제(역사·과학·자연)로 이번 주 영어 Threads 글 주제 5개를 추천해줘. 각 1줄."),
@@ -777,6 +778,12 @@ struct JarvisChannelMonitorView: View {
                 Button("인스타에서 보기") { NSWorkspace.shared.open(permalink) }
                     .buttonStyle(.bordered)
             } else {
+                // P6 A1 긴급 정지: 인스타·Threads 자동 게시를 한 번에 멈춘다 (폰 승인 탭에도 같은 스위치)
+                Toggle("자동 게시 멈춤", isOn: Binding(get: { autopostPaused },
+                                                     set: { autopostPaused = $0; JarvisSNSPause.paused = $0 }))
+                    .toggleStyle(.switch).controlSize(.mini).tint(.red)
+                    .onAppear { autopostPaused = JarvisSNSPause.paused }
+                    .accessibilityIdentifier("jarvis-sns-autopost-pause")
                 Button("지금 게시") { confirmPublishNow = true }
                     .buttonStyle(.borderedProminent).tint(mint.opacity(0.8))
                     .disabled(publisher.publishing || status != "approved" || publisher.permissionOK != true)

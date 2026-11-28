@@ -60,6 +60,7 @@ final class JarvisMissedPostNotice {
     }
 
     func check() {
+        guard !JarvisSNSPause.paused else { return }   // 긴급 정지 중이면 "놓침"이 아니다
         let runs = JarvisInstagramPublisher.runs()
         func approvedAt(_ dir: URL) -> Date? {
             guard let data = try? Data(contentsOf: dir.appendingPathComponent("approval.json")),

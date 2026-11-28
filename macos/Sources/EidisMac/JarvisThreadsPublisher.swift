@@ -45,7 +45,7 @@ final class JarvisThreadsPublisher: ObservableObject {
         calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
         let now = Date()
         let minutes = calendar.component(.hour, from: now) * 60 + calendar.component(.minute, from: now)
-        guard (9 * 60 ..< 11 * 60).contains(minutes), !publishing else { return }
+        guard (9 * 60 ..< 11 * 60).contains(minutes), !publishing, !JarvisSNSPause.paused else { return }
         let today = JarvisDailyTimeline.dayKey(now)
         guard !JarvisInstagramPublisher.runs().contains(where: { Self.record($0)?["day"] as? String == today }),
               let dir = Self.nextApproved() else { return }

@@ -28,6 +28,17 @@ import Foundation
             let got = JarvisEnglishCommand.canonical(input)
             precondition(got == want, "\(input) → \(got ?? "nil"), expected \(want ?? "nil")")
         }
-        print("PASS: English commands open the existing boards (\(cases.count) cases)")
+        precondition(JarvisEnglishCommand.canonical("ask Codex to check the weather code") == nil)
+        precondition(JarvisEnglishCommand.handoff("Ask Codex to review the voice service code.") ==
+                     .init(agent: "codex", task: "review the voice service code"))
+        precondition(JarvisEnglishCommand.handoff("have claude summarize today's commits") ==
+                     .init(agent: "claude", task: "summarize today's commits"))
+        precondition(JarvisEnglishCommand.handoff("코덱스한테 음성 코드 분석 맡겨줘") ==
+                     .init(agent: "codex", task: "음성 코드 분석"))
+        precondition(JarvisEnglishCommand.handoff("I asked Claude yesterday") == nil)
+        precondition(JarvisEnglishCommand.confirmation("Yes.") == true)
+        precondition(JarvisEnglishCommand.confirmation("never mind") == false)
+        precondition(JarvisEnglishCommand.confirmation("what about tomorrow") == nil)
+        print("PASS: English commands open the existing boards (\(cases.count) cases) + CLI handoff")
     }
 }

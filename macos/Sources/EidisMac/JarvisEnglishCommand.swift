@@ -6,7 +6,50 @@ import Foundation
 /// 만들어져 있어서, 짧은 영어 명령만 같은 뜻의 한국어 명령으로 바꿔 기존 경로를 그대로 탄다.
 /// 긴 문장, 부정문("don't"), 화면과 상관없는 말은 nil → 평소처럼 Qwen 대화로 간다.
 enum JarvisEnglishCommand {
+    /// P2 C1 · 말로 CLI에 맡기기: "ask Codex to review the voice code", "Claude한테 이거 분석 맡겨"
+    struct Handoff: Equatable {
+        let agent: String   // "claude" | "codex" | "gemini"
+        let task: String
+    }
+
+    static func handoff(_ raw: String) -> Handoff? {
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: ".!?"))
+        let names = ["claude": "claude", "codex": "codex", "gemini": "gemini",
+                     "클로드": "claude", "코덱스": "codex", "제미나이": "gemini", "제미니": "gemini"]
+        let english = #"^(?:please\s+)?(?:ask|have|tell|get|let)\s+(claude|codex|gemini)\s+(?:to\s+)?(.{6,})$"#
+        if let m = text.range(of: english, options: [.regularExpression, .caseInsensitive]) {
+            let body = String(text[m])
+            let parts = body.replacingOccurrences(of: english, with: "$1\u{1}$2", options: [.regularExpression, .caseInsensitive])
+                .components(separatedBy: "\u{1}")
+            if parts.count == 2, let agent = names[parts[0].lowercased()] {
+                return Handoff(agent: agent, task: parts[1].trimmingCharacters(in: .whitespaces))
+            }
+        }
+        let korean = #"^(claude|codex|gemini|클로드|코덱스|제미나이|제미니)\s*(?:한테|에게|에)\s+(.{4,}?)\s*(?:좀\s*)?(?:맡겨|시켜|물어봐|분석해\s*달라고\s*해)(?:줘|봐|주세요)?$"#
+        if text.range(of: korean, options: [.regularExpression, .caseInsensitive]) != nil {
+            let parts = text.replacingOccurrences(of: korean, with: "$1\u{1}$2", options: [.regularExpression, .caseInsensitive])
+                .components(separatedBy: "\u{1}")
+            if parts.count == 2, let agent = names[parts[0].lowercased()] {
+                return Handoff(agent: agent, task: parts[1].trimmingCharacters(in: .whitespaces))
+            }
+        }
+        return nil
+    }
+
+    /// 맡기기 확인 대답: true(예) / false(아니오) / nil(다른 말)
+    static func confirmation(_ raw: String) -> Bool? {
+        let s = raw.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: ".!?, "))
+        if ["yes", "yeah", "yep", "sure", "do it", "go ahead", "go", "send it", "start", "ok", "okay",
+            "응", "어", "네", "예", "해", "해줘", "맡겨", "보내", "좋아"].contains(s) { return true }
+        if ["no", "nope", "cancel", "don't", "never mind", "stop",
+            "아니", "아니야", "취소", "하지마", "됐어"].contains(s) { return false }
+        return nil
+    }
+
     static func canonical(_ raw: String) -> String? {
+        if handoff(raw) != nil { return nil }   // "ask Codex to check the weather code"는 날씨 화면이 아니다
         var s = raw.lowercased()
             .replacingOccurrences(of: #"[^a-z0-9' ]+"#, with: " ", options: .regularExpression)
             .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)

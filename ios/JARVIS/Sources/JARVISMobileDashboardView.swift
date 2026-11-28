@@ -277,7 +277,7 @@ struct JARVISMobileDataPageView: View {
 /// - 지식 글: 밤 작업이 만든 dechive.dev 원고 → 목차 순서대로 확인 후 발행
 struct JARVISApprovalInboxView: View {
     enum Section: String, CaseIterable, Identifiable {
-        case social = "SNS 캐러셀", knowledge = "지식 글"
+        case social = "SNS", knowledge = "지식 글", memory = "기억 후보"
         var id: String { rawValue }
     }
     @ObservedObject var nearby: JARVISMobileNearbyCalendar
@@ -290,11 +290,75 @@ struct JARVISApprovalInboxView: View {
             }
             .pickerStyle(.segmented)
             switch section {
-            case .social: JARVISMobileSocialView(nearby: nearby)
+            case .social:
+                pauseSwitch
+                JARVISMobileSocialView(nearby: nearby)
             case .knowledge: JARVISMobileProjectsView(nearby: nearby)
+            case .memory: memoryCandidates
             }
         }
+        .onAppear { nearby.refreshSNSPause() }
     }
+
+    /// P6 A1 긴급 정지: 인스타·Threads 자동 게시를 한 번에 멈춘다 (맥 SNS 방과 같은 스위치)
+    private var pauseSwitch: some View {
+        Toggle(isOn: Binding(get: { nearby.snsPaused ?? false },
+                             set: { nearby.refreshSNSPause(set: $0) })) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("자동 게시 멈춤").font(.subheadline.weight(.semibold))
+                Text(nearby.snsPaused == true ? "멈춤 · 인스타·Threads 자동 게시 안 함" : "켜짐 · 승인된 글은 정해진 시간에 게시")
+                    .font(.caption).foregroundStyle(JARVISPalette.muted)
+            }
+        }
+        .tint(.red)
+        .disabled(nearby.snsPaused == nil)
+        .padding(14)
+        .background(JARVISPalette.panel, in: RoundedRectangle(cornerRadius: 13))
+    }
+
+    /// P7 M3: 밤에 폰 대화에서 뽑은 기억 후보. 승인한 것만 이디스가 기억한다.
+    private var memoryCandidates: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(nearby.learningStatus).font(.caption).foregroundStyle(JARVISPalette.muted)
+                Spacer()
+                Button { nearby.refreshLearning() } label: { Image(systemName: "arrow.clockwise") }
+                    .disabled(nearby.learningBusy)
+                    .accessibilityLabel("기억 후보 새로고침")
+            }
+            ForEach(nearby.learningPending) { item in
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(item.content).font(.subheadline.weight(.semibold))
+                    if !item.source.isEmpty {
+                        Text("“" + item.source + "”").font(.caption).foregroundStyle(JARVISPalette.muted).lineLimit(3)
+                    }
+                    HStack {
+                        Button("기억하기") { nearby.refreshLearning(action: "approve", id: item.id) }
+                            .buttonStyle(.borderedProminent).tint(JARVISPalette.gold)
+                            .foregroundStyle(JARVISPalette.black)
+                        Button("버리기") { nearby.refreshLearning(action: "reject", id: item.id) }
+                            .buttonStyle(.bordered)
+                    }
+                    .disabled(nearby.learningBusy)
+                }
+                .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                .background(JARVISPalette.panel, in: RoundedRectangle(cornerRadius: 13))
+            }
+        }
+        .onAppear { nearby.refreshLearning() }
+    }
+}
+
+struct JARVISLearningCandidate: Decodable, Identifiable {
+    let id: Int
+    let category: String
+    let content: String
+    let source: String
+}
+
+struct JARVISLearningReply: Decodable {
+    let pending: [JARVISLearningCandidate]
+    let approvedCount: Int
 }
 
 /// Project metadata and owner-only staged article previews.

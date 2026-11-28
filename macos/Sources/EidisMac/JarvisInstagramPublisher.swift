@@ -47,7 +47,19 @@ final class JarvisInstagramPublisher: ObservableObject {
         calendar.timeZone = Self.seoul
         let now = Date()
         let minutes = calendar.component(.hour, from: now) * 60 + calendar.component(.minute, from: now)
-        guard (22 * 60 ..< 23 * 60 + 30).contains(minutes), !publishing else { return }
+        // P6 A3: 게시 15분 전에 Tailscale을 미리 확인한다 (11/27 22:00 실패 원인). 꺼져 있으면 폰으로 알린다.
+        if (21 * 60 + 45 ..< 22 * 60).contains(minutes), !JarvisSNSPause.paused,
+           Self.runs().contains(where: { Self.status(of: $0) == "approved" }) {
+            let key = "eidis.ig.precheck." + Self.dayKey(now)
+            if !UserDefaults.standard.bool(forKey: key) {
+                UserDefaults.standard.set(true, forKey: key)
+                if !(await Self.tailscaleRunning()) {
+                    JarvisPushNotifier.shared.send(title: "⚠️ 22시 인스타 게시 전에 확인",
+                                                   body: "맥의 Tailscale이 꺼져 있어요. 켜야 게시할 수 있어요.", page: "approval")
+                }
+            }
+        }
+        guard (22 * 60 ..< 23 * 60 + 30).contains(minutes), !publishing, !JarvisSNSPause.paused else { return }
         // 하루 한 번: 오늘 이미 게시했거나 시도한 기록이 있으면 건너뛴다.
         let today = Self.dayKey(now)
         guard !Self.runs().contains(where: { Self.record($0)?["day"] as? String == today }) else { return }
@@ -300,6 +312,24 @@ final class JarvisInstagramPublisher: ObservableObject {
             while process.isRunning && Date() < deadline { usleep(100_000) }
             if process.isRunning { process.terminate(); return -2 }
             return process.terminationStatus
+        }.value
+    }
+
+    /// Tailscale이 실제로 연결돼 있는지 (BackendState == "Running")
+    nonisolated static func tailscaleRunning() async -> Bool {
+        guard FileManager.default.isExecutableFile(atPath: tailscale) else { return false }
+        return await Task.detached { () -> Bool in
+            let process = Process()
+            let pipe = Pipe()
+            process.executableURL = URL(fileURLWithPath: tailscale)
+            process.arguments = ["status", "--json"]
+            process.standardOutput = pipe
+            process.standardError = FileHandle.nullDevice
+            guard (try? process.run()) != nil else { return false }
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+            let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+            return json?["BackendState"] as? String == "Running"
         }.value
     }
 

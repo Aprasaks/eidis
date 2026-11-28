@@ -215,6 +215,12 @@ final class JarvisMacNearbyCalendar: NSObject, ObservableObject {
                 } else if kind == JarvisStockBoard.phoneRequestKind {
                     // 기억 탭 주식: 거래대금 TOP 10 (읽기 전용, 맥 주식 화면과 같은 토큰)
                     response = await JarvisStockBoard.shared.phoneSnapshot(requestID: id)
+                } else if kind == JarvisPhoneLearning.requestKind {
+                    // 승인 탭 기억 후보 (P7 M3): 승인한 것만 기억이 된다
+                    response = await JarvisPhoneLearning.shared.handle(request, requestID: id)
+                } else if kind == JarvisSNSPause.requestKind {
+                    // 승인 탭 SNS 긴급 정지 (P6 A1)
+                    response = JarvisSNSPause.handle(request, requestID: id)
                 } else {
                     response = self.makeProjectSnapshot(id)
                 }
@@ -453,6 +459,15 @@ final class JarvisMacNearbyCalendar: NSObject, ObservableObject {
         if kind == JarvisStockBoard.phoneRequestKind {
             guard let id = object["requestID"] as? String, UUID(uuidString: id) != nil else { return }
             let response = await JarvisStockBoard.shared.phoneSnapshot(requestID: id)
+            if authorized.contains(remote) { send(response, to: [remote]) }
+            return
+        }
+        if kind == JarvisPhoneLearning.requestKind || kind == JarvisSNSPause.requestKind {
+            guard let id = object["requestID"] as? String, UUID(uuidString: id) != nil,
+                  authorized.contains(remote) else { return }
+            let response = kind == JarvisSNSPause.requestKind
+                ? JarvisSNSPause.handle(object, requestID: id)
+                : await JarvisPhoneLearning.shared.handle(object, requestID: id)
             if authorized.contains(remote) { send(response, to: [remote]) }
             return
         }
