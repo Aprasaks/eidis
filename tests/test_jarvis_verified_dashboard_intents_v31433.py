@@ -33,7 +33,7 @@ class VerifiedDashboardIntentMapping(unittest.TestCase):
         self.assertIn('그 작업을 실행하는 기능은 아직 없어요',CHAT)
         self.assertIn('JarvisLiveDashboardIntent.parse(prompt)',CHAT)
         self.assertIn('outcome = await liveDashboard.show(mode)',CHAT)
-        self.assertIn('await stockBoard.open(intent)',CHAT)
+        self.assertIn('await self.stockBoard.open(intent)',CHAT)
         self.assertIn('Self.notYetConnectedResponse(for: prompt)',CHAT)
 
 if __name__=='__main__':unittest.main()

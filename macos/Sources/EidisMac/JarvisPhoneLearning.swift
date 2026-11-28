@@ -81,12 +81,19 @@ final class JarvisPhoneLearning {
         if let id = request["id"] as? Int, action == "approve" || action == "reject" {
             message = await memory.respond(to: action == "approve" ? .approve(id) : .reject(id))
         }
+        // P3 S5: 라우터가 맞힌 새 표현 → 예문으로 추가할지
+        if let id = request["id"] as? Int, action == "approveRoute" || action == "rejectRoute" {
+            JarvisSkillExamples.shared.decide(id: id, approve: action == "approveRoute")
+        }
         await memory.refresh()
         let pending: [[String: Any]] = memory.pending.prefix(30).map {
             ["id": $0.id, "category": $0.category, "content": $0.content, "source": String($0.sourceExcerpt.prefix(200))]
         }
+        let routes: [[String: Any]] = JarvisSkillExamples.shared.pending.suffix(20).map {
+            ["id": $0.id, "phrase": $0.phrase, "skill": JarvisSkillCatalog.manifest($0.skill)?.title ?? $0.skill, "action": $0.action]
+        }
         var reply: [String: Any] = ["kind": "learningReply", "requestID": requestID,
-                                    "pending": pending, "approvedCount": memory.approvedCount]
+                                    "pending": pending, "approvedCount": memory.approvedCount, "routes": routes]
         if let message { reply["message"] = message }
         return reply
     }

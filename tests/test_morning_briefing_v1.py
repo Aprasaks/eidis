@@ -105,9 +105,12 @@ class BriefingTest(unittest.TestCase):
         root=Path(__file__).resolve().parents[1]/"macos/Sources/EidisMac"
         chat=(root/"JarvisOverlayConversation.swift").read_text()
         ui=(root/"JarvisFullscreenOverlay.swift").read_text()
-        self.assertLess(chat.index("if let intent = JarvisBriefingIntent.parse(prompt)"),
+        # P3 스킬 구조: 브리핑은 스킬 규칙(runSkills)으로 모델보다 먼저 판별되고, 패널은 showOnly로 하나만 연다
+        self.assertLess(chat.index("if let routed = await runSkills(prompt, token: token) { return routed }"),
                         chat.index("if let clock = JarvisLocalClock.parse(prompt)"))
-        self.assertIn("onWorkspaceRequested?()\n            briefingVisible = true",chat)
+        self.assertIn("JarvisBriefingIntent.parse(p).map",chat)
+        self.assertIn("if plan.opens { showOnly(rule.panel) }",chat)
+        self.assertIn("briefingVisible = true\n        briefingJob = nil",chat)
         self.assertIn("JarvisMorningBriefingView(job:dialogue.briefingJob",ui)
 
 if __name__=="__main__":unittest.main()

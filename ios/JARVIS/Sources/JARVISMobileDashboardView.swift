@@ -326,6 +326,27 @@ struct JARVISApprovalInboxView: View {
                     .disabled(nearby.learningBusy)
                     .accessibilityLabel("기억 후보 새로고침")
             }
+            // P3 S5: 이디스가 알아들은 새 표현 → 예문으로 추가하면 다음부터 바로 알아듣는다
+            if !nearby.routeProposals.isEmpty {
+                Text("명령 예문 제안").font(.subheadline.weight(.semibold)).foregroundStyle(JARVISPalette.gold)
+                ForEach(nearby.routeProposals) { route in
+                    HStack(alignment: .center, spacing: 10) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("“" + route.phrase + "”").font(.subheadline)
+                            Text("→ " + route.skill + " · " + route.action).font(.caption).foregroundStyle(JARVISPalette.muted)
+                        }
+                        Spacer()
+                        Button("추가") { nearby.refreshLearning(action: "approveRoute", id: route.id) }
+                            .buttonStyle(.borderedProminent).tint(JARVISPalette.gold).foregroundStyle(JARVISPalette.black)
+                        Button { nearby.refreshLearning(action: "rejectRoute", id: route.id) } label: { Image(systemName: "xmark") }
+                            .buttonStyle(.bordered)
+                    }
+                    .disabled(nearby.learningBusy)
+                    .padding(12)
+                    .background(JARVISPalette.panel, in: RoundedRectangle(cornerRadius: 13))
+                }
+                Text("기억 후보").font(.subheadline.weight(.semibold)).foregroundStyle(JARVISPalette.gold).padding(.top, 6)
+            }
             ForEach(nearby.learningPending) { item in
                 VStack(alignment: .leading, spacing: 8) {
                     Text(item.content).font(.subheadline.weight(.semibold))
@@ -356,9 +377,17 @@ struct JARVISLearningCandidate: Decodable, Identifiable {
     let source: String
 }
 
+struct JARVISRouteProposal: Decodable, Identifiable {
+    let id: Int
+    let phrase: String
+    let skill: String
+    let action: String
+}
+
 struct JARVISLearningReply: Decodable {
     let pending: [JARVISLearningCandidate]
     let approvedCount: Int
+    let routes: [JARVISRouteProposal]?
 }
 
 /// Project metadata and owner-only staged article previews.

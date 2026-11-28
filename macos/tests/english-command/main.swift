@@ -39,6 +39,14 @@ import Foundation
         precondition(JarvisEnglishCommand.confirmation("Yes.") == true)
         precondition(JarvisEnglishCommand.confirmation("never mind") == false)
         precondition(JarvisEnglishCommand.confirmation("what about tomorrow") == nil)
-        print("PASS: English commands open the existing boards (\(cases.count) cases) + CLI handoff")
+        // P3 스킬 목록: 모든 스킬은 열기 기준 문장을 갖고, 라우터는 요청처럼 보이는 짧은 문장만 Qwen에 묻는다
+        for m in JarvisSkillCatalog.manifests { precondition(m.canonical[.open] != nil && !m.examples.isEmpty, m.id) }
+        precondition(JarvisSkillRouter.looksLikeRequest("pull up the market numbers"))
+        precondition(JarvisSkillRouter.looksLikeRequest("anything on my agenda"))
+        precondition(JarvisSkillRouter.looksLikeRequest("주식 좀 꺼내봐"))
+        precondition(!JarvisSkillRouter.looksLikeRequest("how was your day"))
+        precondition(!JarvisSkillRouter.looksLikeRequest("I spent the whole afternoon editing the video and I think it finally works now, what do you think about it"))
+        precondition(JarvisSkillExamples.normalize("Pull up the MARKET numbers!") == "pull up the market numbers")
+        print("PASS: English commands open the existing boards (\(cases.count) cases) + CLI handoff + skill router")
     }
 }

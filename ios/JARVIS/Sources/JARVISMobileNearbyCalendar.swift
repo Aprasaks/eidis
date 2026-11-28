@@ -415,6 +415,7 @@ final class JARVISMobileNearbyCalendar: NSObject, ObservableObject {
     // MARK: 승인 탭 · 기억 후보 (Mac: JarvisPhoneLearning.swift · P7 M3)
 
     @Published private(set) var learningPending: [JARVISLearningCandidate] = []
+    @Published private(set) var routeProposals: [JARVISRouteProposal] = []
     @Published private(set) var learningStatus = "기억 후보 확인 전"
     @Published private(set) var learningBusy = false
 
@@ -433,6 +434,7 @@ final class JARVISMobileNearbyCalendar: NSObject, ObservableObject {
                 self.learningStatus = "맥북이 연결되면 기억 후보를 받아올게요"; return
             }
             self.learningPending = reply.pending
+            self.routeProposals = reply.routes ?? []
             self.learningStatus = reply.pending.isEmpty
                 ? "기억할 후보 없음 · 확정된 기억 \(reply.approvedCount)개"
                 : "기억 후보 \(reply.pending.count)개 · 승인한 것만 기억해요"

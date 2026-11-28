@@ -628,7 +628,9 @@ final class JarvisOverlayConversation: ObservableObject {
         do {
             let stripped = JarvisDialogueInput.command(prompt)
             // 영어 명령("show stocks", "what's the weather")은 이미 있는 화면을 여는 한국어 명령으로 바꿔 같은 경로를 탄다.
-            let command = JarvisEnglishCommand.canonical(stripped) ?? stripped
+            var command = JarvisEnglishCommand.canonical(stripped) ?? stripped
+            // P3 S4/S5: 승인된 예문 → 바로, 규칙으로 못 알아들은 짧은 요청 → Qwen 라우터
+            if command == stripped, let routed = await routedCommand(stripped) { command = routed }
             let localReply = JarvisDialogueInput.personalWakeGreeting(prompt) ?? JarvisDialogueInput.presenceOrEnd(command)
             var response: String
             if let intent = JarvisCasualChatIntent.parse(command) {
@@ -942,6 +944,138 @@ final class JarvisOverlayConversation: ObservableObject {
 
     /// Qwen selects tools through the local Ollama API. This client only runs
     /// audited, read-only actions from JarvisCommand, never generated code.
+    // MARK: P3 · 스킬 (S1 규약 · S2/S3 날씨·주식·캘린더·브리핑 · PanelHost)
+
+    enum SkillPanel { case calendar, weather, stock, briefing }
+
+    private struct SkillRule {
+        let panel: SkillPanel
+        let isVisible: () -> Bool
+        let hide: () -> Void
+        let closedMessage: String
+        /// 기존 판별기로 문장을 판별한다: (패널을 여는지, 실행)
+        let match: (String) -> (opens: Bool, run: () async -> String)?
+    }
+
+    /// PanelHost: 패널은 항상 하나만. 예전에는 스킬마다 다른 패널 닫는 코드를 따로 갖고 있었다.
+    private func showOnly(_ panel: SkillPanel) {
+        if panel != .calendar, calendar.visible { calendar.close() }
+        if panel != .weather { weatherCenter.hide() }
+        if panel != .stock { stockBoard.hide() }
+        if panel != .briefing { hideBriefing() }
+        _ = browser.hide()
+        _ = liveDashboard.hide()
+        _ = dashboard.hide()
+        _ = vault.hide()
+        onWorkspaceRequested?()
+    }
+
+    private func skillRules(token: UUID) -> [SkillRule] {
+        [
+            SkillRule(panel: .calendar, isVisible: { [unowned self] in calendar.visible },
+                      hide: { [unowned self] in calendar.close() },
+                      closedMessage: "DECHIVE, 이디스 캘린더를 닫았습니다.",
+                      match: { [unowned self] p in
+                          JarvisMacCalendarIntent.parse(p).map { intent in
+                              (intent != .hide, { await self.calendar.show(intent, phrase: p) })
+                          }
+                      }),
+            SkillRule(panel: .weather, isVisible: { [unowned self] in weatherCenter.visible },
+                      hide: { [unowned self] in weatherCenter.hide() },
+                      closedMessage: "DECHIVE, 날씨 화면을 닫았습니다.",
+                      match: { [unowned self] p in
+                          if weatherCenter.visible {
+                              let q = p.replacingOccurrences(of: #"^(데카|이디스|자비스|jarvis|eidis)[,，.!?\s]*"#, with: "", options: [.regularExpression, .caseInsensitive])
+                                  .filter { !$0.isWhitespace }.trimmingCharacters(in: CharacterSet(charactersIn: ".!?？요"))
+                              if ["출처가뭐야", "출처알려줘", "출처는어디야", "어디서가져왔어", "이거어디서가져왔어", "어디서확인했어"].contains(q) {
+                                  return (false, { await self.weatherCenter.handle(.source) })
+                              }
+                          }
+                          return WeatherIntent.parse(p).map { intent in
+                              (intent != .hide && intent != .unsupported && intent != .source,
+                               { await self.weatherCenter.handle(intent) })
+                          }
+                      }),
+            SkillRule(panel: .stock, isVisible: { [unowned self] in stockBoard.visible },
+                      hide: { [unowned self] in stockBoard.hide() },
+                      closedMessage: "DECHIVE, 주식 현황표를 닫았습니다.",
+                      match: { [unowned self] p in
+                          StockBoardIntent.parse(p).map { intent in
+                              (intent != .hide, { await self.stockBoard.open(intent) })
+                          }
+                      }),
+            SkillRule(panel: .briefing, isVisible: { [unowned self] in briefingVisible },
+                      hide: { [unowned self] in hideBriefing() },
+                      closedMessage: "DECHIVE, 뉴스 브리핑 화면을 닫았습니다.",
+                      match: { [unowned self] p in
+                          JarvisBriefingIntent.parse(p).map { intent in
+                              intent == .hide
+                                  ? (false, { self.hideBriefing(); return "DECHIVE, 뉴스 브리핑 화면을 닫았습니다." })
+                                  : (true, { await self.runBriefing(token: token) })
+                          }
+                      })
+        ]
+    }
+
+    /// 규칙으로 스킬을 판별해 실행한다. 해당 없으면 nil.
+    private func runSkills(_ prompt: String, token: UUID) async -> String? {
+        let rules = skillRules(token: token)
+        // "그 화면 닫아"는 지금 떠 있는 스킬 패널을 닫는다
+        if Self.isGenericPanelClose(prompt), let open = rules.first(where: { $0.isVisible() }) {
+            open.hide()
+            return open.closedMessage
+        }
+        for rule in rules {
+            guard let plan = rule.match(prompt) else { continue }
+            if plan.opens { showOnly(rule.panel) }
+            return await plan.run()
+        }
+        return nil
+    }
+
+    private func runBriefing(token: UUID) async -> String {
+        briefingVisible = true
+        briefingJob = nil
+        briefingNotice = "실제 발행처 RSS 조회 요청 중…"
+        status = "뉴스 수집 중…"
+        do {
+            let job = try await briefingClient.collect { update in
+                guard token == self.generation && !Task.isCancelled else { return }
+                self.briefingJob = update
+                self.briefingNotice = update.pending ? "브리핑 \(update.id)번 · 실제 피드 수집 중" :
+                    "브리핑 \(update.id)번 · " + (update.state == "failed" ? "수집 실패" :
+                        update.state == "partial" ? "일부 출처 조회 실패" : "등록 피드 조회 완료")
+            }
+            guard token == generation && !Task.isCancelled else { return "" }
+            if job.pending { briefingNotice = "수집 완료 미확인 · 다시 요청하면 결과 조회" }
+            return job.summary
+        } catch {
+            guard token == generation && !Task.isCancelled else { return "" }
+            briefingNotice = "조회 완료를 확인하지 못했습니다."
+            return "DECHIVE, 뉴스 브리핑을 확인하지 못했습니다. 확인되지 않은 뉴스는 읽지 않겠습니다."
+        }
+    }
+
+    /// S4 라우터: 규칙(기존 판별기 · 영어 매핑 · 승인된 예문)으로 못 알아들은 짧은 요청만 Qwen JSON으로 고른다.
+    /// 고르면 그 스킬의 기준 문장을 돌려준다 (실행은 기존 경로). S5: 맞힌 새 표현은 예문 제안으로 남긴다.
+    private func routedCommand(_ command: String) async -> String? {
+        if let learned = JarvisSkillExamples.shared.canonical(for: command) { return learned }
+        guard JarvisSkillRouter.looksLikeRequest(command),
+              skillRules(token: generation).allSatisfy({ $0.match(command) == nil }),
+              JarvisLiveDashboardIntent.parse(command) == nil, JarvisVaultIntent.parse(command) == nil,
+              JarvisBrowserControlIntent.parse(command) == nil, JarvisSocialProfile.parse(command) == nil,
+              JarvisDashboardIntent.parse(command) == nil, JarvisLearningIntent.parse(command) == nil,
+              JarvisEnglishCommand.handoff(command) == nil, pendingHandoff == nil else { return nil }
+        let gate = UUID()
+        guard JarvisLocalModelGate.acquire(gate) else { return nil }
+        defer { JarvisLocalModelGate.release(gate) }
+        guard let choice = await JarvisSkillRouter.classify(command), choice.confidence >= 0.75,
+              let canonical = JarvisSkillCatalog.manifest(choice.skill)?.canonical[choice.action] else { return nil }
+        JarvisSkillExamples.shared.propose(phrase: command, skill: choice.skill, action: choice.action)
+        NSLog("EIDIS router: \(command) → \(choice.skill).\(choice.action.rawValue) \(choice.confidence)")
+        return canonical
+    }
+
     /// P2 C1: 말로 맡긴 CLI 작업. 확인("yes")을 받아야 실행한다.
     private var pendingHandoff: JarvisEnglishCommand.Handoff?
 
@@ -966,110 +1100,17 @@ final class JarvisOverlayConversation: ObservableObject {
 
     private func planAndRespond(_ prompt: String, token: UUID) async throws -> String {
         if let reply = handoffReply(prompt) { return reply }
+        // P3 스킬 구조: 캘린더·날씨·주식·뉴스 브리핑은 스킬 목록 하나로 판별하고, 패널은 항상 하나만 연다.
         // Calendar commands use JARVIS's own SQLite records, never Apple Calendar.
         // A creation command opens an editor draft; it NEVER writes before Save.
-        if let intent = JarvisMacCalendarIntent.parse(prompt) {
-            if intent != .hide {
-                weatherCenter.hide()
-                stockBoard.hide()
-                hideBriefing()
-                _ = browser.hide()
-                _ = liveDashboard.hide()
-                _ = dashboard.hide()
-                _ = vault.hide()
-                onWorkspaceRequested?()
-            }
-            return await calendar.show(intent, phrase: prompt)
-        }
-        if calendar.visible && Self.isGenericPanelClose(prompt) {
-            calendar.close()
-            return "DECHIVE, 이디스 캘린더를 닫았습니다."
-        }
+        if let routed = await runSkills(prompt, token: token) { return routed }
         // Switching to a different workspace must not leave the calendar
         // obscuring the other explicitly requested panel.
         if calendar.visible && (
-            StockBoardIntent.parse(prompt) != nil ||
-            WeatherIntent.parse(prompt) != nil ||
             JarvisLiveDashboardIntent.parse(prompt) != nil ||
-            JarvisBriefingIntent.parse(prompt) != nil ||
             JarvisBrowserControlIntent.parse(prompt) != nil ||
             JarvisSocialProfile.parse(prompt) != nil
         ) { calendar.close() }
-        if weatherCenter.visible && Self.isGenericPanelClose(prompt) {
-            weatherCenter.hide()
-            return "DECHIVE, 날씨 화면을 닫았습니다."
-        }
-        if weatherCenter.visible {
-            let sourceQuestion = prompt.replacingOccurrences(of: #"^(데카|이디스|자비스|jarvis|eidis)[,，.!?\s]*"#, with: "", options: [.regularExpression,.caseInsensitive]).filter{!$0.isWhitespace}.trimmingCharacters(in:CharacterSet(charactersIn:".!?？요"))
-            if ["출처가뭐야","출처알려줘","출처는어디야","어디서가져왔어","이거어디서가져왔어","어디서확인했어"].contains(sourceQuestion) {
-                return await weatherCenter.handle(.source)
-            }
-        }
-        if let intent = WeatherIntent.parse(prompt) {
-            if intent != .hide && intent != .unsupported && intent != .source {
-                _ = browser.hide()
-                _ = liveDashboard.hide()
-                _ = dashboard.hide()
-                _ = vault.hide()
-                stockBoard.hide()
-                hideBriefing()
-                onWorkspaceRequested?()
-            }
-            return await weatherCenter.handle(intent)
-        }
-        if stockBoard.visible && Self.isGenericPanelClose(prompt) {
-            stockBoard.hide()
-            return "DECHIVE, 주식 현황표를 닫았습니다."
-        }
-        if let intent = StockBoardIntent.parse(prompt) {
-            if intent != .hide {
-                _ = browser.hide()
-                _ = liveDashboard.hide()
-                _ = dashboard.hide()
-                _ = vault.hide()
-                weatherCenter.hide()
-                hideBriefing()
-                onWorkspaceRequested?()
-            }
-            return await stockBoard.open(intent)
-        }
-        if briefingVisible && Self.isGenericPanelClose(prompt) {
-            hideBriefing()
-            return "DECHIVE, 뉴스 브리핑 화면을 닫았습니다."
-        }
-        if let intent = JarvisBriefingIntent.parse(prompt) {
-            if intent == .hide {
-                hideBriefing()
-                return "DECHIVE, 뉴스 브리핑 화면을 닫았습니다."
-            }
-            _ = browser.hide()
-            _ = liveDashboard.hide()
-            _ = dashboard.hide()
-            _ = vault.hide()
-            weatherCenter.hide()
-            stockBoard.hide()
-            onWorkspaceRequested?()
-            briefingVisible = true
-            briefingJob = nil
-            briefingNotice = "실제 발행처 RSS 조회 요청 중…"
-            status = "뉴스 수집 중…"
-            do {
-                let job = try await briefingClient.collect { update in
-                    guard token == self.generation && !Task.isCancelled else { return }
-                    self.briefingJob = update
-                    self.briefingNotice = update.pending ? "브리핑 \(update.id)번 · 실제 피드 수집 중" :
-                        "브리핑 \(update.id)번 · " + (update.state == "failed" ? "수집 실패" :
-                            update.state == "partial" ? "일부 출처 조회 실패" : "등록 피드 조회 완료")
-                }
-                guard token == generation && !Task.isCancelled else { return "" }
-                if job.pending { briefingNotice = "수집 완료 미확인 · 다시 요청하면 결과 조회" }
-                return job.summary
-            } catch {
-                guard token == generation && !Task.isCancelled else { return "" }
-                briefingNotice = "조회 완료를 확인하지 못했습니다."
-                return "DECHIVE, 뉴스 브리핑을 확인하지 못했습니다. 확인되지 않은 뉴스는 읽지 않겠습니다."
-            }
-        }
         // Specific channel-opening requests take precedence over the overview
         // dashboard's broad "YouTube/Instagram ... show" matching rule.
         if let channel = JarvisSocialProfile.parse(prompt) {
